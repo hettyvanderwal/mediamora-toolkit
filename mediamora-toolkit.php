@@ -3,7 +3,7 @@
  * Plugin Name:       Mediamora Toolkit
  * Plugin URI:        https://github.com/hettyvanderwal/mediamora-toolkit
  * Description:       De vaste Mediamora-onderdelen in één plugin, per onderdeel aan en uit te zetten onder Instellingen > Mediamora Toolkit.
- * Version:           1.0.0
+ * Version:           1.1.0
  * Requires at least: 6.0
  * Requires PHP:      7.4
  * Author:            Mediamora
@@ -20,7 +20,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  * Versienummer. Moet gelijk zijn aan "Version" in de kop hierboven
  * en aan de tag van de GitHub-release (zonder de v).
  */
-const MM_TOOLKIT_VERSIE = '1.0.0';
+const MM_TOOLKIT_VERSIE = '1.1.0';
 const MM_TOOLKIT_REPO   = 'hettyvanderwal/mediamora-toolkit';
 const MM_TOOLKIT_SLUG   = 'mediamora-toolkit';
 const MM_TOOLKIT_OPTIE  = 'mm_toolkit_modules';
@@ -104,6 +104,16 @@ function mm_toolkit_modules() {
 			'losse_plugin' => '',
 			'merkteken'    => array( 'function', 'mm_aibots_lijst' ),
 			'scherm'       => 'tools.php?page=mm-aibots',
+		),
+		'rest_users'       => array(
+			'naam'         => 'REST-gebruikers afschermen',
+			'uitleg'       => 'Sluit /wp-json/wp/v2/users af voor bezoekers die niet zijn ingelogd, zodat inlognamen niet uit te lezen zijn. De rest van de REST API blijft werken, dus ook de webhooks van Mollie en MyParcel. Gebruik dit op een webshop in plaats van "Disable REST API" in ASE.',
+			'bestand'      => 'rest-users.php',
+			'standaard'    => true,
+			'losse_mu'     => 'mediamora-rest-users.php',
+			'losse_plugin' => '',
+			'merkteken'    => array( 'function', 'mm_rest_users_afschermen' ),
+			'scherm'       => '',
 		),
 	);
 }
