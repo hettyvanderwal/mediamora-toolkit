@@ -9,13 +9,102 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 // =====================================================================
-// PADEN — vaste, afgeleide bestandslocaties (geen "instelling", niet in
-// het instellingenscherm, want dit zijn technische implementatiedetails)
+// PADEN — afgeleide bestandslocaties (geen "instelling", niet in het
+// instellingenscherm, want dit zijn technische implementatiedetails)
+//
+// De mapnaam krijgt een willekeurig achtervoegsel dat per site eenmalig
+// wordt aangemaakt en in de optie mediamora_antispam_log_dir staat. De
+// logbestanden bevatten formulierinzendingen, dus persoonsgegevens, en op
+// hosting waar .htaccess niets doet (Nginx) is een onraadbare mapnaam de
+// enige drempel die overblijft. Geen echte afscherming, wel het verschil
+// tussen "op te vragen" en "op te vragen als je het pad al kent".
+//
+// Daarom functies en geen constanten: de naam staat in de database en is
+// dus pas bekend op het moment dat er iets gelogd wordt.
 // =====================================================================
 
-define( 'MEDIAMORA_ANTISPAM_LOG_DIR', WP_CONTENT_DIR . '/uploads/mediamora-antispam' );
-define( 'MEDIAMORA_ANTISPAM_LOG_FILE', MEDIAMORA_ANTISPAM_LOG_DIR . '/log.txt' );
-define( 'MEDIAMORA_ANTISPAM_NEARMISS_FILE', MEDIAMORA_ANTISPAM_LOG_DIR . '/near-miss.txt' );
+/**
+ * De logmap van deze site. Absoluut pad, zonder slash aan het eind.
+ *
+ * @return string
+ */
+function mediamora_antispam_log_dir() {
+
+	static $dir = null;
+
+	if ( null !== $dir ) {
+		return $dir;
+	}
+
+	$naam = get_option( 'mediamora_antispam_log_dir', '' );
+
+	// Strak valideren: deze waarde gaat rechtstreeks in een bestandspad.
+	// Ontbreekt hij of is hij onherkenbaar, dan maken we een nieuwe aan.
+	if ( ! is_string( $naam ) || ! preg_match( '/^mediamora-antispam-[a-z0-9]{8,32}$/', $naam ) ) {
+		$naam = 'mediamora-antispam-' . mediamora_antispam_random_suffix();
+		update_option( 'mediamora_antispam_log_dir', $naam, false );
+	}
+
+	$dir = WP_CONTENT_DIR . '/uploads/' . $naam;
+
+	return $dir;
+}
+
+/**
+ * De map zoals die tot en met 1.1.0 heette: vast, voor iedereen gelijk en
+ * dus raadbaar. Alleen nog in gebruik om ervanaf te verhuizen.
+ *
+ * @return string
+ */
+function mediamora_antispam_legacy_log_dir() {
+	return WP_CONTENT_DIR . '/uploads/mediamora-antispam';
+}
+
+/**
+ * Twaalf willekeurige tekens voor achter de mapnaam.
+ *
+ * @return string
+ */
+function mediamora_antispam_random_suffix() {
+
+	if ( function_exists( 'wp_generate_password' ) ) {
+		return strtolower( wp_generate_password( 12, false, false ) );
+	}
+
+	return substr( md5( uniqid( '', true ) ), 0, 12 );
+}
+
+/**
+ * @return string
+ */
+function mediamora_antispam_log_file() {
+	return mediamora_antispam_log_dir() . '/log.txt';
+}
+
+/**
+ * @return string
+ */
+function mediamora_antispam_nearmiss_file() {
+	return mediamora_antispam_log_dir() . '/near-miss.txt';
+}
+
+/**
+ * @return string
+ */
+function mediamora_antispam_debug_file() {
+	return mediamora_antispam_log_dir() . '/debug.txt';
+}
+
+/**
+ * Het logpad zoals het in een mail of op het instellingenscherm wordt
+ * getoond: vanaf wp-content, want het volledige serverpad zegt niets extra.
+ *
+ * @param string $bestand
+ * @return string
+ */
+function mediamora_antispam_log_path_label( $bestand ) {
+	return str_replace( WP_CONTENT_DIR . '/', 'wp-content/', $bestand );
+}
 
 // =====================================================================
 // INSTELLINGEN — opgeslagen in de database (get_option/update_option),
@@ -182,6 +271,8 @@ function mediamora_antispam_render_settings_page() {
 		<?php endif; ?>
 
 		<p>Deze instellingen staan in de database van deze site en blijven dus behouden als het plugin-bestand zelf een keer wordt vervangen door een nieuwere versie.</p>
+
+		<p>De logbestanden staan in <code><?php echo esc_html( mediamora_antispam_log_path_label( mediamora_antispam_log_dir() ) ); ?></code>. Die mapnaam eindigt op een reeks willekeurige tekens die per site verschilt, zodat het logbestand niet via een raadbaar adres op te halen is op hosting waar <code>.htaccess</code> niets doet.</p>
 
 		<form method="post">
 			<?php wp_nonce_field( 'mediamora_antispam_save_settings' ); ?>
@@ -933,7 +1024,7 @@ function mediamora_antispam_debug_log( $field_id, $field_type, $value, $is_link,
 
 	mediamora_antispam_ensure_log_dir();
 
-	$debug_file = MEDIAMORA_ANTISPAM_LOG_DIR . '/debug.txt';
+	$debug_file = mediamora_antispam_debug_file();
 
 	$snippet = str_replace( array( "\r", "\n" ), ' ', $value );
 	$snippet = mb_substr( $snippet, 0, 80 );
@@ -991,7 +1082,7 @@ function mediamora_antispam_log( $reason, $field_id, $field_type, $value ) {
 		$snippet
 	);
 
-	file_put_contents( MEDIAMORA_ANTISPAM_LOG_FILE, $line . "\n", FILE_APPEND | LOCK_EX );
+	file_put_contents( mediamora_antispam_log_file(), $line . "\n", FILE_APPEND | LOCK_EX );
 
 	mediamora_antispam_maybe_send_report();
 }
@@ -1023,27 +1114,170 @@ function mediamora_antispam_nearmiss_log( $field_id, $field_type, $value, $reaso
 		$snippet
 	);
 
-	file_put_contents( MEDIAMORA_ANTISPAM_NEARMISS_FILE, $line . "\n", FILE_APPEND | LOCK_EX );
+	file_put_contents( mediamora_antispam_nearmiss_file(), $line . "\n", FILE_APPEND | LOCK_EX );
 
 	mediamora_antispam_maybe_send_nearmiss_alert();
 }
 
 /**
- * Zorgt dat de logmap bestaat en afgeschermd is tegen direct web-bezoek.
+ * Zorgt dat de logmap bestaat en afgeschermd is tegen direct web-bezoek,
+ * en verhuist eerst wat er eventueel nog in de oude, vaste map staat.
  */
 function mediamora_antispam_ensure_log_dir() {
 
-	if ( ! file_exists( MEDIAMORA_ANTISPAM_LOG_DIR ) ) {
-		wp_mkdir_p( MEDIAMORA_ANTISPAM_LOG_DIR );
+	mediamora_antispam_maybe_migrate_log_dir();
+
+	$dir = mediamora_antispam_log_dir();
+
+	if ( ! file_exists( $dir ) ) {
+		wp_mkdir_p( $dir );
 	}
 
-	$htaccess = MEDIAMORA_ANTISPAM_LOG_DIR . '/.htaccess';
-	if ( ! file_exists( $htaccess ) ) {
-		// Werkt op Apache/LiteSpeed. Op Nginx-hosts biedt dit geen bescherming,
-		// controleer dan of de map anderszins is afgeschermd.
-		file_put_contents( $htaccess, "Require all denied\nDeny from all\n" );
+	if ( ! is_dir( $dir ) ) {
+		return;
+	}
+
+	/*
+	 * Apache 2.4 schermt af met mod_authz_core (Require), 2.2 met mod_access_compat
+	 * (Order/Deny). Draait een 2.4-server zonder mod_access_compat, dan is een kale
+	 * "Deny from all" een onbekende directive en geeft de hele map een 500 in plaats
+	 * van een nette 403. Daarom allebei de varianten, elk in zijn eigen IfModule-blok,
+	 * zodat er per server precies een van de twee wordt gelezen.
+	 *
+	 * LiteSpeed leest .htaccess op dezelfde manier als Apache. Op Nginx doet dit
+	 * bestand niets: daar moet de map in de serverconfiguratie worden afgeschermd.
+	 */
+	$regels = "<IfModule mod_authz_core.c>\n"
+		. "\tRequire all denied\n"
+		. "</IfModule>\n"
+		. "<IfModule !mod_authz_core.c>\n"
+		. "\tOrder allow,deny\n"
+		. "\tDeny from all\n"
+		. "</IfModule>\n";
+
+	$htaccess = $dir . '/.htaccess';
+
+	// Ook herschrijven als er al een ander .htaccess ligt. Sites die op een oudere
+	// versie zijn begonnen hebben de kale, foutgevoelige variant staan, en die wordt
+	// zonder deze vergelijking nooit vervangen.
+	if ( ! file_exists( $htaccess ) || file_get_contents( $htaccess ) !== $regels ) {
+		file_put_contents( $htaccess, $regels, LOCK_EX );
+	}
+
+	// Vangnet voor servers die .htaccess negeren maar wel een directory-index tonen:
+	// een lege index.php levert dan een blanco pagina in plaats van de bestandenlijst.
+	// Beschermt niet tegen het rechtstreeks opvragen van log.txt zelf.
+	$index = $dir . '/index.php';
+	if ( ! file_exists( $index ) ) {
+		file_put_contents( $index, "<?php\n// Silence is golden.\n", LOCK_EX );
 	}
 }
+
+/**
+ * Verhuist de logbestanden uit de oude, vaste map naar de map met het
+ * willekeurige achtervoegsel, en ruimt de oude map daarna op.
+ *
+ * Draait bij elke schrijfactie en eenmaal per beheerpagina, maar doet na
+ * de eerste keer niets meer: zodra de oude map weg is, kost dit alleen nog
+ * een is_dir(). Mislukt de verhuizing halverwege (rechten, vol filesysteem),
+ * dan blijft de oude map staan en wordt het de volgende keer opnieuw
+ * geprobeerd.
+ */
+function mediamora_antispam_maybe_migrate_log_dir() {
+
+	$oud = mediamora_antispam_legacy_log_dir();
+
+	if ( ! is_dir( $oud ) ) {
+		return;
+	}
+
+	$nieuw = mediamora_antispam_log_dir();
+
+	if ( $oud === $nieuw ) {
+		return;
+	}
+
+	if ( ! is_dir( $nieuw ) ) {
+		wp_mkdir_p( $nieuw );
+	}
+
+	// Nieuwe map kon niet worden aangemaakt: niets verplaatsen, want dan
+	// zouden de logregels verdwijnen in plaats van verhuizen.
+	if ( ! is_dir( $nieuw ) ) {
+		return;
+	}
+
+	foreach ( array( 'log.txt', 'near-miss.txt', 'debug.txt' ) as $bestand ) {
+
+		$van  = $oud . '/' . $bestand;
+		$naar = $nieuw . '/' . $bestand;
+
+		if ( ! file_exists( $van ) ) {
+			continue;
+		}
+
+		// Staat er op de nieuwe plek al een bestand (een eerdere verhuizing
+		// die halverwege strandde, waarna er alweer gelogd is), dan de oude
+		// regels erachter plakken in plaats van ze te overschrijven. De
+		// volgorde klopt dan niet meer, maar elke regel draagt zijn eigen
+		// tijdstempel en daar wordt op gefilterd, niet op de volgorde.
+		if ( file_exists( $naar ) ) {
+			$inhoud = file_get_contents( $van );
+			if ( false !== $inhoud && '' !== $inhoud ) {
+				file_put_contents( $naar, $inhoud, FILE_APPEND | LOCK_EX );
+			}
+			@unlink( $van );
+			continue;
+		}
+
+		if ( @rename( $van, $naar ) ) {
+			continue;
+		}
+
+		// Rename kan stuklopen op open_basedir of een ander filesysteem.
+		// Dan kopieren, en het origineel pas weghalen als dat gelukt is.
+		if ( @copy( $van, $naar ) ) {
+			@unlink( $van );
+		}
+	}
+
+	mediamora_antispam_remove_legacy_log_dir( $oud );
+}
+
+/**
+ * Verwijdert de oude logmap, maar alleen als er behalve onze eigen
+ * beschermbestanden niets meer in staat. Ligt er nog iets anders, dan
+ * blijft de map inclusief .htaccess gewoon staan: liever een map die is
+ * blijven hangen dan een map die we onderweg hebben opengezet.
+ *
+ * @param string $oud
+ */
+function mediamora_antispam_remove_legacy_log_dir( $oud ) {
+
+	$inhoud = @scandir( $oud );
+
+	if ( false === $inhoud ) {
+		return;
+	}
+
+	$eigen = array( '.', '..', '.htaccess', 'index.php' );
+
+	if ( array_diff( $inhoud, $eigen ) ) {
+		return;
+	}
+
+	foreach ( array( '.htaccess', 'index.php' ) as $bestand ) {
+		if ( file_exists( $oud . '/' . $bestand ) ) {
+			@unlink( $oud . '/' . $bestand );
+		}
+	}
+
+	@rmdir( $oud );
+}
+
+// Ook zonder nieuwe inzending verhuizen, zodat de oude map ook verdwijnt
+// op een site waar het contactformulier voorlopig geen spam meer vangt.
+add_action( 'admin_init', 'mediamora_antispam_maybe_migrate_log_dir' );
 
 /**
  * Haalt de timestamp uit een logregel (begint met "Y-m-d H:i:s | ...").
@@ -1080,11 +1314,13 @@ function mediamora_antispam_maybe_send_report() {
 		return;
 	}
 
-	if ( ! file_exists( MEDIAMORA_ANTISPAM_LOG_FILE ) ) {
+	$log_file = mediamora_antispam_log_file();
+
+	if ( ! file_exists( $log_file ) ) {
 		return;
 	}
 
-	$lines = file( MEDIAMORA_ANTISPAM_LOG_FILE, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES );
+	$lines = file( $log_file, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES );
 
 	if ( empty( $lines ) ) {
 		return;
@@ -1116,7 +1352,7 @@ function mediamora_antispam_maybe_send_report() {
 	// Logbestand opschonen op bewaartermijn (geen persoonsgegevens onbeperkt bewaren).
 	// Gebeurt altijd, onafhankelijk van of de mail hieronder verstuurd wordt.
 	file_put_contents(
-		MEDIAMORA_ANTISPAM_LOG_FILE,
+		$log_file,
 		implode( "\n", $kept_for_retention ) . ( empty( $kept_for_retention ) ? '' : "\n" ),
 		LOCK_EX
 	);
@@ -1136,7 +1372,7 @@ function mediamora_antispam_maybe_send_report() {
 	);
 	$body .= "Details:\n\n";
 	$body .= implode( "\n", $recent_for_email );
-	$body .= "\n\nVolledige log (incl. oudere, nog niet gerapporteerde regels binnen de bewaartermijn) staat in wp-content/uploads/mediamora-antispam/log.txt op de server.";
+	$body .= "\n\nVolledige log (incl. oudere, nog niet gerapporteerde regels binnen de bewaartermijn) staat in " . mediamora_antispam_log_path_label( $log_file ) . " op de server. Die mapnaam verschilt per site.";
 
 	wp_mail(
 		$s['alert_email'],
@@ -1165,11 +1401,13 @@ function mediamora_antispam_maybe_send_nearmiss_alert() {
 		return;
 	}
 
-	if ( ! file_exists( MEDIAMORA_ANTISPAM_NEARMISS_FILE ) ) {
+	$nearmiss_file = mediamora_antispam_nearmiss_file();
+
+	if ( ! file_exists( $nearmiss_file ) ) {
 		return;
 	}
 
-	$lines = file( MEDIAMORA_ANTISPAM_NEARMISS_FILE, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES );
+	$lines = file( $nearmiss_file, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES );
 
 	if ( empty( $lines ) ) {
 		return;
@@ -1195,7 +1433,7 @@ function mediamora_antispam_maybe_send_nearmiss_alert() {
 	}
 
 	file_put_contents(
-		MEDIAMORA_ANTISPAM_NEARMISS_FILE,
+		$nearmiss_file,
 		implode( "\n", $kept ) . ( empty( $kept ) ? '' : "\n" ),
 		LOCK_EX
 	);
