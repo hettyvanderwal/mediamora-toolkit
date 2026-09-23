@@ -1137,6 +1137,22 @@ function mediamora_antispam_ensure_log_dir() {
 		return;
 	}
 
+	mediamora_antispam_write_log_dir_guards( $dir );
+}
+
+/**
+ * Schrijft de afscherming in een logmap: de .htaccess en een lege index.php.
+ *
+ * Staat bewust los van mediamora_antispam_ensure_log_dir() en roept zelf
+ * niets aan. De map komt als parameter binnen, niet uit
+ * mediamora_antispam_log_dir(), zodat ook de verhuizing hem kan gebruiken
+ * voor de nieuwe map zonder dat die twee elkaar over en weer aanroepen.
+ *
+ * @param string $dir Bestaande map, absoluut pad zonder slash aan het eind.
+ * @return bool True als de .htaccess er daadwerkelijk staat met de juiste inhoud.
+ */
+function mediamora_antispam_write_log_dir_guards( $dir ) {
+
 	/*
 	 * Apache 2.4 schermt af met mod_authz_core (Require), 2.2 met mod_access_compat
 	 * (Order/Deny). Draait een 2.4-server zonder mod_access_compat, dan is een kale
@@ -1156,12 +1172,13 @@ function mediamora_antispam_ensure_log_dir() {
 		. "</IfModule>\n";
 
 	$htaccess = $dir . '/.htaccess';
+	$huidig   = file_exists( $htaccess ) ? file_get_contents( $htaccess ) : false;
 
 	// Ook herschrijven als er al een ander .htaccess ligt. Sites die op een oudere
 	// versie zijn begonnen hebben de kale, foutgevoelige variant staan, en die wordt
 	// zonder deze vergelijking nooit vervangen.
-	if ( ! file_exists( $htaccess ) || file_get_contents( $htaccess ) !== $regels ) {
-		file_put_contents( $htaccess, $regels, LOCK_EX );
+	if ( $regels !== $huidig && false === file_put_contents( $htaccess, $regels, LOCK_EX ) ) {
+		return false;
 	}
 
 	// Vangnet voor servers die .htaccess negeren maar wel een directory-index tonen:
@@ -1171,6 +1188,8 @@ function mediamora_antispam_ensure_log_dir() {
 	if ( ! file_exists( $index ) ) {
 		file_put_contents( $index, "<?php\n// Silence is golden.\n", LOCK_EX );
 	}
+
+	return true;
 }
 
 /**
@@ -1204,6 +1223,18 @@ function mediamora_antispam_maybe_migrate_log_dir() {
 	// Nieuwe map kon niet worden aangemaakt: niets verplaatsen, want dan
 	// zouden de logregels verdwijnen in plaats van verhuizen.
 	if ( ! is_dir( $nieuw ) ) {
+		return;
+	}
+
+	// Eerst afschermen, dan pas verhuizen. wp_mkdir_p() levert een kale map
+	// op, en langs de admin_init-route komt er daarna niets meer langs dat de
+	// .htaccess zou schrijven: dat gebeurt pas bij de eerstvolgende logregel.
+	// Tot die tijd zouden de verhuisde inzendingen open en bloot staan.
+	//
+	// Lukt de afscherming niet, dan blijft alles staan waar het staat. De oude
+	// map is wel afgeschermd, dus daar zijn de bestanden beter af dan in een
+	// kale nieuwe map. Volgende keer opnieuw proberen.
+	if ( ! mediamora_antispam_write_log_dir_guards( $nieuw ) ) {
 		return;
 	}
 
