@@ -245,6 +245,20 @@ function mediamora_antispam_sanitize_and_save_settings( $post ) {
 
 	update_option( 'mediamora_antispam_settings', $clean, false );
 
+	// Debug staat uit: dan hoort debug.txt er ook niet meer te liggen. Dat bestand
+	// legt elk veld van elke inzending vast, ook van berichten die gewoon zijn
+	// doorgelaten, en er wordt verder niets mee gedaan. Blijft het staan, dan bewaar
+	// je persoonsgegevens van bezoekers zonder dat daar nog een doel voor is.
+	//
+	// Bewust bij elke opslag met debug uit, niet alleen bij het omzetten van aan naar
+	// uit: zo verdwijnt ook een bestand dat is blijven liggen van voor deze versie.
+	if ( ! $clean['debug'] ) {
+		$debug_file = mediamora_antispam_debug_file();
+		if ( file_exists( $debug_file ) ) {
+			@unlink( $debug_file );
+		}
+	}
+
 	return wp_parse_args( $clean, $defaults );
 }
 
@@ -326,7 +340,7 @@ function mediamora_antispam_render_settings_page() {
 					<th scope="row">Debug-modus</th>
 					<td>
 						<label><input type="checkbox" name="debug" value="1" <?php checked( $s['debug'] ); ?>> Log elk veld van elke inzending naar debug.txt, ongeacht of het geweigerd wordt</label>
-						<p class="description">Alleen tijdelijk aanzetten om te troubleshooten, hierna weer uitzetten.</p>
+						<p class="description">Alleen tijdelijk aanzetten om te troubleshooten, hierna weer uitzetten. Zodra je hem uitzet en opslaat wordt debug.txt verwijderd, en zolang hij aan staat geldt dezelfde bewaartermijn als voor de andere logbestanden.</p>
 					</td>
 				</tr>
 				<tr>
@@ -1055,6 +1069,68 @@ function mediamora_antispam_debug_log( $field_id, $field_type, $value, $is_link,
 	);
 
 	file_put_contents( $debug_file, $line . "\n", FILE_APPEND | LOCK_EX );
+
+	mediamora_antispam_prune_debug_log();
+}
+
+/**
+ * Houdt debug.txt onder dezelfde bewaartermijn als log.txt en near-miss.txt.
+ *
+ * Hangt bewust aan het schrijven van debug.txt zelf en niet aan de rapportmail,
+ * waar de andere twee worden opgeschoond: die draait alleen als er iets is
+ * geweigerd, terwijl debug.txt juist ook volloopt met inzendingen die gewoon
+ * zijn doorgelaten. Op een site zonder spam zou het bestand dan nooit aan de
+ * beurt komen.
+ *
+ * Hooguit een keer per dag, want dit leest en herschrijft het hele bestand, en
+ * debug_log() draait per veld per inzending.
+ */
+function mediamora_antispam_prune_debug_log() {
+
+	$laatste = (int) get_option( 'mediamora_antispam_last_debug_prune', 0 );
+
+	if ( ( time() - $laatste ) < DAY_IN_SECONDS ) {
+		return;
+	}
+
+	// Meteen bijwerken, ook als er hieronder niets te doen blijkt: anders wordt
+	// het bestand bij elke volgende regel opnieuw ingelezen.
+	update_option( 'mediamora_antispam_last_debug_prune', time(), false );
+
+	$debug_file = mediamora_antispam_debug_file();
+
+	if ( ! file_exists( $debug_file ) ) {
+		return;
+	}
+
+	$regels = file( $debug_file, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES );
+
+	if ( empty( $regels ) ) {
+		return;
+	}
+
+	$s     = mediamora_antispam_settings();
+	$grens = time() - $s['log_max_age'];
+
+	$blijft = array();
+
+	foreach ( $regels as $regel ) {
+		$tijd = mediamora_antispam_parse_line_timestamp( $regel );
+		if ( false !== $tijd && $tijd >= $grens ) {
+			$blijft[] = $regel;
+		}
+	}
+
+	// Niets verlopen: bestand niet onnodig herschrijven.
+	if ( count( $blijft ) === count( $regels ) ) {
+		return;
+	}
+
+	file_put_contents(
+		$debug_file,
+		implode( "\n", $blijft ) . ( empty( $blijft ) ? '' : "\n" ),
+		LOCK_EX
+	);
 }
 
 /**
