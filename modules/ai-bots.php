@@ -174,12 +174,20 @@ add_action('admin_menu', function () {
  * Het scherm stond tot en met 1.1.0 onder Gereedschap. Bladwijzers en
  * genoteerde links naar de oude plek blijven werken.
  *
- * Moet op admin_init, en niet op een van de load-hooks van het scherm zelf:
- * die bestaan niet meer nu de pagina niet langer onder tools.php hangt.
- * WordPress zou tools.php?page=mm-aibots afdoen met "Je hebt geen toegang
- * tot deze pagina", en dat gebeurt pas na admin_init.
+ * Hangt aan admin_page_access_denied, de action die WordPress afvuurt vlak
+ * voordat het "Je hebt geen toestemming om deze pagina te bekijken" toont.
+ * Dat is precies wat er gebeurt bij tools.php?page=mm-aibots nu die pagina
+ * daar niet meer geregistreerd staat, dus dit is het laatste moment waarop
+ * we er nog tussen kunnen komen.
+ *
+ * Niet op admin_init: die toegangscheck staat in wp-admin/includes/menu.php,
+ * en dat bestand wordt vanuit admin.php ingeladen voordat admin_init wordt
+ * afgevuurd. Op admin_init zijn we dus al te laat.
+ *
+ * Deze action gaat af bij elke geweigerde beheerpagina, vandaar de twee
+ * controles hieronder op pagenow en page.
  */
-add_action('admin_init', 'mm_aibots_stuur_oude_url_door');
+add_action('admin_page_access_denied', 'mm_aibots_stuur_oude_url_door');
 
 function mm_aibots_stuur_oude_url_door() {
     global $pagenow;
