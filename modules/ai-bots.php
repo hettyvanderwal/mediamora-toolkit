@@ -161,7 +161,7 @@ add_action('init', function () {
  * ---------------------------------------------------------------------- */
 
 add_action('admin_menu', function () {
-    add_management_page(
+    add_options_page(
         'AI-bots',
         'AI-bots',
         'manage_options',
@@ -169,6 +169,40 @@ add_action('admin_menu', function () {
         'mm_aibots_pagina'
     );
 });
+
+/**
+ * Het scherm stond tot en met 1.1.0 onder Gereedschap. Bladwijzers en
+ * genoteerde links naar de oude plek blijven werken.
+ *
+ * Moet op admin_init, en niet op een van de load-hooks van het scherm zelf:
+ * die bestaan niet meer nu de pagina niet langer onder tools.php hangt.
+ * WordPress zou tools.php?page=mm-aibots afdoen met "Je hebt geen toegang
+ * tot deze pagina", en dat gebeurt pas na admin_init.
+ */
+add_action('admin_init', 'mm_aibots_stuur_oude_url_door');
+
+function mm_aibots_stuur_oude_url_door() {
+    global $pagenow;
+
+    if ($pagenow !== 'tools.php') {
+        return;
+    }
+
+    if (!isset($_GET['page']) || $_GET['page'] !== 'mm-aibots') {
+        return;
+    }
+
+    $doel = admin_url('options-general.php?page=mm-aibots');
+
+    // De gekozen maand meenemen, anders komt een bladwijzer naar een
+    // specifieke maand alsnog op de huidige maand uit.
+    if (isset($_GET['maand'])) {
+        $doel = add_query_arg('maand', sanitize_text_field(wp_unslash($_GET['maand'])), $doel);
+    }
+
+    wp_safe_redirect($doel);
+    exit;
+}
 
 /**
  * Alle maanden waarvoor een log bestaat, nieuwste eerst.

@@ -103,7 +103,7 @@ function mm_toolkit_modules() {
 			'losse_mu'     => 'mediamora-ai-bots.php',
 			'losse_plugin' => '',
 			'merkteken'    => array( 'function', 'mm_aibots_lijst' ),
-			'scherm'       => 'tools.php?page=mm-aibots',
+			'scherm'       => 'options-general.php?page=mm-aibots',
 		),
 		'rest_users'       => array(
 			'naam'         => 'REST-gebruikers afschermen',
