@@ -18,7 +18,9 @@ Staat de losse versie van een module nog op de site, dan laadt de toolkit die mo
 
 Bij de eerste activering komt elke module aan waarvan een losse versie op de site staat, ook als die module standaard uit staat.
 
-De opgeslagen keuzes gaan altijd voor op de standaard. Wordt de standaard van een module later omgezet, dan blijft een site die hem al aan had staan hem gewoon houden.
+De opgeslagen keuzes gaan altijd voor op de standaard. Wordt de standaard van een module later omgezet, dan houdt een site die daar zelf een keuze voor heeft opgeslagen gewoon wat hij had.
+
+REST-gebruikers afschermen ging van standaard aan naar standaard uit. Sites die daar nog geen keuze voor hadden opgeslagen, krijgen die eenmalig alsnog, maar alleen als WooCommerce aanstaat: een webshop houdt de module zo aan. Op een site zonder WooCommerce komt de module uit te staan en is ASE met "Disable REST API" weer de route.
 
 ## Vastzetten per site
 

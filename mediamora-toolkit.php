@@ -190,43 +190,69 @@ function mm_toolkit_status() {
 }
 
 /**
+ * Draait WooCommerce op deze site?
+ *
+ * Bewust niet class_exists( 'WooCommerce' ): de toolkit laadt alfabetisch
+ * voor WooCommerce, dus die klasse bestaat hier nog niet. De lijst met
+ * actieve plugins staat wel al klaar, want daar haalt WordPress zelf uit
+ * wat er geladen moet worden. Op een multisite kan WooCommerce ook voor
+ * het hele netwerk aanstaan, dat staat in een aparte optie.
+ */
+function mm_toolkit_woocommerce_actief() {
+
+	$bestand = 'woocommerce/woocommerce.php';
+
+	if ( in_array( $bestand, (array) get_option( 'active_plugins', array() ), true ) ) {
+		return true;
+	}
+
+	if ( is_multisite() && array_key_exists( $bestand, (array) get_site_option( 'active_sitewide_plugins', array() ) ) ) {
+		return true;
+	}
+
+	return false;
+}
+
+/**
  * Oude standaardwaardes vastleggen.
  *
  * Een site die de toolkit eerder activeerde heeft geen opgeslagen keuze voor
  * modules die later zijn bijgekomen, en liep dus op de standaard van toen.
- * Wordt die standaard later omgezet, dan zou de module stilletjes uitvallen.
- * Daarom komt de oude standaard hier eenmalig in de opgeslagen keuzes te
- * staan, zodat de site blijft doen wat hij deed.
+ * Wordt die standaard later omgezet, dan zou de module stilletjes omslaan.
+ * Waar dat niet de bedoeling is, komt de oude standaard hier eenmalig in de
+ * opgeslagen keuzes te staan.
  *
  * rest_users: kwam in 1.1.0 en stond toen standaard aan. Vanaf nu staat hij
- * standaard uit, want hij is alleen voor webshops bedoeld. Webshops waar hij
- * al aan stond, houden hem hiermee aan.
+ * standaard uit, want hij is alleen voor webshops bedoeld. Daarom wordt de
+ * oude standaard alleen vastgelegd als WooCommerce aanstaat: zo houdt een
+ * webshop de module aan. Op een site zonder WooCommerce blijft de sleutel
+ * juist leeg, zodat die site op de nieuwe standaard uitkomt en ASE met
+ * "Disable REST API" weer de route is.
+ *
+ * Valt er niets vast te leggen, dan schrijft deze functie ook niets, dus
+ * blijft het bij het uitlezen van de optie.
  *
  * Bestaat de optie nog niet, dan is het een nieuwe site: die wordt bij het
  * activeren gevuld met de huidige standaardwaardes en hier overgeslagen.
  */
 function mm_toolkit_oude_standaarden() {
 
-	$oud = array(
-		'rest_users' => true,
-	);
-
 	$opgeslagen = get_option( MM_TOOLKIT_OPTIE, false );
 	if ( ! is_array( $opgeslagen ) ) {
 		return;
 	}
 
-	$gewijzigd = false;
-	foreach ( $oud as $sleutel => $waarde ) {
-		if ( ! array_key_exists( $sleutel, $opgeslagen ) ) {
-			$opgeslagen[ $sleutel ] = $waarde;
-			$gewijzigd              = true;
-		}
+	$vastleggen = array();
+
+	if ( ! array_key_exists( 'rest_users', $opgeslagen ) && mm_toolkit_woocommerce_actief() ) {
+		$vastleggen['rest_users'] = true;
 	}
 
-	if ( $gewijzigd ) {
-		update_option( MM_TOOLKIT_OPTIE, $opgeslagen, false );
+	if ( ! $vastleggen ) {
+		return;
 	}
+
+	update_option( MM_TOOLKIT_OPTIE, array_merge( $opgeslagen, $vastleggen ), false );
 }
 
 mm_toolkit_oude_standaarden();
