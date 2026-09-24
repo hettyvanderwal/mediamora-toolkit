@@ -146,6 +146,7 @@ function mediamora_antispam_default_settings() {
 
 		// Link-detectie
 		'max_links_textarea' => 2,
+		'max_links_text'     => 1,
 
 		// Duplicate-content detectie
 		'duplicate_min_length' => 50,
@@ -231,6 +232,7 @@ function mediamora_antispam_sanitize_and_save_settings( $post ) {
 	$clean['gibberish_threshold']        = max( 1, min( 3, (int) ( $post['gibberish_threshold'] ?? 2 ) ) );
 
 	$clean['max_links_textarea'] = max( 0, (int) ( $post['max_links_textarea'] ?? 2 ) );
+	$clean['max_links_text']     = max( 0, (int) ( $post['max_links_text'] ?? 1 ) );
 
 	$clean['duplicate_min_length'] = max( 1, (int) ( $post['duplicate_min_length'] ?? 50 ) );
 
@@ -381,6 +383,7 @@ function mediamora_antispam_render_settings_page() {
 			<h3>Links</h3>
 			<table class="form-table" role="presentation">
 				<tr><th scope="row"><label for="max_links_textarea">Max. links in een berichtveld</label></th><td><input type="number" min="0" id="max_links_textarea" name="max_links_textarea" value="<?php echo esc_attr( $s['max_links_textarea'] ); ?>" class="small-text"></td></tr>
+				<tr><th scope="row"><label for="max_links_text">Max. links in een gewoon tekstveld</label></th><td><input type="number" min="0" id="max_links_text" name="max_links_text" value="<?php echo esc_attr( $s['max_links_text'] ); ?>" class="small-text"><p class="description">Een volledige link met http(s):// mag alleen als die het hele veld vult. E-mailadressen tellen nergens mee als link.</p></td></tr>
 			</table>
 
 			<h3>Dubbele inhoud</h3>
@@ -706,16 +709,68 @@ function mediamora_contains_scheduling_link( $value ) {
 }
 
 /**
+ * Telt de links in een tekst: volledige URLs met http(s):// en kale
+ * domeinnamen (bijvoorbeeld "voorbeeld.ru" zonder "http://" ervoor).
+ *
+ * E-mailadressen gaan er eerst uit. Het domein in "jan@voorbeeld.nl" is
+ * een normaal onderdeel van het adres, geen link, en een bezoeker die in
+ * een bericht of in een als tekstveld gebouwd e-mailveld zijn adres
+ * noemt, mag daar niet op worden afgekeurd.
+ *
+ * @param string $value
+ * @return array{protocol: int, bare: int, total: int}
+ */
+function mediamora_antispam_count_links( $value ) {
+
+	$value = preg_replace( '/[a-z0-9._%+-]+@[a-z0-9-]+(?:\.[a-z0-9-]+)*\.[a-z]{2,}/i', ' ', $value );
+
+	$protocol_urls = preg_match_all( '/https?:\/\/\S+/i', $value );
+
+	// Gevonden volledige URLs uit de tekst halen, zodat een domein daarbinnen
+	// niet nog een keer meetelt bij de kale-domeinen check hieronder.
+	$value_without_urls = preg_replace( '/https?:\/\/\S+/i', ' ', $value );
+
+	$bare_domains = preg_match_all(
+		'/\b[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.(?:ru|su|com|net|org|info|biz|nl|be|de|fr|eu|io|co|me|shop|online|site|xyz|top|club|store|website|space|pro|vip|icu|cn|ua|by|kz|pl|it|es|uk|us)\b/i',
+		$value_without_urls
+	);
+
+	return array(
+		'protocol' => (int) $protocol_urls,
+		'bare'     => (int) $bare_domains,
+		'total'    => (int) $protocol_urls + (int) $bare_domains,
+	);
+}
+
+/**
+ * Of een veld uit precies één volledige URL bestaat en verder niets,
+ * zoals bij een als tekstveld gebouwd "Website"-veld waarin de bezoeker
+ * het adres uit de adresbalk plakt.
+ *
+ * @param string $value
+ * @return bool
+ */
+function mediamora_antispam_is_only_url( $value ) {
+	return (bool) preg_match( '/^https?:\/\/\S+$/i', trim( $value ) );
+}
+
+/**
  * Herkent link injection. BBCode [url=] is in geen enkel veld legitiem.
- * Kale domeinnamen (bijvoorbeeld "voorbeeld.ru" zonder "http://" ervoor)
- * worden hetzelfde behandeld als volledige URLs, want spam-bots laten het
- * protocol vaak expres weg om linkherkenning te omzeilen.
+ * Kale domeinnamen worden hetzelfde behandeld als volledige URLs, want
+ * spam-bots laten het protocol vaak expres weg om linkherkenning te
+ * omzeilen. E-mailadressen tellen niet mee, zie
+ * mediamora_antispam_count_links().
  *
- * Voor het aantal toegestane links geldt een drempel per veldtype: korte
- * velden zoals naam/telefoon horen nooit een link te bevatten, terwijl een
- * berichtveld best 1-2 legitieme links kan bevatten.
+ * Voor het aantal toegestane links geldt een drempel per veldtype, allebei
+ * in te stellen: een berichtveld kan best 1-2 legitieme links bevatten, en
+ * in een gewoon tekstveld noemt een echte bezoeker ook weleens een
+ * domeinnaam ("via linkedin.com", "Website: bedrijf.nl").
  *
- * Uitzondering op die drempel: een link gecombineerd met overwegend
+ * Een volledige link met http(s):// in een gewoon tekstveld mag alleen als
+ * die het hele veld vult. Een link met tekst eromheen in een kort veld
+ * ("Beste SEO https://...") is het typische botpatroon en wordt geweigerd.
+ *
+ * Uitzondering op die drempels: een link gecombineerd met overwegend
  * niet-Latijns schrift wordt altijd geweigerd, ongeacht het aantal.
  *
  * @param string $value
@@ -730,18 +785,8 @@ function mediamora_has_link_injection( $value, $type ) {
 		return true;
 	}
 
-	$protocol_urls = preg_match_all( '/https?:\/\/\S+/i', $value );
-
-	// Gevonden volledige URLs uit de tekst halen, zodat een domein daarbinnen
-	// niet nog een keer meetelt bij de kale-domeinen check hieronder.
-	$value_without_urls = preg_replace( '/https?:\/\/\S+/i', ' ', $value );
-
-	$bare_domains = preg_match_all(
-		'/\b[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.(?:ru|su|com|net|org|info|biz|nl|be|de|fr|eu|io|co|me|shop|online|site|xyz|top|club|store|website|space|pro|vip|icu|cn|ua|by|kz|pl|it|es|uk|us)\b/i',
-		$value_without_urls
-	);
-
-	$url_count = $protocol_urls + $bare_domains;
+	$links     = mediamora_antispam_count_links( $value );
+	$url_count = $links['total'];
 
 	if ( $url_count < 1 ) {
 		return false;
@@ -755,7 +800,11 @@ function mediamora_has_link_injection( $value, $type ) {
 		return $url_count > $s['max_links_textarea'];
 	}
 
-	return $url_count >= 1;
+	if ( $url_count > $s['max_links_text'] ) {
+		return true;
+	}
+
+	return $links['protocol'] > 0 && ! mediamora_antispam_is_only_url( $value );
 }
 
 /**
@@ -976,15 +1025,18 @@ function mediamora_antispam_find_near_misses( $value, $type, $gibberish_score ) 
 
 	// Links: exact op de toegestane grens voor berichtvelden.
 	if ( 'textarea' === $type ) {
-		$protocol_urls       = preg_match_all( '/https?:\/\/\S+/i', $value );
-		$value_without_urls  = preg_replace( '/https?:\/\/\S+/i', ' ', $value );
-		$bare_domains        = preg_match_all(
-			'/\b[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.(?:ru|su|com|net|org|info|biz|nl|be|de|fr|eu|io|co|me|shop|online|site|xyz|top|club|store|website|space|pro|vip|icu|cn|ua|by|kz|pl|it|es|uk|us)\b/i',
-			$value_without_urls
-		);
-		$url_count = $protocol_urls + $bare_domains;
+		$url_count = mediamora_antispam_count_links( $value )['total'];
 		if ( $url_count === (int) $s['max_links_textarea'] ) {
 			$reasons[] = 'links (precies op de toegestane grens)';
+		}
+	}
+
+	// Links in een gewoon tekstveld: sinds de grens daar niet meer 0 is,
+	// elke doorgelaten link loggen, zodat zichtbaar wordt wat erdoor komt.
+	if ( 'textarea' !== $type ) {
+		$url_count = mediamora_antispam_count_links( $value )['total'];
+		if ( $url_count > 0 ) {
+			$reasons[] = sprintf( 'link in kort veld, doorgelaten (%d)', $url_count );
 		}
 	}
 
