@@ -32,6 +32,16 @@ define( 'MM_TOOLKIT_ALT_TEKSTEN', false );
 
 Beschikbaar: `MM_TOOLKIT_ALT_TEKSTEN`, `MM_TOOLKIT_HERO_PRELOAD`, `MM_TOOLKIT_PREVIEW_LINK`, `MM_TOOLKIT_ANTI_SPAM`, `MM_TOOLKIT_FORMULIERMONITOR`, `MM_TOOLKIT_AI_BOTS`, `MM_TOOLKIT_REST_USERS`.
 
+## Wijzigingen
+
+### 1.2.0
+
+- Anti-spam: de logmap krijgt een willekeurige naam en wordt afgeschermd voordat er logs naartoe verhuizen.
+- Anti-spam: `debug.txt` valt onder de bewaartermijn en verdwijnt als debug uitgaat.
+- Anti-spam: links in gewone tekstvelden worden niet meer bij de eerste geweigerd. Nieuwe instelling "Max. links in een gewoon tekstveld", standaard 1. E-mailadressen tellen niet meer mee als link.
+- AI-bots: het scherm staat nu onder Instellingen in plaats van Gereedschap. De oude URL stuurt door.
+- REST-gebruikers afschermen staat standaard uit, behalve op webshops (WooCommerce aan).
+
 ## Release maken
 
 1. Versie ophogen op twee plekken in `mediamora-toolkit.php`: `Version:` in de kop en `MM_TOOLKIT_VERSIE`.

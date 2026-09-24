@@ -3,7 +3,7 @@
  * Plugin Name:       Mediamora Toolkit
  * Plugin URI:        https://github.com/hettyvanderwal/mediamora-toolkit
  * Description:       De vaste Mediamora-onderdelen in één plugin, per onderdeel aan en uit te zetten onder Instellingen > Mediamora Toolkit.
- * Version:           1.1.0
+ * Version:           1.2.0
  * Requires at least: 6.0
  * Requires PHP:      7.4
  * Author:            Mediamora
@@ -20,7 +20,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  * Versienummer. Moet gelijk zijn aan "Version" in de kop hierboven
  * en aan de tag van de GitHub-release (zonder de v).
  */
-const MM_TOOLKIT_VERSIE = '1.1.0';
+const MM_TOOLKIT_VERSIE = '1.2.0';
 const MM_TOOLKIT_REPO   = 'hettyvanderwal/mediamora-toolkit';
 const MM_TOOLKIT_SLUG   = 'mediamora-toolkit';
 const MM_TOOLKIT_OPTIE  = 'mm_toolkit_modules';
