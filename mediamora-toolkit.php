@@ -107,9 +107,9 @@ function mm_toolkit_modules() {
 		),
 		'rest_users'       => array(
 			'naam'         => 'REST-gebruikers afschermen',
-			'uitleg'       => 'Sluit /wp-json/wp/v2/users af voor bezoekers die niet zijn ingelogd, zodat inlognamen niet uit te lezen zijn. De rest van de REST API blijft werken, dus ook de webhooks van Mollie en MyParcel. Gebruik dit op een webshop in plaats van "Disable REST API" in ASE.',
+			'uitleg'       => 'Sluit /wp-json/wp/v2/users af voor bezoekers die niet zijn ingelogd, zodat inlognamen niet uit te lezen zijn. De rest van de REST API blijft werken. Alleen nodig op een webshop, want daar blokkeert "Disable REST API" in ASE de webhooks van Mollie en MyParcel. Op andere sites blijft ASE de route.',
 			'bestand'      => 'rest-users.php',
-			'standaard'    => true,
+			'standaard'    => false,
 			'losse_mu'     => 'mediamora-rest-users.php',
 			'losse_plugin' => '',
 			'merkteken'    => array( 'function', 'mm_rest_users_afschermen' ),
@@ -188,6 +188,48 @@ function mm_toolkit_status() {
 	}
 	return $status;
 }
+
+/**
+ * Oude standaardwaardes vastleggen.
+ *
+ * Een site die de toolkit eerder activeerde heeft geen opgeslagen keuze voor
+ * modules die later zijn bijgekomen, en liep dus op de standaard van toen.
+ * Wordt die standaard later omgezet, dan zou de module stilletjes uitvallen.
+ * Daarom komt de oude standaard hier eenmalig in de opgeslagen keuzes te
+ * staan, zodat de site blijft doen wat hij deed.
+ *
+ * rest_users: kwam in 1.1.0 en stond toen standaard aan. Vanaf nu staat hij
+ * standaard uit, want hij is alleen voor webshops bedoeld. Webshops waar hij
+ * al aan stond, houden hem hiermee aan.
+ *
+ * Bestaat de optie nog niet, dan is het een nieuwe site: die wordt bij het
+ * activeren gevuld met de huidige standaardwaardes en hier overgeslagen.
+ */
+function mm_toolkit_oude_standaarden() {
+
+	$oud = array(
+		'rest_users' => true,
+	);
+
+	$opgeslagen = get_option( MM_TOOLKIT_OPTIE, false );
+	if ( ! is_array( $opgeslagen ) ) {
+		return;
+	}
+
+	$gewijzigd = false;
+	foreach ( $oud as $sleutel => $waarde ) {
+		if ( ! array_key_exists( $sleutel, $opgeslagen ) ) {
+			$opgeslagen[ $sleutel ] = $waarde;
+			$gewijzigd              = true;
+		}
+	}
+
+	if ( $gewijzigd ) {
+		update_option( MM_TOOLKIT_OPTIE, $opgeslagen, false );
+	}
+}
+
+mm_toolkit_oude_standaarden();
 
 // Modules laden. Bewust op het hoogste niveau van het bestand en niet
 // binnen een functie, zodat variabelen in de modules globaal blijven.
