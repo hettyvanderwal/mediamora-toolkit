@@ -37,6 +37,8 @@ Beschikbaar: `MM_TOOLKIT_ALT_TEKSTEN`, `MM_TOOLKIT_HERO_PRELOAD`, `MM_TOOLKIT_PR
 ### 1.3.0
 
 - Preview-link: op LiteSpeed slaat de cache verzoeken met het preview-cookie over, zodat klanten ook op al gecachete pagina's de site zien in plaats van de onderhoudspagina. De toolkit zet daarvoor een blok `# BEGIN Mediamora Preview` bovenaan `.htaccess`, alleen op LiteSpeed en alleen zolang de module aan en de onderhoudsmodus van Elementor aan staat. Uitzetten of deactiveren haalt het blok weg. Na elke schrijfactie wordt `.htaccess` teruggelezen; klopt het niet, dan komt de vorige inhoud terug.
+- Updater: een update wordt alleen aangeboden als het pakket van `api.github.com` of `codeload.github.com` komt en bij de repo `hettyvanderwal/mediamora-toolkit` hoort.
+- `Update URI` in de plugin-header, zodat WordPress nooit een plugin met dezelfde slug van wordpress.org als update aanbiedt.
 
 ### 1.2.0
 

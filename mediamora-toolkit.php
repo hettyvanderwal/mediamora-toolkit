@@ -6,6 +6,7 @@
  * Version:           1.2.0
  * Requires at least: 6.0
  * Requires PHP:      7.4
+ * Update URI:        https://github.com/hettyvanderwal/mediamora-toolkit
  * Author:            Mediamora
  * Author URI:        https://mediamora.nl
  * License:           GPL-2.0-or-later
@@ -687,7 +688,7 @@ function mm_toolkit_laatste_release() {
 
 	$release = array(
 		'versie'    => ltrim( (string) $data['tag_name'], 'vV' ),
-		'zip'       => ! empty( $data['zipball_url'] ) ? $data['zipball_url'] : '',
+		'zip'       => ! empty( $data['zipball_url'] ) && mm_toolkit_pakket_toegestaan( $data['zipball_url'] ) ? $data['zipball_url'] : '',
 		'url'       => ! empty( $data['html_url'] ) ? $data['html_url'] : '',
 		'datum'     => ! empty( $data['published_at'] ) ? $data['published_at'] : '',
 		'changelog' => ! empty( $data['body'] ) ? $data['body'] : '',
@@ -696,6 +697,44 @@ function mm_toolkit_laatste_release() {
 	set_transient( 'mm_toolkit_release', $release, 12 * HOUR_IN_SECONDS );
 
 	return $release;
+}
+
+/**
+ * Komt het updatepakket echt van GitHub en van deze repo?
+ *
+ * GitHub geeft de zip als api.github.com/repos/<repo>/zipball/<tag> en
+ * stuurt die door naar codeload.github.com/<repo>/... Andere hosts, andere
+ * repo's of geen https: geen update aanbieden. Repo-namen zijn bij GitHub
+ * hoofdletterongevoelig.
+ */
+function mm_toolkit_pakket_toegestaan( $url ) {
+
+	$delen = wp_parse_url( (string) $url );
+
+	if ( empty( $delen['scheme'] ) || 'https' !== strtolower( $delen['scheme'] ) || empty( $delen['host'] ) || empty( $delen['path'] ) ) {
+		return false;
+	}
+	if ( isset( $delen['port'] ) || isset( $delen['user'] ) || isset( $delen['pass'] ) ) {
+		return false;
+	}
+
+	$host = strtolower( $delen['host'] );
+	$pad  = strtolower( rawurldecode( $delen['path'] ) );
+	$repo = strtolower( MM_TOOLKIT_REPO );
+
+	// Geen ../ om via het juiste voorvoegsel toch bij een andere repo uit te komen.
+	if ( false !== strpos( $pad, '..' ) ) {
+		return false;
+	}
+
+	if ( 'api.github.com' === $host ) {
+		return 0 === strpos( $pad, '/repos/' . $repo . '/zipball/' );
+	}
+	if ( 'codeload.github.com' === $host ) {
+		return 0 === strpos( $pad, '/' . $repo . '/' );
+	}
+
+	return false;
 }
 
 add_filter( 'site_transient_update_plugins', 'mm_toolkit_meld_update' );
@@ -707,7 +746,9 @@ function mm_toolkit_meld_update( $transient ) {
 	}
 
 	$release = mm_toolkit_laatste_release();
-	if ( empty( $release['versie'] ) || empty( $release['zip'] ) ) {
+	// Ook hier controleren: een release in de cache van vóór deze controle
+	// kan nog een ongecontroleerd pakket bevatten.
+	if ( empty( $release['versie'] ) || empty( $release['zip'] ) || ! mm_toolkit_pakket_toegestaan( $release['zip'] ) ) {
 		return $transient;
 	}
 
@@ -749,7 +790,7 @@ function mm_toolkit_plugin_details( $resultaat, $actie, $args ) {
 		'version'       => ! empty( $release['versie'] ) ? $release['versie'] : MM_TOOLKIT_VERSIE,
 		'author'        => '<a href="https://mediamora.nl">Mediamora</a>',
 		'homepage'      => 'https://github.com/' . MM_TOOLKIT_REPO,
-		'download_link' => ! empty( $release['zip'] ) ? $release['zip'] : '',
+		'download_link' => ! empty( $release['zip'] ) && mm_toolkit_pakket_toegestaan( $release['zip'] ) ? $release['zip'] : '',
 		'last_updated'  => ! empty( $release['datum'] ) ? $release['datum'] : '',
 		'sections'      => array(
 			'description' => 'De vaste Mediamora-onderdelen in één plugin.',
