@@ -281,6 +281,7 @@ register_activation_hook( __FILE__, 'mm_toolkit_activeren' );
 
 function mm_toolkit_activeren() {
 	delete_transient( 'mm_toolkit_release' );
+	mm_toolkit_preview_cache_bijwerken( mm_toolkit_preview_cache_gewenst() );
 	if ( false !== get_option( MM_TOOLKIT_OPTIE, false ) ) {
 		return;
 	}
@@ -289,6 +290,12 @@ function mm_toolkit_activeren() {
 		$keuzes[ $sleutel ] = $module['standaard'] || '' !== mm_toolkit_losse_versie( $module );
 	}
 	add_option( MM_TOOLKIT_OPTIE, $keuzes, '', false );
+}
+
+register_deactivation_hook( __FILE__, 'mm_toolkit_deactiveren' );
+
+function mm_toolkit_deactiveren() {
+	mm_toolkit_preview_cache_bijwerken( false );
 }
 
 
@@ -336,6 +343,13 @@ function mm_toolkit_opslaan() {
 		wp_clear_scheduled_hook( 'mm_aibots_opschonen' );
 	}
 
+	// mm_toolkit_status() is al berekend met de oude keuzes, dus hier zelf
+	// uitrekenen of de preview-module na het opslaan laadt.
+	$preview     = mm_toolkit_status()['preview_link'];
+	$vast        = mm_toolkit_vastgezet( 'preview_link' );
+	$preview_aan = ( null === $vast ? $nieuw['preview_link'] : $vast ) && '' === $preview['los'] && $preview['bestand'];
+	mm_toolkit_preview_cache_bijwerken( mm_toolkit_preview_cache_gewenst( $preview_aan ) );
+
 	wp_safe_redirect( add_query_arg( 'opgeslagen', '1', admin_url( 'options-general.php?page=' . MM_TOOLKIT_SLUG ) ) );
 	exit;
 }
@@ -379,6 +393,9 @@ function mm_toolkit_scherm() {
 		if ( $s['vast'] ) {
 			$tekst .= '<br><span style="color:#646970;">Vastgezet in wp-config.php</span>';
 		}
+		if ( 'preview_link' === $sleutel && get_transient( 'mm_toolkit_preview_htaccess_fout' ) ) {
+			$tekst .= '<br><span style="color:#b32d2e;">Kon .htaccess niet bijwerken: LiteSpeed toont op gecachete pagina\'s nog de onderhoudspagina</span>';
+		}
 
 		$link = ( $module['scherm'] && $s['laden'] ) ? ' <a href="' . esc_url( admin_url( $module['scherm'] ) ) . '">Instellingen</a>' : '';
 
@@ -415,6 +432,218 @@ function mm_toolkit_melding() {
 		return;
 	}
 	echo '<div class="notice notice-warning"><p><strong>Mediamora Toolkit:</strong> deze modules staan aan maar wachten tot de losse versie weg is: ' . esc_html( implode( ', ', $geblokkeerd ) ) . '. Tot die tijd blijft de losse versie gewoon werken.</p></div>';
+}
+
+
+/* -------------------------------------------------------------------------
+ * Preview-link: LiteSpeed-cache overslaan
+ *
+ * LiteSpeed serveert een gecachete pagina voordat PHP draait. DONOTCACHEPAGE
+ * en litespeed_control_set_nocache in de module komen dan te laat, en een
+ * bezoeker met een geldig preview-cookie krijgt toch de onderhoudspagina.
+ * Daarom staat er bovenaan .htaccess een blok dat LiteSpeed voor verzoeken
+ * met het cookie mm_preview de cache laat overslaan.
+ *
+ * Het blok staat er alleen zolang de module laadt en de onderhoudsmodus van
+ * Elementor aanstaat. Na de lancering slaan klanten met een oud cookie de
+ * cache dus niet meer over.
+ *
+ * Staat bewust hier en niet in de module: een module die uit staat laadt
+ * niet en kan zijn eigen blok dan niet meer opruimen.
+ *
+ * De server controleert alleen of het cookie er is, niet of het klopt. Wie
+ * zelf een mm_preview-cookie zet, krijgt de onderhoudspagina ongecachet.
+ * Dat kost wat serverwerk en lekt niets.
+ * ---------------------------------------------------------------------- */
+
+const MM_TOOLKIT_PREVIEW_MARKER = 'Mediamora Preview';
+
+/**
+ * Hoort het blok in .htaccess te staan?
+ *
+ * @param bool|null   $module_aan Laadt de preview-module? Null: huidige status.
+ * @param string|null $modus      Stand van de onderhoudsmodus. Null: uit de optie.
+ */
+function mm_toolkit_preview_cache_gewenst( $module_aan = null, $modus = null ) {
+	if ( null === $module_aan ) {
+		$status     = mm_toolkit_status();
+		$module_aan = $status['preview_link']['laden'];
+	}
+	if ( null === $modus ) {
+		// Alleen aangeroepen in wp-admin, bij activeren en via WP-CLI. Daar laat
+		// de module deze optie met rust; alleen op de voorkant maakt hij hem
+		// leeg voor preview-bezoekers.
+		$modus = (string) get_option( 'elementor_maintenance_mode_mode', '' );
+	}
+	return $module_aan && in_array( $modus, array( 'maintenance', 'coming_soon' ), true );
+}
+
+/**
+ * Draait de site op LiteSpeed? Null als dat niet te zien is, bijvoorbeeld
+ * via WP-CLI of cron zonder webserver.
+ */
+function mm_toolkit_litespeed_server() {
+	$software = isset( $_SERVER['SERVER_SOFTWARE'] ) ? (string) $_SERVER['SERVER_SOFTWARE'] : '';
+	if ( '' === $software ) {
+		return null;
+	}
+	return false !== stripos( $software, 'litespeed' );
+}
+
+function mm_toolkit_preview_htaccess_blok() {
+	return '# BEGIN ' . MM_TOOLKIT_PREVIEW_MARKER . "\n"
+		. "# Preview-link van de Mediamora Toolkit: LiteSpeed slaat de cache over\n"
+		. "# voor bezoekers met het preview-cookie. Wordt door de plugin beheerd.\n"
+		. "<IfModule LiteSpeed>\n"
+		. "RewriteEngine On\n"
+		. "RewriteCond %{HTTP_COOKIE} (^|;\\s*)mm_preview=\n"
+		. "RewriteRule .* - [E=Cache-Control:no-cache]\n"
+		. "</IfModule>\n"
+		. '# END ' . MM_TOOLKIT_PREVIEW_MARKER . "\n";
+}
+
+/**
+ * Hoe vaak staat een markerregel in de tekst? Telt alleen hele regels.
+ */
+function mm_toolkit_htaccess_tel( $inhoud, $regel ) {
+	return (int) preg_match_all( '/^' . preg_quote( $regel, '/' ) . '[ \t]*\r?$/m', $inhoud );
+}
+
+/**
+ * Zet het blok bovenaan .htaccess of haalt het weg.
+ *
+ * Toevoegen gebeurt alleen op LiteSpeed. Weghalen mag altijd, maar het
+ * bestand wordt alleen aangeraakt als er echt iets verandert. Zonder
+ * LiteSpeed en zonder blok gebeurt er dus niets.
+ *
+ * Het blok moet vóór # BEGIN WordPress staan: de WordPress-regel eindigt op
+ * [L], dus alles daarna wordt voor pagina's nooit gelezen. Daarom geen
+ * insert_with_markers(), want die zet een nieuw blok onderaan.
+ *
+ * Na het schrijven wordt het bestand teruggelezen. Staan # BEGIN WordPress
+ * en het eigen blok er dan niet elk precies zo vaak in als bedoeld, of staat
+ * het blok niet boven WordPress, dan komt de vorige inhoud terug.
+ *
+ * @param bool $gewenst Moet het blok erin staan?
+ * @return bool True als .htaccess daarna in orde is.
+ */
+function mm_toolkit_preview_cache_bijwerken( $gewenst ) {
+
+	if ( $gewenst && true !== mm_toolkit_litespeed_server() ) {
+		return false;
+	}
+
+	if ( ! function_exists( 'get_home_path' ) ) {
+		require_once ABSPATH . 'wp-admin/includes/file.php';
+	}
+	$pad = get_home_path() . '.htaccess';
+
+	if ( ! file_exists( $pad ) ) {
+		// Geen .htaccess betekent ook geen WordPress-blok. Niet zelf aanmaken.
+		return ! $gewenst;
+	}
+
+	$oud = file_get_contents( $pad );
+	if ( false === $oud ) {
+		return mm_toolkit_preview_cache_fout( $gewenst );
+	}
+
+	$begin = '# BEGIN ' . MM_TOOLKIT_PREVIEW_MARKER;
+	$einde = '# END ' . MM_TOOLKIT_PREVIEW_MARKER;
+
+	$zonder = preg_replace(
+		'/^' . preg_quote( $begin, '/' ) . '[ \t]*\r?$.*?^' . preg_quote( $einde, '/' ) . '[ \t]*\r?$\R*/ms',
+		'',
+		$oud
+	);
+	if ( null === $zonder ) {
+		return mm_toolkit_preview_cache_fout( $gewenst );
+	}
+	$nieuw = $gewenst ? mm_toolkit_preview_htaccess_blok() . "\n" . $zonder : $zonder;
+
+	if ( $nieuw === $oud ) {
+		delete_transient( 'mm_toolkit_preview_htaccess_fout' );
+		return true;
+	}
+
+	// Zonder precies één WordPress-blok is het bestand niet wat we verwachten.
+	// Dan liever niets doen dan gokken waar het blok moet.
+	if ( 1 !== mm_toolkit_htaccess_tel( $oud, '# BEGIN WordPress' ) || ! is_writable( $pad ) ) {
+		return mm_toolkit_preview_cache_fout( $gewenst );
+	}
+
+	if ( false === file_put_contents( $pad, $nieuw, LOCK_EX ) ) {
+		return mm_toolkit_preview_cache_fout( $gewenst );
+	}
+
+	clearstatcache( true, $pad );
+	$terug  = file_get_contents( $pad );
+	$aantal = $gewenst ? 1 : 0;
+	$goed   = false !== $terug
+		&& 1 === mm_toolkit_htaccess_tel( $terug, '# BEGIN WordPress' )
+		&& $aantal === mm_toolkit_htaccess_tel( $terug, $begin )
+		&& $aantal === mm_toolkit_htaccess_tel( $terug, $einde )
+		&& ( ! $gewenst || strpos( $terug, $begin ) < strpos( $terug, '# BEGIN WordPress' ) );
+
+	if ( ! $goed ) {
+		file_put_contents( $pad, $oud, LOCK_EX );
+		return mm_toolkit_preview_cache_fout( $gewenst );
+	}
+
+	delete_transient( 'mm_toolkit_preview_htaccess_fout' );
+	return true;
+}
+
+/**
+ * Onthoudt een mislukte poging, zodat het zelfherstel het niet bij elke
+ * beheerpagina opnieuw probeert en het instellingenscherm het kan tonen.
+ * Een mislukte opruiming telt niet: een blijvend blok is onschuldig.
+ */
+function mm_toolkit_preview_cache_fout( $gewenst ) {
+	if ( $gewenst ) {
+		set_transient( 'mm_toolkit_preview_htaccess_fout', 1, DAY_IN_SECONDS );
+	}
+	return false;
+}
+
+// Onderhoudsmodus van Elementor aan- of uitgezet.
+add_action( 'update_option_elementor_maintenance_mode_mode', 'mm_toolkit_preview_modus_gewijzigd', 10, 2 );
+add_action( 'add_option_elementor_maintenance_mode_mode', 'mm_toolkit_preview_modus_toegevoegd', 10, 2 );
+add_action( 'delete_option_elementor_maintenance_mode_mode', 'mm_toolkit_preview_modus_verwijderd' );
+
+function mm_toolkit_preview_modus_gewijzigd( $oud, $nieuw ) {
+	delete_transient( 'mm_toolkit_preview_htaccess_fout' );
+	mm_toolkit_preview_cache_bijwerken( mm_toolkit_preview_cache_gewenst( null, (string) $nieuw ) );
+}
+
+function mm_toolkit_preview_modus_toegevoegd( $optie, $waarde ) {
+	mm_toolkit_preview_modus_gewijzigd( '', $waarde );
+}
+
+function mm_toolkit_preview_modus_verwijderd() {
+	mm_toolkit_preview_cache_bijwerken( false );
+}
+
+/**
+ * Zelfherstel: bij elke beheerpagina nagaan of het blok klopt met de
+ * gewenste stand. Vangt een wp-config-define, een losse versie die erbij
+ * komt, een modus die via WP-CLI is gezet of een host die .htaccess heeft
+ * overschreven. Kost één keer .htaccess lezen; schrijven gebeurt alleen bij
+ * een verschil. Na een mislukte poging een dag rust.
+ */
+add_action( 'admin_init', 'mm_toolkit_preview_cache_herstel' );
+
+function mm_toolkit_preview_cache_herstel() {
+	if ( wp_doing_ajax() || null === mm_toolkit_litespeed_server() ) {
+		return;
+	}
+	// Op het instellingenscherm altijd opnieuw proberen, zodat een opgeloste
+	// schrijfrechtenkwestie meteen zichtbaar wordt.
+	$scherm = isset( $_GET['page'] ) && MM_TOOLKIT_SLUG === $_GET['page'];
+	if ( ! $scherm && get_transient( 'mm_toolkit_preview_htaccess_fout' ) ) {
+		return;
+	}
+	mm_toolkit_preview_cache_bijwerken( mm_toolkit_preview_cache_gewenst() );
 }
 
 

@@ -101,6 +101,11 @@ function mm_preview_disable_maintenance( $value ) {
 
 /**
  * Met geldige cookie: nooit cachen en nooit indexeren.
+ *
+ * Op LiteSpeed komt dit te laat voor een pagina die al in de cache staat:
+ * die wordt geserveerd voordat PHP draait. Daarvoor zet de toolkit zelf een
+ * blok in .htaccess, zie "Preview-link: LiteSpeed-cache overslaan" in
+ * mediamora-toolkit.php.
  */
 add_action( 'init', 'mm_preview_protect', 2 );
 function mm_preview_protect() {
