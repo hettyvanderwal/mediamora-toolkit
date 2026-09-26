@@ -399,6 +399,9 @@ function mm_toolkit_scherm() {
 		}
 
 		$link = ( $module['scherm'] && $s['laden'] ) ? ' <a href="' . esc_url( admin_url( $module['scherm'] ) ) . '">Instellingen</a>' : '';
+		if ( 'formuliermonitor' === $sleutel && $s['laden'] && function_exists( 'mm_monitor_test_url' ) ) {
+			$link .= ' <a href="' . esc_url( mm_monitor_test_url() ) . '">Testmelding sturen</a>';
+		}
 
 		echo '<tr>';
 		echo '<td><input type="checkbox" name="mm_module[' . esc_attr( $sleutel ) . ']" value="1"' . checked( $s['gewild'], true, false ) . disabled( $s['vast'], true, false ) . '></td>';

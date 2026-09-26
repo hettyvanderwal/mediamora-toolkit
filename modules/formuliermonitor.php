@@ -184,15 +184,32 @@ function mm_monitor_schrijf_log( $regel ) {
 }
 
 /**
- * Testknop. Roep als beheerder /wp-admin/?mm_monitor_test=1 aan
- * om te controleren of de melding bij Mediamora aankomt.
+ * Testknop: stuurt een testmelding om te controleren of die bij Mediamora
+ * aankomt. De link staat bij de Formuliermonitor onder Instellingen >
+ * Mediamora Toolkit en draagt een nonce, zodat een link van buitenaf geen
+ * mail kan laten versturen namens een ingelogde beheerder.
  */
+function mm_monitor_test_url() {
+	return wp_nonce_url( add_query_arg( 'mm_monitor_test', '1', admin_url( '/' ) ), 'mm_monitor_test' );
+}
+
 add_action( 'admin_init', 'mm_monitor_test' );
 
 function mm_monitor_test() {
 
 	if ( empty( $_GET['mm_monitor_test'] ) || ! current_user_can( 'manage_options' ) ) {
 		return;
+	}
+
+	// Zonder geldige nonce niets versturen. Een oud adres zonder nonce, of een
+	// verlopen link, krijgt een knop met een verse link in plaats van een mail.
+	if ( empty( $_GET['_wpnonce'] ) || ! wp_verify_nonce( sanitize_key( wp_unslash( $_GET['_wpnonce'] ) ), 'mm_monitor_test' ) ) {
+		wp_die(
+			'<p>Deze link om een testmelding te sturen is niet (meer) geldig.</p>'
+				. '<p><a class="button button-primary" href="' . esc_url( mm_monitor_test_url() ) . '">Testmelding sturen</a></p>',
+			'Formuliermonitor',
+			array( 'response' => 403 )
+		);
 	}
 
 	$regel = array(
