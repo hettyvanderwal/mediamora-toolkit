@@ -42,6 +42,14 @@ Verwijderen via Plugins ruimt alles op: de opties en transients van de toolkit e
 
 ## Wijzigingen
 
+### 1.4.0
+
+- Anti-spam: de rapportmail en de bijna-weigeringsmail gaan via WP-cron in plaats van tijdens de inzending, zodat een bezoeker bij het versturen van een formulier niet meer op de mail wacht. Er wordt een eenmalig event ingepland, alleen als de periode om is en er nog geen klaarstaat. Inhoud en frequentie van beide mails blijven gelijk.
+- Vastgezette modules (via `wp-config.php`) behouden hun opgeslagen waarde bij het opslaan van het instellingenscherm. Voorheen werd daar false weggeschreven, omdat de grijze schakelaar niet wordt meegestuurd.
+- Nieuwe constantennamen om een module vast te zetten: `MM_TOOLKIT_MODULE_<SLEUTEL>`, zodat ze niet kunnen botsen met de eigen constanten van de toolkit. De oude namen `MM_TOOLKIT_<SLEUTEL>` blijven werken voor de bestaande modules.
+- `uninstall.php` ruimt bij verwijderen alle opties, logs, cron-events, alt-kenmerken (`_mm_alt_*`) en het `.htaccess`-blok op, behalve voor modules waarvan de losse versie nog op de site staat. Zie "Deactiveren en verwijderen".
+- Deactiveren haalt de cron-events weg.
+
 ### 1.3.0
 
 - Preview-link: op LiteSpeed slaat de cache verzoeken met het preview-cookie over, zodat klanten ook op al gecachete pagina's de site zien in plaats van de onderhoudspagina. De toolkit zet daarvoor een blok `# BEGIN Mediamora Preview` bovenaan `.htaccess`, alleen op LiteSpeed en alleen zolang de module aan en de onderhoudsmodus van Elementor aan staat. Gaat de module of de onderhoudsmodus uit, of wordt de plugin gedeactiveerd, dan verdwijnt het blok weer. Na elke schrijfactie wordt `.htaccess` teruggelezen; klopt het niet, dan komt de vorige inhoud terug.
