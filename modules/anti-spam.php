@@ -1186,8 +1186,8 @@ function mediamora_antispam_prune_debug_log() {
 }
 
 /**
- * Schrijft een regel naar het logbestand en triggert (indien nodig) de
- * rapportmail.
+ * Schrijft een regel naar het logbestand en plant (indien nodig) de
+ * rapportmail in.
  *
  * @param string $reason
  * @param string $field_id
@@ -1212,12 +1212,13 @@ function mediamora_antispam_log( $reason, $field_id, $field_type, $value ) {
 
 	file_put_contents( mediamora_antispam_log_file(), $line . "\n", FILE_APPEND | LOCK_EX );
 
-	mediamora_antispam_maybe_send_report();
+	$s = mediamora_antispam_settings();
+	mediamora_antispam_plan_mail( 'mediamora_antispam_report', 'mediamora_antispam_last_report', $s['email_interval'] );
 }
 
 /**
- * Schrijft een regel naar het vangnet-logbestand en triggert (indien
- * nodig) de vangnet-mail.
+ * Schrijft een regel naar het vangnet-logbestand en plant (indien nodig)
+ * de vangnet-mail in.
  *
  * @param string   $field_id
  * @param string   $field_type
@@ -1244,7 +1245,38 @@ function mediamora_antispam_nearmiss_log( $field_id, $field_type, $value, $reaso
 
 	file_put_contents( mediamora_antispam_nearmiss_file(), $line . "\n", FILE_APPEND | LOCK_EX );
 
-	mediamora_antispam_maybe_send_nearmiss_alert();
+	$s = mediamora_antispam_settings();
+	if ( $s['nearmiss_alert_enabled'] ) {
+		mediamora_antispam_plan_mail( 'mediamora_antispam_nearmiss_alert', 'mediamora_antispam_last_nearmiss_alert', $s['nearmiss_email_interval'] );
+	}
+}
+
+// De rapportmail en de vangnet-mail gaan via WP-cron, zodat een bezoeker
+// bij het versturen van een formulier niet wacht op het herschrijven van
+// het logbestand en op wp_mail(). De functies zelf controleren de periode
+// nog een keer, dus een event dat toch te vroeg draait doet niets.
+add_action( 'mediamora_antispam_report', 'mediamora_antispam_maybe_send_report' );
+add_action( 'mediamora_antispam_nearmiss_alert', 'mediamora_antispam_maybe_send_nearmiss_alert' );
+
+/**
+ * Plant een eenmalig cron-event in voor een van de mails, maar alleen als
+ * de periode sinds de vorige mail om is en er nog geen event klaarstaat.
+ *
+ * @param string $hook
+ * @param string $last_option Optie met het tijdstip van de vorige run.
+ * @param int    $interval
+ */
+function mediamora_antispam_plan_mail( $hook, $last_option, $interval ) {
+
+	if ( ( time() - (int) get_option( $last_option, 0 ) ) < $interval ) {
+		return;
+	}
+
+	if ( wp_next_scheduled( $hook ) ) {
+		return;
+	}
+
+	wp_schedule_single_event( time(), $hook );
 }
 
 /**

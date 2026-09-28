@@ -343,6 +343,10 @@ function mm_toolkit_opslaan() {
 	if ( $oud['ai_bots'] && ! $nieuw['ai_bots'] ) {
 		wp_clear_scheduled_hook( 'mm_aibots_opschonen' );
 	}
+	if ( $oud['anti_spam'] && ! $nieuw['anti_spam'] ) {
+		wp_clear_scheduled_hook( 'mediamora_antispam_report' );
+		wp_clear_scheduled_hook( 'mediamora_antispam_nearmiss_alert' );
+	}
 
 	// mm_toolkit_status() is al berekend met de oude keuzes, dus hier zelf
 	// uitrekenen of de preview-module na het opslaan laadt.
