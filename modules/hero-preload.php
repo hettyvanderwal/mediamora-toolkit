@@ -217,20 +217,26 @@ add_action( 'wp_head', function () {
 	$url   = '';
 
 	if ( 'slideshow' === $soort ) {
-		// De eerste dia is wat de bezoeker als eerste ziet.
-		$dias = isset( $settings['background_slideshow_gallery'] ) ? $settings['background_slideshow_gallery'] : array();
-		if ( ( ! is_array( $dias ) || empty( $dias[0]['url'] ) ) && ! empty( $settings['__dynamic__']['background_slideshow_gallery'] ) ) {
+		// De eerste dia is wat de bezoeker als eerste ziet. Staat er een dynamic tag voor de
+		// galerij, dan gebruikt Elementor bij het renderen altijd de tag, ook als er nog een
+		// oude vaste galerij in de data staat. Dus hier ook: tag gaat voor, zonder terugval.
+		if ( ! empty( $settings['__dynamic__']['background_slideshow_gallery'] ) ) {
 			$dias = mm_hero_preload_dynamische_tag( $settings['__dynamic__']['background_slideshow_gallery'] );
+		} else {
+			$dias = isset( $settings['background_slideshow_gallery'] ) ? $settings['background_slideshow_gallery'] : array();
 		}
 		if ( is_array( $dias ) && isset( $dias[0]['url'] ) && is_string( $dias[0]['url'] ) ) {
 			$url = $dias[0]['url'];
 		}
 	} elseif ( 'classic' === $soort ) {
-		$beeld = isset( $settings['background_image'] ) ? $settings['background_image'] : array();
-		if ( ( ! is_array( $beeld ) || empty( $beeld['url'] ) ) && ! empty( $settings['__dynamic__']['background_image'] ) ) {
-			// Bijvoorbeeld de categorieafbeelding of de uitgelichte afbeelding. De url in de
-			// data is dan leeg; Elementor vult hem pas bij het renderen via de tag.
+		// Een dynamic tag, bijvoorbeeld de categorieafbeelding of de uitgelichte afbeelding,
+		// gaat voor. Elementor gebruikt bij het renderen altijd de tag, ook als er nog een
+		// oude vaste afbeelding in de data staat. Levert de tag niets bruikbaars op, dan geen
+		// preload en geen terugval op die vaste afbeelding.
+		if ( ! empty( $settings['__dynamic__']['background_image'] ) ) {
 			$beeld = mm_hero_preload_dynamische_tag( $settings['__dynamic__']['background_image'] );
+		} else {
+			$beeld = isset( $settings['background_image'] ) ? $settings['background_image'] : array();
 		}
 		if ( is_array( $beeld ) && isset( $beeld['url'] ) && is_string( $beeld['url'] ) ) {
 			$url = $beeld['url'];
