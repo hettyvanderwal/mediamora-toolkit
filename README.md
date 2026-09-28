@@ -45,6 +45,8 @@ Verwijderen via Plugins ruimt alles op: de opties en transients van de toolkit e
 ### 1.5.0
 
 - Hero-preload werkt nu ook op archieven: winkel, productcategorieën, blog en zoekresultaten. De hero staat daar in een archieftemplate van de Elementor Theme Builder. Welk template dat is, bepaalt Elementor Pro zelf via zijn conditions manager, dus het is precies het template dat op die pagina wordt getoond, ook bij aparte templates per categorie. Zonder Elementor Pro of zonder passend template gebeurt er op archieven niets.
+- Hero-preload: achtergronden via een dynamic tag, bijvoorbeeld de categorieafbeelding of de uitgelichte afbeelding, worden nu ook gepreload. De url staat dan niet in de Elementor-data; de module laat Elementor de tag oplossen, net als bij het renderen. Dat geldt voor een gewone achtergrond en voor een dynamische slideshow-galerij. Lukt het oplossen niet, dan komt er geen preload.
+- Hero-preload: de Elementor-data wordt nu als JSON gelezen in plaats van met een zoekpatroon. De volgorde is gelijk gebleven, dus op pagina's verandert de uitkomst niet.
 - Hero-preload: bij een slideshow gebruikt de verfregel op een archief het template-ID in de selector.
 - Hero-preload: nieuw filter `mediamora_hero_preload_bron` om de bron zelf te bepalen. Krijgt de gevonden bron mee (of null) en verwacht een array met `id` en `data` (de Elementor-data als JSON).
 

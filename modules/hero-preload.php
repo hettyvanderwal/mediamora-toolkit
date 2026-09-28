@@ -106,6 +106,68 @@ function mm_hero_preload_archieftemplate() {
 }
 
 /**
+ * Zoekt in documentvolgorde (eerst de settings van een element, dan zijn kinderen) het
+ * eerste element met een ingestelde background_background en geeft de settings daarvan.
+ * Dat is de bovenste achtergrond op de pagina. Alleen background_background telt, niet
+ * _background_background of background_overlay_background.
+ *
+ * @param array $elementen Elementen uit de gedecodeerde Elementor-data.
+ * @return array|null Settings van het gevonden element, of null.
+ */
+function mm_hero_preload_eerste_achtergrond( $elementen ) {
+
+	foreach ( $elementen as $element ) {
+		if ( ! is_array( $element ) ) {
+			continue;
+		}
+
+		if ( isset( $element['settings'] ) && is_array( $element['settings'] ) && ! empty( $element['settings']['background_background'] ) && is_string( $element['settings']['background_background'] ) ) {
+			return $element['settings'];
+		}
+
+		if ( ! empty( $element['elements'] ) && is_array( $element['elements'] ) ) {
+			$gevonden = mm_hero_preload_eerste_achtergrond( $element['elements'] );
+			if ( $gevonden ) {
+				return $gevonden;
+			}
+		}
+	}
+
+	return null;
+}
+
+/**
+ * Lost een dynamic tag van Elementor op, zoals die in settings['__dynamic__'] staat, en
+ * geeft de waarde terug: bij een afbeelding een array met id en url, bij een galerij een
+ * lijst van zulke arrays. Zonder Elementor of als het misgaat: null.
+ *
+ * @param string $tag De tag, bijvoorbeeld [elementor-tag id="..." name="..." settings="..."].
+ * @return mixed|null
+ */
+function mm_hero_preload_dynamische_tag( $tag ) {
+
+	if ( ! is_string( $tag ) || '' === $tag || ! class_exists( '\Elementor\Plugin' ) ) {
+		return null;
+	}
+
+	try {
+		$elementor = \Elementor\Plugin::$instance;
+		if ( ! $elementor || empty( $elementor->dynamic_tags ) ) {
+			return null;
+		}
+
+		$tags = $elementor->dynamic_tags;
+		if ( ! method_exists( $tags, 'parse_tags_text' ) || ! method_exists( $tags, 'get_tag_data_content' ) ) {
+			return null;
+		}
+
+		return $tags->parse_tags_text( $tag, array( 'returnType' => 'object' ), array( $tags, 'get_tag_data_content' ) );
+	} catch ( \Throwable $e ) {
+		return null;
+	}
+}
+
+/**
  * Leest de eerste achtergrondafbeelding uit de Elementor-data van de opgevraagde pagina,
  * of op een archief uit het archieftemplate, en zet daar een preload voor in de head.
  * Geen vaste bestandsnaam, dus de preload beweegt mee zodra de afbeelding wordt vervangen.
@@ -141,23 +203,37 @@ add_action( 'wp_head', function () {
 	// Bepalend is het type van de EERSTE container in de Elementor-data, want dat is de
 	// bovenste sectie op de pagina. Niet zomaar zoeken op background_image: een container
 	// die ooit klassiek was en later een slideshow werd, houdt die oude sleutel gewoon.
-	if ( ! preg_match( '#"background_background":"([a-z]+)"#', $data, $type, PREG_OFFSET_CAPTURE ) ) {
+	$elementen = json_decode( $data, true );
+	if ( ! is_array( $elementen ) ) {
 		return;
 	}
 
-	$soort  = $type[1][0];
-	$vanaf  = $type[0][1];
-	$restje = substr( $data, $vanaf );
-	$url    = '';
+	$settings = mm_hero_preload_eerste_achtergrond( $elementen );
+	if ( ! $settings ) {
+		return;
+	}
+
+	$soort = $settings['background_background'];
+	$url   = '';
 
 	if ( 'slideshow' === $soort ) {
 		// De eerste dia is wat de bezoeker als eerste ziet.
-		if ( preg_match( '#"background_slideshow_gallery":\[\{[^}]*?"url":"([^"]+)"#', $restje, $treffer ) ) {
-			$url = stripslashes( $treffer[1] );
+		$dias = isset( $settings['background_slideshow_gallery'] ) ? $settings['background_slideshow_gallery'] : array();
+		if ( ( ! is_array( $dias ) || empty( $dias[0]['url'] ) ) && ! empty( $settings['__dynamic__']['background_slideshow_gallery'] ) ) {
+			$dias = mm_hero_preload_dynamische_tag( $settings['__dynamic__']['background_slideshow_gallery'] );
+		}
+		if ( is_array( $dias ) && isset( $dias[0]['url'] ) && is_string( $dias[0]['url'] ) ) {
+			$url = $dias[0]['url'];
 		}
 	} elseif ( 'classic' === $soort ) {
-		if ( preg_match( '#"background_image":\{[^}]*"url":"([^"]+)"#', $restje, $treffer ) ) {
-			$url = stripslashes( $treffer[1] );
+		$beeld = isset( $settings['background_image'] ) ? $settings['background_image'] : array();
+		if ( ( ! is_array( $beeld ) || empty( $beeld['url'] ) ) && ! empty( $settings['__dynamic__']['background_image'] ) ) {
+			// Bijvoorbeeld de categorieafbeelding of de uitgelichte afbeelding. De url in de
+			// data is dan leeg; Elementor vult hem pas bij het renderen via de tag.
+			$beeld = mm_hero_preload_dynamische_tag( $settings['__dynamic__']['background_image'] );
+		}
+		if ( is_array( $beeld ) && isset( $beeld['url'] ) && is_string( $beeld['url'] ) ) {
+			$url = $beeld['url'];
 		}
 	}
 
