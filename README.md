@@ -42,6 +42,12 @@ Verwijderen via Plugins ruimt alles op: de opties en transients van de toolkit e
 
 ## Wijzigingen
 
+### 1.5.0
+
+- Hero-preload werkt nu ook op archieven: winkel, productcategorieën, blog en zoekresultaten. De hero staat daar in een archieftemplate van de Elementor Theme Builder. Welk template dat is, bepaalt Elementor Pro zelf via zijn conditions manager, dus het is precies het template dat op die pagina wordt getoond, ook bij aparte templates per categorie. Zonder Elementor Pro of zonder passend template gebeurt er op archieven niets.
+- Hero-preload: bij een slideshow gebruikt de verfregel op een archief het template-ID in de selector.
+- Hero-preload: nieuw filter `mediamora_hero_preload_bron` om de bron zelf te bepalen. Krijgt de gevonden bron mee (of null) en verwacht een array met `id` en `data` (de Elementor-data als JSON).
+
 ### 1.4.0
 
 - Anti-spam: de rapportmail en de bijna-weigeringsmail gaan via WP-cron in plaats van tijdens de inzending, zodat een bezoeker bij het versturen van een formulier niet meer op de mail wacht. Er wordt een eenmalig event ingepland, alleen als de periode om is en er nog geen klaarstaat. Inhoud en frequentie van beide mails blijven gelijk.

@@ -34,7 +34,7 @@ function mm_toolkit_modules() {
 		),
 		'hero_preload'     => array(
 			'naam'         => 'Hero-preload',
-			'uitleg'       => 'Laat de achtergrondafbeelding of slideshow van de bovenste container vooraf laden. Scheelt vooral op mobiel op de LCP.',
+			'uitleg'       => 'Laat de achtergrondafbeelding of slideshow van de bovenste container vooraf laden. Scheelt vooral op mobiel op de LCP. Werkt op pagina\'s en posts, en op winkel-, categorie-, blog- en zoekpagina\'s via het archieftemplate van Elementor Pro.',
 			'bestand'      => 'hero-preload.php',
 			'standaard'    => true,
 			'losse_mu'     => 'mediamora-hero-preload.php',
