@@ -40,7 +40,7 @@ define( 'MM_TOOLKIT_MAP', __DIR__ );
  *                functienamen en ligt de site plat.
  *
  * Per site vastzetten kan in wp-config.php, bijvoorbeeld:
- *   define( 'MM_TOOLKIT_ALT_TEKSTEN', false );
+ *   define( 'MM_TOOLKIT_MODULE_ALT_TEKSTEN', false );
  * De schakelaar in het instellingenscherm is dan grijs.
  * ---------------------------------------------------------------------- */
 
@@ -144,10 +144,28 @@ function mm_toolkit_losse_versie( $module ) {
 
 /**
  * Vastgezet via wp-config? Geeft true, false of null (niet vastgezet).
+ *
+ * De constante heet MM_TOOLKIT_MODULE_ plus de sleutel. Tot en met 1.3.0
+ * was dat MM_TOOLKIT_ plus de sleutel, wat kan botsen met de eigen
+ * constanten zoals MM_TOOLKIT_VERSIE. Die oude namen blijven werken, maar
+ * alleen voor de modules die er toen al waren, zodat een nieuwe module
+ * nooit op een eigen constante reageert. Staan beide er, dan wint de
+ * nieuwe naam.
  */
 function mm_toolkit_vastgezet( $sleutel ) {
+	$oude_namen = array( 'alt_teksten', 'hero_preload', 'preview_link', 'anti_spam', 'formuliermonitor', 'ai_bots', 'rest_users' );
+
+	$constante = 'MM_TOOLKIT_MODULE_' . strtoupper( $sleutel );
+	if ( defined( $constante ) ) {
+		return (bool) constant( $constante );
+	}
+
 	$constante = 'MM_TOOLKIT_' . strtoupper( $sleutel );
-	return defined( $constante ) ? (bool) constant( $constante ) : null;
+	if ( in_array( $sleutel, $oude_namen, true ) && defined( $constante ) ) {
+		return (bool) constant( $constante );
+	}
+
+	return null;
 }
 
 /**
@@ -326,15 +344,29 @@ function mm_toolkit_opslaan() {
 	}
 	check_admin_referer( 'mm_toolkit_opslaan' );
 
-	$oud    = mm_toolkit_keuzes();
-	$nieuw  = array();
-	$gekozen = isset( $_POST['mm_module'] ) ? (array) wp_unslash( $_POST['mm_module'] ) : array();
+	$oud        = mm_toolkit_keuzes();
+	$nieuw      = array();
+	$opslaan    = array();
+	$opgeslagen = get_option( MM_TOOLKIT_OPTIE, array() );
+	$opgeslagen = is_array( $opgeslagen ) ? $opgeslagen : array();
+	$gekozen    = isset( $_POST['mm_module'] ) ? (array) wp_unslash( $_POST['mm_module'] ) : array();
 
 	foreach ( mm_toolkit_modules() as $sleutel => $module ) {
-		$nieuw[ $sleutel ] = isset( $gekozen[ $sleutel ] );
+		// Een vastgezette module heeft een grijze schakelaar, en die stuurt
+		// de browser niet mee. Dan blijft staan wat er al was; stond er nog
+		// niets, dan blijft dat zo en geldt de standaard.
+		if ( null !== mm_toolkit_vastgezet( $sleutel ) ) {
+			$nieuw[ $sleutel ] = $oud[ $sleutel ];
+			if ( array_key_exists( $sleutel, $opgeslagen ) ) {
+				$opslaan[ $sleutel ] = (bool) $opgeslagen[ $sleutel ];
+			}
+			continue;
+		}
+		$nieuw[ $sleutel ]   = isset( $gekozen[ $sleutel ] );
+		$opslaan[ $sleutel ] = $nieuw[ $sleutel ];
 	}
 
-	update_option( MM_TOOLKIT_OPTIE, $nieuw, false );
+	update_option( MM_TOOLKIT_OPTIE, $opslaan, false );
 
 	// Opruimen bij uitzetten.
 	if ( $oud['preview_link'] && ! $nieuw['preview_link'] ) {

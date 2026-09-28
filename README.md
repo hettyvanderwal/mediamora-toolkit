@@ -27,10 +27,12 @@ REST-gebruikers afschermen ging van standaard aan naar standaard uit. Sites die 
 In `wp-config.php`, bijvoorbeeld op een academie:
 
 ```php
-define( 'MM_TOOLKIT_ALT_TEKSTEN', false );
+define( 'MM_TOOLKIT_MODULE_ALT_TEKSTEN', false );
 ```
 
-Beschikbaar: `MM_TOOLKIT_ALT_TEKSTEN`, `MM_TOOLKIT_HERO_PRELOAD`, `MM_TOOLKIT_PREVIEW_LINK`, `MM_TOOLKIT_ANTI_SPAM`, `MM_TOOLKIT_FORMULIERMONITOR`, `MM_TOOLKIT_AI_BOTS`, `MM_TOOLKIT_REST_USERS`.
+Beschikbaar: `MM_TOOLKIT_MODULE_ALT_TEKSTEN`, `MM_TOOLKIT_MODULE_HERO_PRELOAD`, `MM_TOOLKIT_MODULE_PREVIEW_LINK`, `MM_TOOLKIT_MODULE_ANTI_SPAM`, `MM_TOOLKIT_MODULE_FORMULIERMONITOR`, `MM_TOOLKIT_MODULE_AI_BOTS`, `MM_TOOLKIT_MODULE_REST_USERS`.
+
+De oude namen zonder `MODULE_` (zoals `MM_TOOLKIT_ALT_TEKSTEN`) werken nog voor deze zeven modules, zodat bestaande regels in `wp-config.php` niet aangepast hoeven te worden. Staan beide er, dan wint de nieuwe naam. Een vastgezette module houdt bij het opslaan van het instellingenscherm de keuze die er al stond.
 
 ## Wijzigingen
 
