@@ -29,95 +29,8 @@ const MM_TOOLKIT_OPTIE  = 'mm_toolkit_modules';
 define( 'MM_TOOLKIT_BESTAND', __FILE__ );
 define( 'MM_TOOLKIT_MAP', __DIR__ );
 
-
-/* -------------------------------------------------------------------------
- * Modules
- *
- * losse_mu:      mu-plugin die deze module vervangt
- * losse_plugin:  gewone plugin die deze module vervangt
- * merkteken:     functie of klasse die de losse versie definieert. Laadt
- *                die al, dan blijft de module uit, anders botsen de
- *                functienamen en ligt de site plat.
- *
- * Per site vastzetten kan in wp-config.php, bijvoorbeeld:
- *   define( 'MM_TOOLKIT_MODULE_ALT_TEKSTEN', false );
- * De schakelaar in het instellingenscherm is dan grijs.
- * ---------------------------------------------------------------------- */
-
-function mm_toolkit_modules() {
-	return array(
-		'alt_teksten'      => array(
-			'naam'         => 'Alt-teksten',
-			'uitleg'       => 'Vult bij nieuwe uploads zelf een alt-tekst in, zodat Elementor geen bestandsnamen toont. Niet nodig op een academie.',
-			'bestand'      => 'alt-teksten.php',
-			'standaard'    => true,
-			'losse_mu'     => 'mediamora-alt-teksten.php',
-			'losse_plugin' => '',
-			'merkteken'    => array( 'class', 'Mediamora_Alt_Teksten' ),
-			'scherm'       => '',
-		),
-		'hero_preload'     => array(
-			'naam'         => 'Hero-preload',
-			'uitleg'       => 'Laat de achtergrondafbeelding of slideshow van de bovenste container vooraf laden. Scheelt vooral op mobiel op de LCP.',
-			'bestand'      => 'hero-preload.php',
-			'standaard'    => true,
-			'losse_mu'     => 'mediamora-hero-preload.php',
-			'losse_plugin' => '',
-			'merkteken'    => array(),
-			'scherm'       => '',
-		),
-		'preview_link'     => array(
-			'naam'         => 'Preview-link',
-			'uitleg'       => 'Klanten kijken mee op een site in onderhoudsmodus via een link, zonder inloggen. Doet niets zodra de onderhoudsmodus uit staat. Uitzetten maakt alle bestaande links ongeldig.',
-			'bestand'      => 'preview-link.php',
-			'standaard'    => true,
-			'losse_mu'     => 'mm-preview.php',
-			'losse_plugin' => '',
-			'merkteken'    => array( 'function', 'mm_preview_key' ),
-			'scherm'       => '',
-		),
-		'anti_spam'        => array(
-			'naam'         => 'Anti-spam',
-			'uitleg'       => 'Weigert spam via Elementor Pro-formulieren. Werkt alleen als Elementor Pro actief is.',
-			'bestand'      => 'anti-spam.php',
-			'standaard'    => true,
-			'losse_mu'     => '',
-			'losse_plugin' => 'mediamora-anti-spam-elementor/mediamora-anti-spam-elementor.php',
-			'merkteken'    => array( 'function', 'mediamora_antispam_validate_form' ),
-			'scherm'       => 'options-general.php?page=mediamora-antispam',
-		),
-		'formuliermonitor' => array(
-			'naam'         => 'Formuliermonitor',
-			'uitleg'       => 'Stuurt Mediamora een melding zodra de site een e-mail niet kan versturen. Hoort bij het onderhoudspakket.',
-			'bestand'      => 'formuliermonitor.php',
-			'standaard'    => false,
-			'losse_mu'     => '',
-			'losse_plugin' => 'mediamora-formuliermonitor/mediamora-formuliermonitor.php',
-			'merkteken'    => array( 'function', 'mm_monitor_verwerk_fout' ),
-			'scherm'       => '',
-		),
-		'ai_bots'          => array(
-			'naam'         => 'AI-bots',
-			'uitleg'       => 'Houdt per maand bij welke AI-crawlers de site bezoeken. Hoort bij de GEO-check.',
-			'bestand'      => 'ai-bots.php',
-			'standaard'    => false,
-			'losse_mu'     => 'mediamora-ai-bots.php',
-			'losse_plugin' => '',
-			'merkteken'    => array( 'function', 'mm_aibots_lijst' ),
-			'scherm'       => 'options-general.php?page=mm-aibots',
-		),
-		'rest_users'       => array(
-			'naam'         => 'REST-gebruikers afschermen',
-			'uitleg'       => 'Sluit /wp-json/wp/v2/users af voor bezoekers die niet zijn ingelogd, zodat inlognamen niet uit te lezen zijn. De rest van de REST API blijft werken. Alleen nodig op een webshop, want daar blokkeert "Disable REST API" in ASE de webhooks van Mollie en MyParcel. Op andere sites blijft ASE de route.',
-			'bestand'      => 'rest-users.php',
-			'standaard'    => false,
-			'losse_mu'     => 'mediamora-rest-users.php',
-			'losse_plugin' => '',
-			'merkteken'    => array( 'function', 'mm_rest_users_afschermen' ),
-			'scherm'       => '',
-		),
-	);
-}
+require_once MM_TOOLKIT_MAP . '/includes/modules.php';
+require_once MM_TOOLKIT_MAP . '/includes/preview-htaccess.php';
 
 /**
  * Staat er nog een losse versie van deze module op de site?
@@ -144,6 +57,10 @@ function mm_toolkit_losse_versie( $module ) {
 
 /**
  * Vastgezet via wp-config? Geeft true, false of null (niet vastgezet).
+ *
+ * Per site vastzetten kan in wp-config.php, bijvoorbeeld:
+ *   define( 'MM_TOOLKIT_MODULE_ALT_TEKSTEN', false );
+ * De schakelaar in het instellingenscherm is dan grijs.
  *
  * De constante heet MM_TOOLKIT_MODULE_ plus de sleutel. Tot en met 1.3.0
  * was dat MM_TOOLKIT_ plus de sleutel, wat kan botsen met de eigen
@@ -313,8 +230,16 @@ function mm_toolkit_activeren() {
 
 register_deactivation_hook( __FILE__, 'mm_toolkit_deactiveren' );
 
+/**
+ * Ruimt alleen op wat zonder de plugin blijft doorlopen: de cron-events en
+ * het blok in .htaccess. Instellingen en logs blijven staan tot de plugin
+ * wordt verwijderd, zie uninstall.php.
+ */
 function mm_toolkit_deactiveren() {
 	mm_toolkit_preview_cache_bijwerken( false );
+	wp_clear_scheduled_hook( 'mm_aibots_opschonen' );
+	wp_clear_scheduled_hook( 'mediamora_antispam_report' );
+	wp_clear_scheduled_hook( 'mediamora_antispam_nearmiss_alert' );
 }
 
 
@@ -496,7 +421,8 @@ function mm_toolkit_melding() {
  * Dat kost wat serverwerk en lekt niets.
  * ---------------------------------------------------------------------- */
 
-const MM_TOOLKIT_PREVIEW_MARKER = 'Mediamora Preview';
+// De marker, het blok en het schrijven staan in includes/preview-htaccess.php,
+// zodat uninstall.php ze ook kan gebruiken.
 
 /**
  * Hoort het blok in .htaccess te staan?
@@ -516,134 +442,6 @@ function mm_toolkit_preview_cache_gewenst( $module_aan = null, $modus = null ) {
 		$modus = (string) get_option( 'elementor_maintenance_mode_mode', '' );
 	}
 	return $module_aan && in_array( $modus, array( 'maintenance', 'coming_soon' ), true );
-}
-
-/**
- * Draait de site op LiteSpeed? Null als dat niet te zien is, bijvoorbeeld
- * via WP-CLI of cron zonder webserver.
- */
-function mm_toolkit_litespeed_server() {
-	$software = isset( $_SERVER['SERVER_SOFTWARE'] ) ? (string) $_SERVER['SERVER_SOFTWARE'] : '';
-	if ( '' === $software ) {
-		return null;
-	}
-	return false !== stripos( $software, 'litespeed' );
-}
-
-function mm_toolkit_preview_htaccess_blok() {
-	return '# BEGIN ' . MM_TOOLKIT_PREVIEW_MARKER . "\n"
-		. "# Preview-link van de Mediamora Toolkit: LiteSpeed slaat de cache over\n"
-		. "# voor bezoekers met het preview-cookie. Wordt door de plugin beheerd.\n"
-		. "<IfModule LiteSpeed>\n"
-		. "RewriteEngine On\n"
-		. "RewriteCond %{HTTP_COOKIE} (^|;\\s*)mm_preview=\n"
-		. "RewriteRule .* - [E=Cache-Control:no-cache]\n"
-		. "</IfModule>\n"
-		. '# END ' . MM_TOOLKIT_PREVIEW_MARKER . "\n";
-}
-
-/**
- * Hoe vaak staat een markerregel in de tekst? Telt alleen hele regels.
- */
-function mm_toolkit_htaccess_tel( $inhoud, $regel ) {
-	return (int) preg_match_all( '/^' . preg_quote( $regel, '/' ) . '[ \t]*\r?$/m', $inhoud );
-}
-
-/**
- * Zet het blok bovenaan .htaccess of haalt het weg.
- *
- * Toevoegen gebeurt alleen op LiteSpeed. Weghalen mag altijd, maar het
- * bestand wordt alleen aangeraakt als er echt iets verandert. Zonder
- * LiteSpeed en zonder blok gebeurt er dus niets.
- *
- * Het blok moet vóór # BEGIN WordPress staan: de WordPress-regel eindigt op
- * [L], dus alles daarna wordt voor pagina's nooit gelezen. Daarom geen
- * insert_with_markers(), want die zet een nieuw blok onderaan.
- *
- * Na het schrijven wordt het bestand teruggelezen. Staan # BEGIN WordPress
- * en het eigen blok er dan niet elk precies zo vaak in als bedoeld, of staat
- * het blok niet boven WordPress, dan komt de vorige inhoud terug.
- *
- * @param bool $gewenst Moet het blok erin staan?
- * @return bool True als .htaccess daarna in orde is.
- */
-function mm_toolkit_preview_cache_bijwerken( $gewenst ) {
-
-	if ( $gewenst && true !== mm_toolkit_litespeed_server() ) {
-		return false;
-	}
-
-	if ( ! function_exists( 'get_home_path' ) ) {
-		require_once ABSPATH . 'wp-admin/includes/file.php';
-	}
-	$pad = get_home_path() . '.htaccess';
-
-	if ( ! file_exists( $pad ) ) {
-		// Geen .htaccess betekent ook geen WordPress-blok. Niet zelf aanmaken.
-		return ! $gewenst;
-	}
-
-	$oud = file_get_contents( $pad );
-	if ( false === $oud ) {
-		return mm_toolkit_preview_cache_fout( $gewenst );
-	}
-
-	$begin = '# BEGIN ' . MM_TOOLKIT_PREVIEW_MARKER;
-	$einde = '# END ' . MM_TOOLKIT_PREVIEW_MARKER;
-
-	$zonder = preg_replace(
-		'/^' . preg_quote( $begin, '/' ) . '[ \t]*\r?$.*?^' . preg_quote( $einde, '/' ) . '[ \t]*\r?$\R*/ms',
-		'',
-		$oud
-	);
-	if ( null === $zonder ) {
-		return mm_toolkit_preview_cache_fout( $gewenst );
-	}
-	$nieuw = $gewenst ? mm_toolkit_preview_htaccess_blok() . "\n" . $zonder : $zonder;
-
-	if ( $nieuw === $oud ) {
-		delete_transient( 'mm_toolkit_preview_htaccess_fout' );
-		return true;
-	}
-
-	// Zonder precies één WordPress-blok is het bestand niet wat we verwachten.
-	// Dan liever niets doen dan gokken waar het blok moet.
-	if ( 1 !== mm_toolkit_htaccess_tel( $oud, '# BEGIN WordPress' ) || ! is_writable( $pad ) ) {
-		return mm_toolkit_preview_cache_fout( $gewenst );
-	}
-
-	if ( false === file_put_contents( $pad, $nieuw, LOCK_EX ) ) {
-		return mm_toolkit_preview_cache_fout( $gewenst );
-	}
-
-	clearstatcache( true, $pad );
-	$terug  = file_get_contents( $pad );
-	$aantal = $gewenst ? 1 : 0;
-	$goed   = false !== $terug
-		&& 1 === mm_toolkit_htaccess_tel( $terug, '# BEGIN WordPress' )
-		&& $aantal === mm_toolkit_htaccess_tel( $terug, $begin )
-		&& $aantal === mm_toolkit_htaccess_tel( $terug, $einde )
-		&& ( ! $gewenst || strpos( $terug, $begin ) < strpos( $terug, '# BEGIN WordPress' ) );
-
-	if ( ! $goed ) {
-		file_put_contents( $pad, $oud, LOCK_EX );
-		return mm_toolkit_preview_cache_fout( $gewenst );
-	}
-
-	delete_transient( 'mm_toolkit_preview_htaccess_fout' );
-	return true;
-}
-
-/**
- * Onthoudt een mislukte poging, zodat het zelfherstel het niet bij elke
- * beheerpagina opnieuw probeert en het instellingenscherm het kan tonen.
- * Een mislukte opruiming telt niet: een blijvend blok is onschuldig.
- */
-function mm_toolkit_preview_cache_fout( $gewenst ) {
-	if ( $gewenst ) {
-		set_transient( 'mm_toolkit_preview_htaccess_fout', 1, DAY_IN_SECONDS );
-	}
-	return false;
 }
 
 // Onderhoudsmodus van Elementor aan- of uitgezet.
