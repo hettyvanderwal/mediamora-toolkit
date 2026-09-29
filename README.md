@@ -45,6 +45,17 @@ Verwijderen via Plugins ruimt alles op: de opties en transients van de toolkit e
 
 ## Wijzigingen
 
+### 1.6.0
+
+- Nieuwe module Herroepingsrecht bij afrekenen (`withdrawal_waiver`), standaard uit en alleen aan te zetten als WooCommerce actief is. Zet een verplicht vinkje boven de bestelknop waarmee de koper instemt met directe toegang tot een online cursus en afziet van het herroepingsrecht. Markup en foutweergave zijn gelijk aan die van het voorwaardenvinkje van WooCommerce. Werkt met de klassieke checkout en de Checkout-widget van Elementor; gebruikt de afrekenpagina het checkoutblok, dan staat er een melding in de instellingen.
+- Herroepingsrecht: de letterlijke vinkjestekst komt op de bestelling in `_mm_withdrawal_waiver`, dezelfde metakey als de oude `functions.php`-code, en staat in de bestelmails en onder het factuuradres in het beheer. Werkt met en zonder HPOS.
+- Herroepingsrecht: bereik "Alle producten" of "Alleen gemarkeerde producten". Een product telt mee via het nieuwe vinkje Herroepingsrecht in de tab Algemeen, of via een gekozen productcategorie (ook via een subcategorie). Bij variaties telt het hoofdproduct.
+- Herroepingsrecht: eigen teksten voor het vinkje, de foutmelding en het label in mail en beheer. Leeg geeft de standaardtekst in het Nederlands (site-taal `nl_*`) of Engels.
+- Herroepingsrecht: staat de oude code nog in `functions.php` (functie `mm_withdrawal_text`), dan doet de module niets en staat er een melding in de instellingen. Hij neemt het over zodra die code weg is.
+- Herroepingsrecht: het vinkje blijft aangevinkt als de afrekenpagina ververst, bijvoorbeeld na het wijzigen van het land.
+- Modules kunnen een plugin vereisen. Zonder die plugin is de schakelaar grijs, laadt de module niet en blijft bij opslaan de keuze staan die er al was.
+- `uninstall.php` ruimt de instellingen van Herroepingsrecht en het productvinkje `_mm_withdrawal_waiver_applies` op. `_mm_withdrawal_waiver` op bestellingen blijft altijd staan: dat is het bewijs van afstand.
+
 ### 1.5.0
 
 - Hero-preload werkt nu ook op archieven: winkel, productcategorieën, blog en zoekresultaten. De hero staat daar in een archieftemplate van de Elementor Theme Builder. Welk template dat is, bepaalt Elementor Pro zelf via zijn conditions manager, dus het is precies het template dat op die pagina wordt getoond, ook bij aparte templates per categorie. Zonder Elementor Pro of zonder passend template gebeurt er op archieven niets.
