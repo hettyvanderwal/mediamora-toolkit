@@ -100,7 +100,22 @@ function mm_preview_disable_maintenance( $value ) {
 }
 
 /**
- * Met geldige cookie: nooit cachen en nooit indexeren.
+ * Staat de onderhoudsmodus van Elementor echt aan? Het filter hierboven
+ * maakt de optie leeg voor preview-bezoekers, dus even zonder dat filter
+ * lezen.
+ */
+function mm_preview_onderhoud_aan() {
+	$weg   = remove_filter( 'pre_option_elementor_maintenance_mode_mode', 'mm_preview_disable_maintenance' );
+	$modus = (string) get_option( 'elementor_maintenance_mode_mode', '' );
+	if ( $weg ) {
+		add_filter( 'pre_option_elementor_maintenance_mode_mode', 'mm_preview_disable_maintenance' );
+	}
+	return in_array( $modus, array( 'maintenance', 'coming_soon' ), true );
+}
+
+/**
+ * Met geldige cookie: nooit cachen. En zolang de preview de onderhoudsmodus
+ * overslaat ook nooit indexeren.
  *
  * Op LiteSpeed komt dit te laat voor een pagina die al in de cache staat:
  * die wordt geserveerd voordat PHP draait. Daarvoor zet de toolkit zelf een
@@ -116,7 +131,26 @@ function mm_preview_protect() {
 		define( 'DONOTCACHEPAGE', true );
 	}
 	do_action( 'litespeed_control_set_nocache', 'mediamora preview' );
+
+	if ( ! mm_preview_onderhoud_aan() ) {
+		return;
+	}
+
+	// Drie lagen, omdat SEO-plugins de meta-tag van WordPress vervangen:
+	// wp_robots voor WordPress zelf, het filter van Rank Math (dat zet zijn
+	// eigen robots-tag en negeert wp_robots), en een header voor de rest.
 	add_filter( 'wp_robots', 'wp_robots_no_robots' );
+	add_filter( 'rank_math/frontend/robots', 'mm_preview_rank_math_robots', 99 );
+	if ( ! headers_sent() ) {
+		header( 'X-Robots-Tag: noindex, nofollow', true );
+	}
+}
+
+function mm_preview_rank_math_robots( $robots ) {
+	return array(
+		'index'  => 'noindex',
+		'follow' => 'nofollow',
+	);
 }
 
 /**
