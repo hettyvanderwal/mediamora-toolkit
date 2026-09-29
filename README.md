@@ -50,6 +50,9 @@ Verwijderen via Plugins ruimt alles op: de opties en transients van de toolkit e
 - AI-bots: nieuwe instelling "AI-crawlers buiten de cache houden" op het AI-bots-scherm, standaard uit. Op LiteSpeed krijgt een crawler anders een gecachete pagina zonder dat PHP draait, en telt de module structureel te laag. Aan zet de toolkit een blok `# BEGIN Mediamora AI-bots` bovenaan `.htaccess` waarmee LiteSpeed de cache overslaat voor de user agents van de module, behalve Googlebot en Bingbot (die blijven gecachet en tellen dus nog te laag). Kost meer serverbelasting. Alleen op LiteSpeed; het blok verdwijnt bij uitzetten van de instelling of de module, bij deactiveren en bij verwijderen, en wordt net als het preview-blok teruggelezen en zo nodig hersteld. Een CDN vóór de server (QUIC.cloud, Cloudflare met paginacache) kan nog steeds een kopie geven.
 - AI-bots: een bezoek hoogt alleen de teller op en schrijft weg; sorteren gebeurt pas op het AI-bots-scherm. Het opgeslagen pad komt uit `REQUEST_URI` via `wp_unslash` en `wp_parse_url`, zonder querystring en stuurtekens en hooguit 190 tekens. Een pad als `//voorbeeld.nl/x` wordt niet meer als host gelezen.
 - Preview-link: slaat een preview-bezoek de onderhoudsmodus van Elementor over, dan krijgt de pagina altijd noindex, nofollow: via `wp_robots`, via het filter `rank_math/frontend/robots` (Rank Math negeerde `wp_robots`) en via een header `X-Robots-Tag: noindex, nofollow` voor andere SEO-plugins. Zonder onderhoudsmodus en voor gewone bezoekers verandert er niets; een oud preview-cookie na de lancering geeft dus geen noindex meer.
+- Updater: vergelijkt met `Version:` in de kop van de plugin, dezelfde bron als WordPress, in plaats van met `MM_TOOLKIT_VERSIE`.
+- Updater: GitHub wordt alleen aangeroepen in de beheeromgeving, in WP-cron, via WP-CLI en wanneer WordPress zelf op updates controleert (ook als MainWP dat vanaf de voorkant start). Andere verzoeken wachten dus nooit meer op GitHub. De laatst opgehaalde release wordt bewaard in `mm_toolkit_release_laatst`, zodat een update niet uit de lijst verdwijnt als GitHub even niet antwoordt.
+- Updater: een map van een afgebroken update in de werkmap van de upgrader laat het terugzetten van de mapnaam niet meer mislukken.
 - De code voor `.htaccess` staat nu in `includes/htaccess.php` en wordt gedeeld door de preview-link en AI-bots.
 - Nieuwe module Herroepingsrecht bij afrekenen (`withdrawal_waiver`), standaard uit en alleen aan te zetten als WooCommerce actief is. Zet een verplicht vinkje boven de bestelknop waarmee de koper instemt met directe toegang tot een online cursus en afziet van het herroepingsrecht. Markup en foutweergave zijn gelijk aan die van het voorwaardenvinkje van WooCommerce. Werkt met de klassieke checkout en de Checkout-widget van Elementor; gebruikt de afrekenpagina het checkoutblok, dan staat er een melding in de instellingen.
 - Herroepingsrecht: de letterlijke vinkjestekst komt op de bestelling in `_mm_withdrawal_waiver`, dezelfde metakey als de oude `functions.php`-code, en staat in de bestelmails en onder het factuuradres in het beheer. Werkt met en zonder HPOS.
@@ -93,7 +96,7 @@ Verwijderen via Plugins ruimt alles op: de opties en transients van de toolkit e
 
 ## Release maken
 
-1. Versie ophogen op twee plekken in `mediamora-toolkit.php`: `Version:` in de kop en `MM_TOOLKIT_VERSIE`.
+1. Versie ophogen op twee plekken in `mediamora-toolkit.php`: `Version:` in de kop en `MM_TOOLKIT_VERSIE`. Of een update wordt aangeboden hangt alleen af van `Version:` in de kop; de constante wordt gelijk gehouden voor de rest, zoals de mailheader van de Formuliermonitor.
 2. Bestanden uploaden naar de repo.
 3. Release aanmaken met tag gelijk aan de versie, met een v ervoor, bijvoorbeeld `v1.0.1`.
 

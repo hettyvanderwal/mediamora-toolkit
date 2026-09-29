@@ -18,8 +18,9 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 /**
- * Versienummer. Moet gelijk zijn aan "Version" in de kop hierboven
- * en aan de tag van de GitHub-release (zonder de v).
+ * Versienummer. Gelijk houden aan "Version" in de kop hierboven. Voor
+ * updates telt alleen de kop, zie mm_toolkit_huidige_versie(); deze
+ * constante is er voor de rest, zoals de mailheader van de Formuliermonitor.
  */
 const MM_TOOLKIT_VERSIE = '1.6.0';
 const MM_TOOLKIT_REPO   = 'hettyvanderwal/mediamora-toolkit';
@@ -350,7 +351,7 @@ function mm_toolkit_scherm() {
 	$status  = mm_toolkit_status();
 	$modules = mm_toolkit_modules();
 
-	echo '<div class="wrap"><h1>Mediamora Toolkit <span style="font-size:13px;font-weight:400;color:#646970;">versie ' . esc_html( MM_TOOLKIT_VERSIE ) . '</span></h1>';
+	echo '<div class="wrap"><h1>Mediamora Toolkit <span style="font-size:13px;font-weight:400;color:#646970;">versie ' . esc_html( mm_toolkit_huidige_versie() ) . '</span></h1>';
 
 	if ( ! empty( $_GET['opgeslagen'] ) ) {
 		echo '<div class="notice notice-success is-dismissible"><p>Opgeslagen.</p></div>';
@@ -581,13 +582,58 @@ function mm_toolkit_aibots_cache_herstel() {
  * Zelfde kale updater als in de Formuliermonitor: geen plugin-update-checker,
  * want die bibliotheek past niet door de webuploader van GitHub.
  * Releases taggen als v1.0.0, v1.0.1 enzovoort.
+ *
+ * Ophalen bij GitHub kan tot tien seconden duren en gebeurt daarom alleen
+ * in de beheeromgeving, in WP-cron, via WP-CLI en wanneer WordPress zelf op
+ * updates controleert (dan loopt er toch al een verzoek naar wordpress.org,
+ * ook als MainWP die controle vanaf de voorkant start). Elders geldt de
+ * laatst opgehaalde release. Die staat los van de transient in een optie
+ * die niet verloopt, zodat een update niet uit de lijst verdwijnt als
+ * GitHub even niet antwoordt of de transient verlopen is.
  * ---------------------------------------------------------------------- */
 
-function mm_toolkit_laatste_release() {
+/**
+ * De geïnstalleerde versie, uit de kop van dit bestand. Dezelfde bron als
+ * WordPress zelf gebruikt, dus er is maar één plek die moet kloppen.
+ */
+function mm_toolkit_huidige_versie() {
+	$kop = get_file_data( MM_TOOLKIT_BESTAND, array( 'Version' => 'Version' ), 'plugin' );
+	return ! empty( $kop['Version'] ) ? $kop['Version'] : MM_TOOLKIT_VERSIE;
+}
 
+/**
+ * Mag dit verzoek GitHub aanroepen?
+ */
+function mm_toolkit_mag_ophalen() {
+	return is_admin() || wp_doing_cron() || ( defined( 'WP_CLI' ) && WP_CLI );
+}
+
+/**
+ * De laatst goed opgehaalde release, of een lege array.
+ */
+function mm_toolkit_bewaarde_release() {
+	$bewaard = get_option( 'mm_toolkit_release_laatst', array() );
+	return is_array( $bewaard ) ? $bewaard : array();
+}
+
+/**
+ * @param bool|null $ophalen Mag GitHub aangeroepen worden? Null: afhankelijk
+ *                           van het soort verzoek.
+ */
+function mm_toolkit_laatste_release( $ophalen = null ) {
+
+	// De transient bepaalt alleen wanneer er opnieuw wordt opgehaald. Een
+	// lege array betekent: vorige poging mislukt, nog even niet opnieuw.
 	$cache = get_transient( 'mm_toolkit_release' );
 	if ( false !== $cache ) {
-		return is_array( $cache ) ? $cache : array();
+		return is_array( $cache ) && $cache ? $cache : mm_toolkit_bewaarde_release();
+	}
+
+	if ( null === $ophalen ) {
+		$ophalen = mm_toolkit_mag_ophalen();
+	}
+	if ( ! $ophalen ) {
+		return mm_toolkit_bewaarde_release();
 	}
 
 	$antwoord = wp_remote_get(
@@ -603,14 +649,14 @@ function mm_toolkit_laatste_release() {
 
 	if ( is_wp_error( $antwoord ) || 200 !== wp_remote_retrieve_response_code( $antwoord ) ) {
 		set_transient( 'mm_toolkit_release', array(), 2 * HOUR_IN_SECONDS );
-		return array();
+		return mm_toolkit_bewaarde_release();
 	}
 
 	$data = json_decode( wp_remote_retrieve_body( $antwoord ), true );
 
 	if ( ! is_array( $data ) || empty( $data['tag_name'] ) ) {
 		set_transient( 'mm_toolkit_release', array(), 2 * HOUR_IN_SECONDS );
-		return array();
+		return mm_toolkit_bewaarde_release();
 	}
 
 	$release = array(
@@ -622,6 +668,7 @@ function mm_toolkit_laatste_release() {
 	);
 
 	set_transient( 'mm_toolkit_release', $release, 12 * HOUR_IN_SECONDS );
+	update_option( 'mm_toolkit_release_laatst', $release, false );
 
 	return $release;
 }
@@ -665,14 +712,27 @@ function mm_toolkit_pakket_toegestaan( $url ) {
 }
 
 add_filter( 'site_transient_update_plugins', 'mm_toolkit_meld_update' );
+add_filter( 'pre_set_site_transient_update_plugins', 'mm_toolkit_meld_update_bij_controle' );
 
-function mm_toolkit_meld_update( $transient ) {
+/**
+ * WordPress controleert zelf op updates en slaat de uitkomst op. Hier mag
+ * altijd opgehaald worden.
+ */
+function mm_toolkit_meld_update_bij_controle( $transient ) {
+	return mm_toolkit_meld_update( $transient, true );
+}
+
+/**
+ * @param object    $transient De transient update_plugins.
+ * @param bool|null $ophalen   Zie mm_toolkit_laatste_release().
+ */
+function mm_toolkit_meld_update( $transient, $ophalen = null ) {
 
 	if ( ! is_object( $transient ) ) {
 		return $transient;
 	}
 
-	$release = mm_toolkit_laatste_release();
+	$release = mm_toolkit_laatste_release( $ophalen );
 	// Ook hier controleren: een release in de cache van vóór deze controle
 	// kan nog een ongecontroleerd pakket bevatten.
 	if ( empty( $release['versie'] ) || empty( $release['zip'] ) || ! mm_toolkit_pakket_toegestaan( $release['zip'] ) ) {
@@ -692,10 +752,15 @@ function mm_toolkit_meld_update( $transient ) {
 		'tested'      => get_bloginfo( 'version' ),
 	);
 
-	if ( version_compare( $release['versie'], MM_TOOLKIT_VERSIE, '>' ) ) {
+	// De update staat nu ook in de opgeslagen transient. Daarom de vermelding
+	// uit de andere lijst weghalen, anders blijft na het bijwerken een oude
+	// "update beschikbaar" staan.
+	if ( version_compare( $release['versie'], mm_toolkit_huidige_versie(), '>' ) ) {
 		$transient->response[ $bestand ] = $info;
+		unset( $transient->no_update[ $bestand ] );
 	} else {
 		$transient->no_update[ $bestand ] = $info;
+		unset( $transient->response[ $bestand ] );
 	}
 
 	return $transient;
@@ -714,7 +779,7 @@ function mm_toolkit_plugin_details( $resultaat, $actie, $args ) {
 	return (object) array(
 		'name'          => 'Mediamora Toolkit',
 		'slug'          => MM_TOOLKIT_SLUG,
-		'version'       => ! empty( $release['versie'] ) ? $release['versie'] : MM_TOOLKIT_VERSIE,
+		'version'       => ! empty( $release['versie'] ) ? $release['versie'] : mm_toolkit_huidige_versie(),
 		'author'        => '<a href="https://mediamora.nl">Mediamora</a>',
 		'homepage'      => 'https://github.com/' . MM_TOOLKIT_REPO,
 		'download_link' => ! empty( $release['zip'] ) && mm_toolkit_pakket_toegestaan( $release['zip'] ) ? $release['zip'] : '',
@@ -746,7 +811,20 @@ function mm_toolkit_herstel_mapnaam( $bron, $externe_bron, $upgrader, $extra = n
 		return $bron;
 	}
 
-	if ( $wp_filesystem && $wp_filesystem->move( $bron, $gewenst ) ) {
+	if ( ! $wp_filesystem ) {
+		return $bron;
+	}
+
+	// Een map van een afgebroken update kan de verplaatsing laten mislukken.
+	// move() met overwrite haalt een bestaande map niet in elke versie van
+	// WordPress weg, dus zelf opruimen. Alleen binnen de werkmap van de
+	// upgrader, nooit in de pluginmap.
+	$upgrade = trailingslashit( $wp_filesystem->wp_content_dir() ) . 'upgrade/';
+	if ( 0 === strpos( $gewenst, $upgrade ) && $wp_filesystem->exists( $gewenst ) ) {
+		$wp_filesystem->delete( $gewenst, true );
+	}
+
+	if ( $wp_filesystem->move( $bron, $gewenst, true ) ) {
 		return trailingslashit( $gewenst );
 	}
 
