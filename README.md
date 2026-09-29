@@ -45,7 +45,7 @@ Verwijderen via Plugins ruimt alles op: de opties en transients van de toolkit e
 
 ## Wijzigingen
 
-### 1.6.0
+### 1.7.0
 
 - AI-bots: nieuwe instelling "AI-crawlers buiten de cache houden" op het AI-bots-scherm, standaard uit. Op LiteSpeed krijgt een crawler anders een gecachete pagina zonder dat PHP draait, en telt de module structureel te laag. Aan zet de toolkit een blok `# BEGIN Mediamora AI-bots` bovenaan `.htaccess` waarmee LiteSpeed de cache overslaat voor de user agents van de module, behalve Googlebot en Bingbot (die blijven gecachet en tellen dus nog te laag). Kost meer serverbelasting. Alleen op LiteSpeed; het blok verdwijnt bij uitzetten van de instelling of de module, bij deactiveren en bij verwijderen, en wordt net als het preview-blok teruggelezen en zo nodig hersteld. Een CDN vóór de server (QUIC.cloud, Cloudflare met paginacache) kan nog steeds een kopie geven.
 - AI-bots: een bezoek hoogt alleen de teller op en schrijft weg; sorteren gebeurt pas op het AI-bots-scherm. Het opgeslagen pad komt uit `REQUEST_URI` via `wp_unslash` en `wp_parse_url`, zonder querystring en stuurtekens en hooguit 190 tekens. Een pad als `//voorbeeld.nl/x` wordt niet meer als host gelezen.
@@ -54,6 +54,9 @@ Verwijderen via Plugins ruimt alles op: de opties en transients van de toolkit e
 - Updater: GitHub wordt alleen aangeroepen in de beheeromgeving, in WP-cron, via WP-CLI en wanneer WordPress zelf op updates controleert (ook als MainWP dat vanaf de voorkant start). Andere verzoeken wachten dus nooit meer op GitHub. De laatst opgehaalde release wordt bewaard in `mm_toolkit_release_laatst`, zodat een update niet uit de lijst verdwijnt als GitHub even niet antwoordt.
 - Updater: een map van een afgebroken update in de werkmap van de upgrader laat het terugzetten van de mapnaam niet meer mislukken.
 - De code voor `.htaccess` staat nu in `includes/htaccess.php` en wordt gedeeld door de preview-link en AI-bots.
+
+### 1.6.0
+
 - Nieuwe module Herroepingsrecht bij afrekenen (`withdrawal_waiver`), standaard uit en alleen aan te zetten als WooCommerce actief is. Zet een verplicht vinkje boven de bestelknop waarmee de koper instemt met directe toegang tot een online cursus en afziet van het herroepingsrecht. Markup en foutweergave zijn gelijk aan die van het voorwaardenvinkje van WooCommerce. Werkt met de klassieke checkout en de Checkout-widget van Elementor; gebruikt de afrekenpagina het checkoutblok, dan staat er een melding in de instellingen.
 - Herroepingsrecht: de letterlijke vinkjestekst komt op de bestelling in `_mm_withdrawal_waiver`, dezelfde metakey als de oude `functions.php`-code, en staat in de bestelmails en onder het factuuradres in het beheer. Werkt met en zonder HPOS.
 - Herroepingsrecht: bereik "Alle producten" of "Alleen gemarkeerde producten". Een product telt mee via het nieuwe vinkje Herroepingsrecht in de tab Algemeen, of via een gekozen productcategorie (ook via een subcategorie). Bij variaties telt het hoofdproduct.
