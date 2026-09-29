@@ -49,6 +49,14 @@ function mm_aibots_referentie() {
 }
 
 /**
+ * De crawlers die met "AI-crawlers buiten de cache houden" de cache
+ * overslaan: de hele lijst zonder de ijkpunten.
+ */
+function mm_aibots_cache_bots() {
+    return array_values(array_diff(mm_aibots_lijst(), mm_aibots_referentie()));
+}
+
+/**
  * Statische bestanden zijn ruis: ze zeggen niets over zichtbaarheid en
  * vullen wel de padenlimiet. CSS, afbeeldingen, fonts en de wp-mappen eruit.
  */
@@ -248,6 +256,8 @@ function mm_aibots_pagina() {
 
     echo '<div class="wrap"><h1>AI-bots</h1>';
 
+    mm_aibots_cache_formulier();
+
     if (!$maanden) {
         echo '<p>Er is nog niets gelogd. Zodra een bekende AI-crawler de site bezoekt, verschijnt hier een overzicht.</p></div>';
 
@@ -314,6 +324,69 @@ function mm_aibots_pagina() {
     }
 
     echo '</div>';
+}
+
+/* -------------------------------------------------------------------------
+ * Instelling: AI-crawlers buiten de cache houden
+ *
+ * Het blok in .htaccess zelf regelt de toolkit, zie "AI-bots:
+ * LiteSpeed-cache overslaan" in mediamora-toolkit.php.
+ * ---------------------------------------------------------------------- */
+
+function mm_aibots_cache_formulier() {
+    $litespeed = mm_toolkit_litespeed_server() === true;
+    $aan = (bool) get_option(MM_TOOLKIT_AIBOTS_CACHE_OPTIE, false);
+
+    if (!empty($_GET['cache-opgeslagen'])) {
+        echo '<div class="notice notice-success is-dismissible"><p>Opgeslagen.</p></div>';
+    }
+
+    echo '<form method="post" action="' . esc_url(admin_url('admin-post.php')) . '" style="max-width:820px;margin:1em 0 1.5em;">';
+    echo '<input type="hidden" name="action" value="mm_aibots_cache" />';
+    wp_nonce_field('mm_aibots_cache');
+
+    printf(
+        '<label><input type="checkbox" name="mm_aibots_cache" value="1"%s%s /> <strong>AI-crawlers buiten de cache houden</strong></label>',
+        checked($aan, true, false),
+        disabled(!$litespeed, true, false)
+    );
+
+    if (!$litespeed) {
+        echo ' <span style="color:#646970;">Alleen op LiteSpeed.</span>';
+    }
+
+    echo '<p class="description">LiteSpeed geeft gecachete pagina\'s zonder dat WordPress draait, en dan wordt een bezoek niet geteld. '
+        . 'Met dit vinkje krijgen AI-crawlers altijd een verse pagina, zodat elk bezoek meetelt. '
+        . 'Dat geeft meer serverbelasting, vooral bij drukke crawlers als GPTBot en Bytespider. '
+        . 'Googlebot en Bingbot blijven gecachet; hun aantallen blijven daardoor te laag en zijn dan niet meer één op één te vergelijken met die van de AI-crawlers.</p>';
+
+    if ($aan && get_transient('mm_toolkit_aibots_htaccess_fout')) {
+        echo '<p style="color:#b32d2e;">Kon .htaccess niet bijwerken: AI-crawlers krijgen nog gecachete pagina\'s.</p>';
+    }
+
+    if ($litespeed) {
+        submit_button('Opslaan', 'secondary', 'submit', false);
+    }
+
+    echo '</form>';
+}
+
+add_action('admin_post_mm_aibots_cache', 'mm_aibots_cache_opslaan');
+
+function mm_aibots_cache_opslaan() {
+    if (!current_user_can('manage_options')) {
+        wp_die('Geen toegang.');
+    }
+    check_admin_referer('mm_aibots_cache');
+
+    update_option(MM_TOOLKIT_AIBOTS_CACHE_OPTIE, !empty($_POST['mm_aibots_cache']), false);
+
+    // Een nieuwe poging, ook als het eerder misging.
+    delete_transient('mm_toolkit_aibots_htaccess_fout');
+    mm_toolkit_aibots_cache_bijwerken(mm_toolkit_aibots_cache_gewenst());
+
+    wp_safe_redirect(add_query_arg('cache-opgeslagen', '1', admin_url('options-general.php?page=mm-aibots')));
+    exit;
 }
 
 function mm_aibots_tabel($titel, $totalen, $log) {

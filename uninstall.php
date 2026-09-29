@@ -3,7 +3,7 @@
  * Mediamora Toolkit, opruimen bij het verwijderen van de plugin.
  *
  * WordPress laadt alleen dit bestand, niet de rest van de plugin. De lijst
- * met modules en het .htaccess-blok komen daarom uit includes/.
+ * met modules en de .htaccess-blokken komen daarom uit includes/.
  *
  * De losse versies van de modules gebruiken dezelfde opties, bestanden en
  * meta. Staat de losse versie van een module nog op de site, als plugin of
@@ -17,7 +17,7 @@ if ( ! defined( 'WP_UNINSTALL_PLUGIN' ) ) {
 define( 'MM_TOOLKIT_MAP', __DIR__ );
 
 require_once MM_TOOLKIT_MAP . '/includes/modules.php';
-require_once MM_TOOLKIT_MAP . '/includes/preview-htaccess.php';
+require_once MM_TOOLKIT_MAP . '/includes/htaccess.php';
 
 /**
  * Staat de losse versie van deze module nog op de site? Anders dan
@@ -91,6 +91,10 @@ function mm_toolkit_uninstall_site( $los ) {
 	delete_option( 'mm_toolkit_modules' );
 	delete_transient( 'mm_toolkit_release' );
 	delete_transient( 'mm_toolkit_preview_htaccess_fout' );
+
+	// Alleen van de toolkit; de losse AI-bots kent deze instelling niet.
+	delete_option( 'mm_toolkit_aibots_cache' );
+	delete_transient( 'mm_toolkit_aibots_htaccess_fout' );
 
 	if ( ! $los['alt_teksten'] ) {
 		foreach ( array( '_mm_alt_bron', '_mm_alt_index', '_mm_alt_datum' ) as $sleutel ) {
@@ -171,3 +175,4 @@ if ( ! $mm_toolkit_los['anti_spam'] ) {
 
 // Normaal al weg bij het deactiveren. Eén .htaccess voor de hele installatie.
 mm_toolkit_preview_cache_bijwerken( false );
+mm_toolkit_aibots_cache_bijwerken( false );

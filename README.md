@@ -39,14 +39,16 @@ De oude namen zonder `MODULE_` (zoals `MM_TOOLKIT_ALT_TEKSTEN`) werken nog voor 
 
 ## Deactiveren en verwijderen
 
-Deactiveren haalt alleen de cron-events en het preview-blok uit `.htaccess` weg. Instellingen en logs blijven staan.
+Deactiveren haalt alleen de cron-events en de blokken van de toolkit uit `.htaccess` weg. Instellingen en logs blijven staan.
 
-Verwijderen via Plugins ruimt alles op: de opties en transients van de toolkit en de modules, de cron-events, de alt-tekstkenmerken (`_mm_alt_*`, de alt-teksten zelf blijven staan), het productvinkje `_mm_withdrawal_waiver_applies` (de tekst `_mm_withdrawal_waiver` op bestellingen blijft altijd staan, dat is het bewijs van afstand), het `.htaccess`-blok en de logmap van de anti-spam met de inzendingen erin. Kan de logmap niet worden weggehaald, dan blijft de optie `mediamora_antispam_log_dir` staan, zodat te vinden is waar hij staat. Staat de losse versie van een module nog op de site, als plugin of mu-plugin en actief of niet, dan blijft alles van die module staan, want de losse versie gebruikt dezelfde gegevens.
+Verwijderen via Plugins ruimt alles op: de opties en transients van de toolkit en de modules, de cron-events, de alt-tekstkenmerken (`_mm_alt_*`, de alt-teksten zelf blijven staan), het productvinkje `_mm_withdrawal_waiver_applies` (de tekst `_mm_withdrawal_waiver` op bestellingen blijft altijd staan, dat is het bewijs van afstand), de `.htaccess`-blokken en de logmap van de anti-spam met de inzendingen erin. Kan de logmap niet worden weggehaald, dan blijft de optie `mediamora_antispam_log_dir` staan, zodat te vinden is waar hij staat. Staat de losse versie van een module nog op de site, als plugin of mu-plugin en actief of niet, dan blijft alles van die module staan, want de losse versie gebruikt dezelfde gegevens.
 
 ## Wijzigingen
 
 ### 1.6.0
 
+- AI-bots: nieuwe instelling "AI-crawlers buiten de cache houden" op het AI-bots-scherm, standaard uit. Op LiteSpeed krijgt een crawler anders een gecachete pagina zonder dat PHP draait, en telt de module structureel te laag. Aan zet de toolkit een blok `# BEGIN Mediamora AI-bots` bovenaan `.htaccess` waarmee LiteSpeed de cache overslaat voor de user agents van de module, behalve Googlebot en Bingbot (die blijven gecachet en tellen dus nog te laag). Kost meer serverbelasting. Alleen op LiteSpeed; het blok verdwijnt bij uitzetten van de instelling of de module, bij deactiveren en bij verwijderen, en wordt net als het preview-blok teruggelezen en zo nodig hersteld. Een CDN vóór de server (QUIC.cloud, Cloudflare met paginacache) kan nog steeds een kopie geven.
+- De code voor `.htaccess` staat nu in `includes/htaccess.php` en wordt gedeeld door de preview-link en AI-bots.
 - Nieuwe module Herroepingsrecht bij afrekenen (`withdrawal_waiver`), standaard uit en alleen aan te zetten als WooCommerce actief is. Zet een verplicht vinkje boven de bestelknop waarmee de koper instemt met directe toegang tot een online cursus en afziet van het herroepingsrecht. Markup en foutweergave zijn gelijk aan die van het voorwaardenvinkje van WooCommerce. Werkt met de klassieke checkout en de Checkout-widget van Elementor; gebruikt de afrekenpagina het checkoutblok, dan staat er een melding in de instellingen.
 - Herroepingsrecht: de letterlijke vinkjestekst komt op de bestelling in `_mm_withdrawal_waiver`, dezelfde metakey als de oude `functions.php`-code, en staat in de bestelmails en onder het factuuradres in het beheer. Werkt met en zonder HPOS.
 - Herroepingsrecht: bereik "Alle producten" of "Alleen gemarkeerde producten". Een product telt mee via het nieuwe vinkje Herroepingsrecht in de tab Algemeen, of via een gekozen productcategorie (ook via een subcategorie). Bij variaties telt het hoofdproduct.

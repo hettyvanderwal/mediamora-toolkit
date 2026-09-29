@@ -30,7 +30,7 @@ define( 'MM_TOOLKIT_BESTAND', __FILE__ );
 define( 'MM_TOOLKIT_MAP', __DIR__ );
 
 require_once MM_TOOLKIT_MAP . '/includes/modules.php';
-require_once MM_TOOLKIT_MAP . '/includes/preview-htaccess.php';
+require_once MM_TOOLKIT_MAP . '/includes/htaccess.php';
 
 /**
  * Staat er nog een losse versie van deze module op de site?
@@ -232,6 +232,7 @@ register_activation_hook( __FILE__, 'mm_toolkit_activeren' );
 function mm_toolkit_activeren() {
 	delete_transient( 'mm_toolkit_release' );
 	mm_toolkit_preview_cache_bijwerken( mm_toolkit_preview_cache_gewenst() );
+	mm_toolkit_aibots_cache_bijwerken( mm_toolkit_aibots_cache_gewenst() );
 	if ( false !== get_option( MM_TOOLKIT_OPTIE, false ) ) {
 		return;
 	}
@@ -246,11 +247,12 @@ register_deactivation_hook( __FILE__, 'mm_toolkit_deactiveren' );
 
 /**
  * Ruimt alleen op wat zonder de plugin blijft doorlopen: de cron-events en
- * het blok in .htaccess. Instellingen en logs blijven staan tot de plugin
+ * de blokken in .htaccess. Instellingen en logs blijven staan tot de plugin
  * wordt verwijderd, zie uninstall.php.
  */
 function mm_toolkit_deactiveren() {
 	mm_toolkit_preview_cache_bijwerken( false );
+	mm_toolkit_aibots_cache_bijwerken( false );
 	wp_clear_scheduled_hook( 'mm_aibots_opschonen' );
 	wp_clear_scheduled_hook( 'mediamora_antispam_report' );
 	wp_clear_scheduled_hook( 'mediamora_antispam_nearmiss_alert' );
@@ -328,6 +330,13 @@ function mm_toolkit_opslaan() {
 	$preview_aan = ( null === $vast ? $nieuw['preview_link'] : $vast ) && '' === $preview['los'] && $preview['bestand'];
 	mm_toolkit_preview_cache_bijwerken( mm_toolkit_preview_cache_gewenst( $preview_aan ) );
 
+	// Idem voor AI-bots. Gaat de module net aan, dan zet het zelfherstel het
+	// blok op de pagina waar we zo naartoe sturen.
+	$aibots     = mm_toolkit_status()['ai_bots'];
+	$vast       = mm_toolkit_vastgezet( 'ai_bots' );
+	$aibots_aan = ( null === $vast ? $nieuw['ai_bots'] : $vast ) && '' === $aibots['los'] && $aibots['bestand'];
+	mm_toolkit_aibots_cache_bijwerken( mm_toolkit_aibots_cache_gewenst( $aibots_aan ) );
+
 	wp_safe_redirect( add_query_arg( 'opgeslagen', '1', admin_url( 'options-general.php?page=' . MM_TOOLKIT_SLUG ) ) );
 	exit;
 }
@@ -377,6 +386,9 @@ function mm_toolkit_scherm() {
 		}
 		if ( 'preview_link' === $sleutel && get_transient( 'mm_toolkit_preview_htaccess_fout' ) ) {
 			$tekst .= '<br><span style="color:#b32d2e;">Kon .htaccess niet bijwerken: LiteSpeed toont op gecachete pagina\'s nog de onderhoudspagina</span>';
+		}
+		if ( 'ai_bots' === $sleutel && get_transient( 'mm_toolkit_aibots_htaccess_fout' ) ) {
+			$tekst .= '<br><span style="color:#b32d2e;">Kon .htaccess niet bijwerken: AI-crawlers krijgen nog gecachete pagina\'s</span>';
 		}
 		if ( 'withdrawal_waiver' === $sleutel && $s['laden'] && function_exists( 'mm_herroeping_meldingen' ) ) {
 			foreach ( mm_herroeping_meldingen() as $melding ) {
@@ -446,7 +458,7 @@ function mm_toolkit_melding() {
  * Dat kost wat serverwerk en lekt niets.
  * ---------------------------------------------------------------------- */
 
-// De marker, het blok en het schrijven staan in includes/preview-htaccess.php,
+// De marker, het blok en het schrijven staan in includes/htaccess.php,
 // zodat uninstall.php ze ook kan gebruiken.
 
 /**
@@ -507,6 +519,59 @@ function mm_toolkit_preview_cache_herstel() {
 		return;
 	}
 	mm_toolkit_preview_cache_bijwerken( mm_toolkit_preview_cache_gewenst() );
+}
+
+
+/* -------------------------------------------------------------------------
+ * AI-bots: LiteSpeed-cache overslaan
+ *
+ * Een crawler die een gecachete pagina krijgt, bereikt PHP nooit en wordt
+ * dus niet geteld. Op LiteSpeed-sites tellen de AI-bots daardoor structureel
+ * te laag. Met de instelling "AI-crawlers buiten de cache houden" op het
+ * AI-bots-scherm komt er bovenaan .htaccess een blok dat LiteSpeed voor de
+ * user agents van de module de cache laat overslaan.
+ *
+ * Googlebot en Bingbot staan er niet in: dat zijn alleen ijkpunten, en ze
+ * buiten de cache houden kost veel serverwerk. Hun aantallen blijven dus te
+ * laag. Een CDN vóór de server (QUIC.cloud, Cloudflare met paginacache) kan
+ * een crawler nog steeds een kopie geven; daar helpt dit blok niet.
+ *
+ * Staat hier en niet in de module, om dezelfde reden als bij de preview: een
+ * module die uit staat laadt niet en kan zijn blok dan niet opruimen. Zet
+ * iemand de module uit, dan blijft de instelling bewaard en komt het blok
+ * terug zodra de module weer aan gaat.
+ * ---------------------------------------------------------------------- */
+
+const MM_TOOLKIT_AIBOTS_CACHE_OPTIE = 'mm_toolkit_aibots_cache';
+
+/**
+ * Hoort het AI-bots-blok in .htaccess te staan?
+ *
+ * @param bool|null $module_aan Laadt de AI-bots-module? Null: huidige status.
+ */
+function mm_toolkit_aibots_cache_gewenst( $module_aan = null ) {
+	if ( null === $module_aan ) {
+		$status     = mm_toolkit_status();
+		$module_aan = $status['ai_bots']['laden'];
+	}
+	return $module_aan && (bool) get_option( MM_TOOLKIT_AIBOTS_CACHE_OPTIE, false );
+}
+
+/**
+ * Zelfherstel, zoals bij de preview. Op het toolkitscherm en het
+ * AI-bots-scherm altijd opnieuw proberen.
+ */
+add_action( 'admin_init', 'mm_toolkit_aibots_cache_herstel' );
+
+function mm_toolkit_aibots_cache_herstel() {
+	if ( wp_doing_ajax() || null === mm_toolkit_litespeed_server() ) {
+		return;
+	}
+	$scherm = isset( $_GET['page'] ) && in_array( $_GET['page'], array( MM_TOOLKIT_SLUG, 'mm-aibots' ), true );
+	if ( ! $scherm && get_transient( 'mm_toolkit_aibots_htaccess_fout' ) ) {
+		return;
+	}
+	mm_toolkit_aibots_cache_bijwerken( mm_toolkit_aibots_cache_gewenst() );
 }
 
 
