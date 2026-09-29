@@ -82,6 +82,26 @@ function mm_aibots_is_bestand($pad) {
     return $ext !== '' && in_array($ext, $negeren, true);
 }
 
+/**
+ * Het pad uit REQUEST_URI zoals het in het log komt: zonder querystring,
+ * zonder stuurtekens en hooguit 190 tekens. Niet gedecodeerd, zodat de
+ * sleutels gelijk blijven aan die in bestaande logs.
+ *
+ * Het voorvoegsel is nodig omdat wp_parse_url() een pad als //voorbeeld.nl/x
+ * anders als host leest.
+ */
+function mm_aibots_pad($uri) {
+    // Stuurtekens eerst weg: parse_url() maakt er anders een _ van.
+    $uri = preg_replace('/[\x00-\x1F\x7F]/', '', wp_unslash((string) $uri));
+    $pad = (string) wp_parse_url('http://x' . $uri, PHP_URL_PATH);
+
+    if ($pad === '' || $pad[0] !== '/') {
+        $pad = '/' . $pad;
+    }
+
+    return mb_substr($pad, 0, 190);
+}
+
 add_action('init', 'mm_aibots_log', 1);
 
 function mm_aibots_log() {
@@ -108,9 +128,7 @@ function mm_aibots_log() {
         return;
     }
 
-    $pad = isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : '/';
-    $pad = strtok($pad, '?');
-    $pad = mb_substr($pad, 0, 190);
+    $pad = mm_aibots_pad(isset($_SERVER['REQUEST_URI']) ? $_SERVER['REQUEST_URI'] : '/');
 
     if (mm_aibots_is_bestand($pad)) {
         return;
@@ -126,6 +144,8 @@ function mm_aibots_log() {
         $log[$bot] = [];
     }
 
+    // Alleen ophogen. Sorteren gebeurt pas op het AI-bots-scherm, zodat een
+    // bezoek niet meer kost dan nodig.
     if (isset($log[$bot][$pad])) {
         $log[$bot][$pad]++;
     } elseif (count($log[$bot]) < MM_AIBOTS_MAX_PADEN) {
@@ -134,8 +154,6 @@ function mm_aibots_log() {
         // Limiet bereikt: alleen het totaal blijven ophogen.
         $log[$bot]['(overig)'] = (int) ($log[$bot]['(overig)'] ?? 0) + 1;
     }
-
-    arsort($log[$bot]);
 
     update_option($key, $log, false);
 }
