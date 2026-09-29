@@ -100,8 +100,20 @@ function mm_toolkit_keuzes() {
 }
 
 /**
+ * Staat de plugin aan die deze module nodig heeft? Zonder vereiste altijd.
+ *
+ * @param array $module Een regel uit mm_toolkit_modules().
+ */
+function mm_toolkit_vereiste_actief( $module ) {
+	if ( 'woocommerce' === $module['vereist'] ) {
+		return mm_toolkit_woocommerce_actief();
+	}
+	return true;
+}
+
+/**
  * Bepaalt per module wat er gebeurt: aan, uit, of geblokkeerd omdat
- * de losse versie er nog staat.
+ * de losse versie er nog staat of de vereiste plugin uit staat.
  */
 function mm_toolkit_status() {
 	static $status = null;
@@ -114,12 +126,14 @@ function mm_toolkit_status() {
 		$vast   = mm_toolkit_vastgezet( $sleutel );
 		$gewild = null === $vast ? $keuzes[ $sleutel ] : $vast;
 		$los    = mm_toolkit_losse_versie( $module );
+		$kan    = mm_toolkit_vereiste_actief( $module );
 		$status[ $sleutel ] = array(
 			'gewild'  => $gewild,
 			'vast'    => null !== $vast,
 			'los'     => $los,
+			'vereist' => $kan,
 			'bestand' => file_exists( MM_TOOLKIT_MAP . '/modules/' . $module['bestand'] ),
-			'laden'   => $gewild && '' === $los && file_exists( MM_TOOLKIT_MAP . '/modules/' . $module['bestand'] ),
+			'laden'   => $gewild && $kan && '' === $los && file_exists( MM_TOOLKIT_MAP . '/modules/' . $module['bestand'] ),
 		);
 	}
 	return $status;
@@ -279,8 +293,10 @@ function mm_toolkit_opslaan() {
 	foreach ( mm_toolkit_modules() as $sleutel => $module ) {
 		// Een vastgezette module heeft een grijze schakelaar, en die stuurt
 		// de browser niet mee. Dan blijft staan wat er al was; stond er nog
-		// niets, dan blijft dat zo en geldt de standaard.
-		if ( null !== mm_toolkit_vastgezet( $sleutel ) ) {
+		// niets, dan blijft dat zo en geldt de standaard. Hetzelfde voor een
+		// module waarvan de vereiste plugin even uit staat, zodat hij weer
+		// aan is zodra die plugin terugkomt.
+		if ( null !== mm_toolkit_vastgezet( $sleutel ) || ! mm_toolkit_vereiste_actief( $module ) ) {
 			$nieuw[ $sleutel ] = $oud[ $sleutel ];
 			if ( array_key_exists( $sleutel, $opgeslagen ) ) {
 				$opslaan[ $sleutel ] = (bool) $opgeslagen[ $sleutel ];
@@ -343,6 +359,10 @@ function mm_toolkit_scherm() {
 
 		if ( ! $s['bestand'] ) {
 			$tekst = '<span style="color:#b32d2e;">Modulebestand ontbreekt</span>';
+		} elseif ( ! $s['vereist'] && $s['gewild'] ) {
+			$tekst = '<span style="color:#b32d2e;">Staat uit: WooCommerce is niet actief</span>';
+		} elseif ( ! $s['vereist'] ) {
+			$tekst = 'Uit, alleen aan te zetten als WooCommerce actief is';
 		} elseif ( $s['los'] && $s['gewild'] ) {
 			$tekst = '<span style="color:#b32d2e;">Staat uit: eerst ' . esc_html( $s['los'] ) . ' verwijderen</span>';
 		} elseif ( $s['los'] ) {
@@ -358,6 +378,11 @@ function mm_toolkit_scherm() {
 		if ( 'preview_link' === $sleutel && get_transient( 'mm_toolkit_preview_htaccess_fout' ) ) {
 			$tekst .= '<br><span style="color:#b32d2e;">Kon .htaccess niet bijwerken: LiteSpeed toont op gecachete pagina\'s nog de onderhoudspagina</span>';
 		}
+		if ( 'withdrawal_waiver' === $sleutel && $s['laden'] && function_exists( 'mm_herroeping_meldingen' ) ) {
+			foreach ( mm_herroeping_meldingen() as $melding ) {
+				$tekst .= '<br><span style="color:#b32d2e;">' . esc_html( $melding ) . '</span>';
+			}
+		}
 
 		$link = ( $module['scherm'] && $s['laden'] ) ? ' <a href="' . esc_url( admin_url( $module['scherm'] ) ) . '">Instellingen</a>' : '';
 		if ( 'formuliermonitor' === $sleutel && $s['laden'] && function_exists( 'mm_monitor_test_url' ) ) {
@@ -365,7 +390,7 @@ function mm_toolkit_scherm() {
 		}
 
 		echo '<tr>';
-		echo '<td><input type="checkbox" name="mm_module[' . esc_attr( $sleutel ) . ']" value="1"' . checked( $s['gewild'], true, false ) . disabled( $s['vast'], true, false ) . '></td>';
+		echo '<td><input type="checkbox" name="mm_module[' . esc_attr( $sleutel ) . ']" value="1"' . checked( $s['gewild'], true, false ) . disabled( $s['vast'] || ! $s['vereist'], true, false ) . '></td>';
 		echo '<td><strong>' . esc_html( $module['naam'] ) . '</strong>' . $link . '<br><span style="color:#646970;">' . esc_html( $module['uitleg'] ) . '</span></td>';
 		echo '<td>' . $tekst . '</td>';
 		echo '</tr>';

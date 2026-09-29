@@ -140,6 +140,13 @@ function mm_toolkit_uninstall_site( $los ) {
 			delete_option( $naam );
 		}
 	}
+
+	// Alleen de instellingen en het productvinkje. _mm_withdrawal_waiver op
+	// bestellingen blijft altijd staan: dat is het bewijs van de afstand.
+	if ( ! $los['withdrawal_waiver'] ) {
+		delete_option( 'mm_withdrawal_waiver_settings' );
+		delete_metadata( 'post', 0, '_mm_withdrawal_waiver_applies', '', true );
+	}
 }
 
 $mm_toolkit_los = array();
