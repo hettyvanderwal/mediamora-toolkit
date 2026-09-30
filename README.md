@@ -62,6 +62,17 @@ Verwijderen via Plugins ruimt alles op: de opties en transients van de toolkit e
 
 ## Wijzigingen
 
+### 1.8.0
+
+- Herroepingsrecht: naast digitale content nu ook diensten (healing, coaching, consult). Twee soorten, elk met een eigen verplicht vinkje, eigen teksten en een eigen metakey op de bestelling: `_mm_withdrawal_waiver` (digitaal, ongewijzigd) en `_mm_service_consent` (dienst, gelijk aan de oude `functions.php`-code). Zitten beide soorten in de winkelmand, dan komen er twee vinkjes, eerst digitaal en dan dienst, elk apart verplicht.
+- Herroepingsrecht: het productvinkje is vervangen door een keuzeveld in de tab Algemeen (`_mm_withdrawal_type`: Standaard, Digitale content, Dienst, Geen vinkje). In de instellingen een standaardsoort (standaard Digitale content) en per soort een categoriekeuze. Volgorde: product, dan categorie, dan standaardsoort. Zie "Herroepingsrecht: welke soort per product".
+- Herroepingsrecht: per soort een herinnering, die in kleine grijze letters onderaan de mail "Bestelling in behandeling" komt bij bestellingen met die soort. Standaard leeg, dus uit. Ook in de platte-tekstmail.
+- Herroepingsrecht: de module geeft een niet aangevinkt vakje zelf de rode rand, net als WooCommerce bij het voorwaardenvinkje. Een kleine inline style, alleen op de afrekenpagina.
+- Herroepingsrecht: oude code per soort. `mm_withdrawal_text` in `functions.php` zet alleen digitaal stil, `mm_consent_text` alleen dienst; de andere soort werkt gewoon.
+- Herroepingsrecht: melding in de instellingen als er iets op Dienst staat (standaardsoort, categorie of product) en Order withdrawal van WooCommerce uit staat.
+- Herroepingsrecht: de instellingen van 1.6.0 worden eenmalig omgezet op `init`, direct na de update en ook als de module uit staat of niemand de instellingenpagina opent. Bereik "Alle producten" wordt standaardsoort Digitale content. Bereik "Alleen gemarkeerde producten" wordt standaardsoort Geen vinkje; gemarkeerde producten krijgen Digitale content en de gekozen categorieën worden de categorieën van digitaal. De eigen teksten worden de teksten van digitaal. `_mm_withdrawal_waiver_applies` blijft staan maar wordt niet meer gebruikt. Een versievlag in de optie zorgt dat dit maar één keer gebeurt.
+- `uninstall.php` ruimt ook `_mm_withdrawal_type` op. `_mm_withdrawal_waiver` en `_mm_service_consent` op bestellingen blijven altijd staan.
+
 ### 1.7.0
 
 - AI-bots: nieuwe instelling "AI-crawlers buiten de cache houden" op het AI-bots-scherm, standaard uit. Op LiteSpeed krijgt een crawler anders een gecachete pagina zonder dat PHP draait, en telt de module structureel te laag. Aan zet de toolkit een blok `# BEGIN Mediamora AI-bots` bovenaan `.htaccess` waarmee LiteSpeed de cache overslaat voor de user agents van de module, behalve Googlebot en Bingbot (die blijven gecachet en tellen dus nog te laag). Kost meer serverbelasting. Alleen op LiteSpeed; het blok verdwijnt bij uitzetten van de instelling of de module, bij deactiveren en bij verwijderen, en wordt net als het preview-blok teruggelezen en zo nodig hersteld. Een CDN vóór de server (QUIC.cloud, Cloudflare met paginacache) kan nog steeds een kopie geven.
