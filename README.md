@@ -11,7 +11,7 @@ De vaste Mediamora-onderdelen in één WordPress-plugin. Elk onderdeel is een mo
 | Formuliermonitor | uit | plugin `mediamora-formuliermonitor` |
 | AI-bots | uit | mu-plugin `mediamora-ai-bots.php` |
 | REST-gebruikers afschermen | uit | mu-plugin `mediamora-rest-users.php` |
-| Herroepingsrecht bij afrekenen | uit, alleen met WooCommerce | code in `functions.php` (`mm_withdrawal_text`) |
+| Herroepingsrecht bij afrekenen | uit, alleen met WooCommerce | code in `functions.php` (`mm_withdrawal_text`, `mm_consent_text`) |
 
 ## Overstappen
 
@@ -21,7 +21,24 @@ Bij de eerste activering komt elke module aan waarvan een losse versie op de sit
 
 De opgeslagen keuzes gaan altijd voor op de standaard. Wordt de standaard van een module later omgezet, dan houdt een site die daar zelf een keuze voor heeft opgeslagen gewoon wat hij had.
 
-Herroepingsrecht bij afrekenen vervangt code in `functions.php`. Die laadt na de plugins, dus de module kijkt pas op `init` of de functie `mm_withdrawal_text` bestaat. Zo ja, dan hangt de module geen enkele checkout-, validatie-, opslag-, mail- of beheerhook op en staat er een melding in de instellingen. De module mag al aan staan; hij neemt het over zodra de oude code weg is. De metakey `_mm_withdrawal_waiver` op bestellingen is gelijk gebleven.
+Herroepingsrecht bij afrekenen vervangt code in `functions.php`. Die laadt na de plugins, dus de module kijkt pas op `init` welke oude code er staat, per soort: `mm_withdrawal_text` voor digitale content, `mm_consent_text` voor diensten. Staat de oude code van een soort er, dan doet de module voor die soort niets (geen vinkje, validatie, opslag, mail, herinnering of beheer) en staat er een melding in de instellingen. De andere soort werkt gewoon. De module mag al aan staan; hij neemt een soort over zodra de oude code daarvan weg is. De metakeys `_mm_withdrawal_waiver` (digitaal) en `_mm_service_consent` (dienst) op bestellingen zijn gelijk aan die van de oude code.
+
+## Herroepingsrecht: welke soort per product
+
+De module kent twee soorten, elk met een eigen vinkje, eigen teksten en een eigen metakey op de bestelling:
+
+- **Digitale content** (`_mm_withdrawal_waiver`), zoals een online cursus. De koper stemt in met directe toegang en verklaart zijn herroepingsrecht te verliezen. Het recht vervalt bij directe levering.
+- **Dienst** (`_mm_service_consent`), zoals healing, coaching of een consult. De koper stemt in met directe uitvoering. Het recht vervalt pas als de dienst volledig is uitgevoerd; tot dan blijft het herroepingsrecht, en daarmee de herroepingsknop, gelden. Zet daarom Order withdrawal van WooCommerce aan (Geavanceerd > Features); de instellingen waarschuwen als dat nog uit staat.
+
+Welke soort een product heeft, in deze volgorde:
+
+1. De keuze Herroepingsrecht in de tab Algemeen van het product (`_mm_withdrawal_type`): Standaard, Digitale content, Dienst of Geen vinkje.
+2. Bij Standaard: de categorieën van het product. Per soort zijn categorieën te kiezen onder Instellingen > Herroepingsrecht; subcategorieën tellen mee. Staat een product in categorieën van beide soorten, dan geldt de soort van de eerste categorie op alfabetische volgorde van de naam (de volgorde van `get_the_terms`; de module sorteert zelf op naam, omdat WooCommerce productcategorieën ook op de eigen volgorde uit het beheer kan zetten). Hoort één categorie, direct of via een bovenliggende, bij beide soorten, dan wint digitaal. Er wordt niets gelogd.
+3. Anders de standaardsoort: Digitale content (standaard), Dienst of Geen vinkje.
+
+Bij een variatie telt het hoofdproduct. Per soort die in de winkelmand zit komt één verplicht vinkje, onder het voorwaardenvinkje en boven de bestelknop; zitten beide soorten erin, dan eerst digitaal en dan dienst. Tonen, valideren, opslaan, mail en beheer gebruiken allemaal dezelfde soortbepaling.
+
+Per soort zijn de tekst bij het vinkje, de foutmelding, het label in mail en beheer en een herinnering in te stellen. Leeg geeft de standaardtekst in het Nederlands (site-taal `nl_*`) of Engels. De herinnering heeft geen standaardtekst; ingevuld staat hij in kleine grijze letters onderaan de mail "Bestelling in behandeling" (`customer_processing_order`), alleen bij bestellingen met de metakey van die soort. Springt een bestelling direct op Afgerond, dan gaat die mail niet en komt de herinnering dus niet aan.
 
 REST-gebruikers afschermen ging van standaard aan naar standaard uit. Sites die daar nog geen keuze voor hadden opgeslagen, krijgen die eenmalig alsnog, maar alleen als WooCommerce aanstaat: een webshop houdt de module zo aan. Op een site zonder WooCommerce komt de module uit te staan en is ASE met "Disable REST API" weer de route.
 
@@ -41,7 +58,7 @@ De oude namen zonder `MODULE_` (zoals `MM_TOOLKIT_ALT_TEKSTEN`) werken nog voor 
 
 Deactiveren haalt alleen de cron-events en de blokken van de toolkit uit `.htaccess` weg. Instellingen en logs blijven staan.
 
-Verwijderen via Plugins ruimt alles op: de opties en transients van de toolkit en de modules, de cron-events, de alt-tekstkenmerken (`_mm_alt_*`, de alt-teksten zelf blijven staan), het productvinkje `_mm_withdrawal_waiver_applies` (de tekst `_mm_withdrawal_waiver` op bestellingen blijft altijd staan, dat is het bewijs van afstand), de `.htaccess`-blokken en de logmap van de anti-spam met de inzendingen erin. Kan de logmap niet worden weggehaald, dan blijft de optie `mediamora_antispam_log_dir` staan, zodat te vinden is waar hij staat. Staat de losse versie van een module nog op de site, als plugin of mu-plugin en actief of niet, dan blijft alles van die module staan, want de losse versie gebruikt dezelfde gegevens.
+Verwijderen via Plugins ruimt alles op: de opties en transients van de toolkit en de modules, de cron-events, de alt-tekstkenmerken (`_mm_alt_*`, de alt-teksten zelf blijven staan), de productmeta van Herroepingsrecht (`_mm_withdrawal_type` en het oude vinkje `_mm_withdrawal_waiver_applies`; de teksten `_mm_withdrawal_waiver` en `_mm_service_consent` op bestellingen blijven altijd staan, dat is het bewijs van de instemming), de `.htaccess`-blokken en de logmap van de anti-spam met de inzendingen erin. Kan de logmap niet worden weggehaald, dan blijft de optie `mediamora_antispam_log_dir` staan, zodat te vinden is waar hij staat. Staat de losse versie van een module nog op de site, als plugin of mu-plugin en actief of niet, dan blijft alles van die module staan, want de losse versie gebruikt dezelfde gegevens.
 
 ## Wijzigingen
 

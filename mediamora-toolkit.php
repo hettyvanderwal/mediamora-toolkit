@@ -32,6 +32,7 @@ define( 'MM_TOOLKIT_MAP', __DIR__ );
 
 require_once MM_TOOLKIT_MAP . '/includes/modules.php';
 require_once MM_TOOLKIT_MAP . '/includes/htaccess.php';
+require_once MM_TOOLKIT_MAP . '/includes/herroeping.php';
 
 /**
  * Staat er nog een losse versie van deze module op de site?

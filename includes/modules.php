@@ -101,11 +101,12 @@ function mm_toolkit_modules() {
 			'scherm'       => '',
 			'vereist'      => '',
 		),
-		// Geen merkteken voor de oude functions.php-code: die laadt pas na de
-		// plugins. De module kijkt daar zelf naar op init.
+		// Geen merkteken voor de oude functions.php-code (mm_withdrawal_text,
+		// mm_consent_text): die laadt pas na de plugins. De module kijkt daar
+		// zelf per soort naar op init.
 		'withdrawal_waiver' => array(
 			'naam'         => 'Herroepingsrecht bij afrekenen',
-			'uitleg'       => 'Verplicht vinkje boven de bestelknop waarmee de koper instemt met directe toegang tot een online cursus en afziet van het herroepingsrecht. De tekst komt op de bestelling, in de bestelmail en in het beheer. Alleen voor webshops: zonder WooCommerce is hij niet aan te zetten. Werkt met de klassieke checkout en de Checkout-widget van Elementor, niet met het checkoutblok.',
+			'uitleg'       => 'Verplichte vinkjes boven de bestelknop: bij digitale content (zoals een online cursus) stemt de koper in met directe toegang en ziet af van het herroepingsrecht, bij een dienst (zoals coaching of een consult) stemt hij in met directe uitvoering. Per product, categorie of standaard in te stellen. De tekst komt op de bestelling, in de bestelmail en in het beheer. Alleen voor webshops: zonder WooCommerce is hij niet aan te zetten. Werkt met de klassieke checkout en de Checkout-widget van Elementor, niet met het checkoutblok.',
 			'bestand'      => 'withdrawal-waiver.php',
 			'standaard'    => false,
 			'losse_mu'     => '',
