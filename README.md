@@ -12,6 +12,9 @@ De vaste Mediamora-onderdelen in één WordPress-plugin. Elk onderdeel is een mo
 | AI-bots | uit | mu-plugin `mediamora-ai-bots.php` |
 | REST-gebruikers afschermen | uit | mu-plugin `mediamora-rest-users.php` |
 | Herroepingsrecht bij afrekenen | uit, alleen met WooCommerce | code in `functions.php` (`mm_withdrawal_text`, `mm_consent_text`) |
+| Mobiel menu: vroege tik | aan | testcode in `functions.php` (script `mm-popup-vroege-tik`) |
+| jQuery-wachtrem | aan | testcode in `functions.php` (`jQuery.holdReady` achter `jquery-core`) |
+| QUIC.cloud en kritieke CSS | uit | testcode in `functions.php` (REST-uitzondering, `mm_ccss_zonder_noscript`) |
 
 ## Overstappen
 
@@ -40,6 +43,8 @@ Bij een variatie telt het hoofdproduct. Per soort die in de winkelmand zit komt 
 
 Per soort zijn de tekst bij het vinkje, de foutmelding, het label in mail en beheer en een herinnering in te stellen. Leeg geeft de standaardtekst in het Nederlands (site-taal `nl_*`) of Engels. De herinnering heeft geen standaardtekst; ingevuld staat hij in kleine grijze letters onderaan de mail "Bestelling in behandeling" (`customer_processing_order`), alleen bij bestellingen met de metakey van die soort. Springt een bestelling direct op Afgerond, dan gaat die mail niet en komt de herinnering dus niet aan.
 
+Mobiel menu: vroege tik, jQuery-wachtrem en QUIC.cloud en kritieke CSS vervangen testcode in `functions.php`. Die testcode bestaat uit closures zonder vaste functienaam, dus de modules hebben geen merkteken en laden altijd. Ze herkennen de testcode zelf en doen dan niets dubbel: de vroege tik ziet het script `mm-popup-vroege-tik` in de pagina, de jQuery-wachtrem ziet `holdReady` al in de inline scripts van `jquery-core`, en de CCSS-opschoning ziet de functie `mm_ccss_zonder_noscript`. Een dubbele REST-uitzondering kan geen kwaad. De testblokken kunnen dus blijven staan tot na de update, en daarna weg.
+
 REST-gebruikers afschermen ging van standaard aan naar standaard uit. Sites die daar nog geen keuze voor hadden opgeslagen, krijgen die eenmalig alsnog, maar alleen als WooCommerce aanstaat: een webshop houdt de module zo aan. Op een site zonder WooCommerce komt de module uit te staan en is ASE met "Disable REST API" weer de route.
 
 ## Vastzetten per site
@@ -50,7 +55,7 @@ In `wp-config.php`, bijvoorbeeld op een academie:
 define( 'MM_TOOLKIT_MODULE_ALT_TEKSTEN', false );
 ```
 
-Beschikbaar: `MM_TOOLKIT_MODULE_ALT_TEKSTEN`, `MM_TOOLKIT_MODULE_HERO_PRELOAD`, `MM_TOOLKIT_MODULE_PREVIEW_LINK`, `MM_TOOLKIT_MODULE_ANTI_SPAM`, `MM_TOOLKIT_MODULE_FORMULIERMONITOR`, `MM_TOOLKIT_MODULE_AI_BOTS`, `MM_TOOLKIT_MODULE_REST_USERS`, `MM_TOOLKIT_MODULE_WITHDRAWAL_WAIVER`.
+Beschikbaar: `MM_TOOLKIT_MODULE_ALT_TEKSTEN`, `MM_TOOLKIT_MODULE_HERO_PRELOAD`, `MM_TOOLKIT_MODULE_PREVIEW_LINK`, `MM_TOOLKIT_MODULE_ANTI_SPAM`, `MM_TOOLKIT_MODULE_FORMULIERMONITOR`, `MM_TOOLKIT_MODULE_AI_BOTS`, `MM_TOOLKIT_MODULE_REST_USERS`, `MM_TOOLKIT_MODULE_WITHDRAWAL_WAIVER`, `MM_TOOLKIT_MODULE_POPUP_TIK`, `MM_TOOLKIT_MODULE_JQUERY_WACHT`, `MM_TOOLKIT_MODULE_QUIC_CLOUD`.
 
 De oude namen zonder `MODULE_` (zoals `MM_TOOLKIT_ALT_TEKSTEN`) werken nog voor de eerste zeven modules, zodat bestaande regels in `wp-config.php` niet aangepast hoeven te worden. Staan beide er, dan wint de nieuwe naam. Een vastgezette module houdt bij het opslaan van het instellingenscherm de keuze die er al stond.
 
@@ -61,6 +66,16 @@ Deactiveren haalt alleen de cron-events en de blokken van de toolkit uit `.htacc
 Verwijderen via Plugins ruimt alles op: de opties en transients van de toolkit en de modules, de cron-events, de alt-tekstkenmerken (`_mm_alt_*`, de alt-teksten zelf blijven staan), de productmeta van Herroepingsrecht (`_mm_withdrawal_type` en het oude vinkje `_mm_withdrawal_waiver_applies`; de teksten `_mm_withdrawal_waiver` en `_mm_service_consent` op bestellingen blijven altijd staan, dat is het bewijs van de instemming), de `.htaccess`-blokken en de logmap van de anti-spam met de inzendingen erin. Kan de logmap niet worden weggehaald, dan blijft de optie `mediamora_antispam_log_dir` staan, zodat te vinden is waar hij staat. Staat de losse versie van een module nog op de site, als plugin of mu-plugin en actief of niet, dan blijft alles van die module staan, want de losse versie gebruikt dezelfde gegevens.
 
 ## Wijzigingen
+
+### 1.9.0
+
+- Nieuwe module Mobiel menu: vroege tik (`popup_tik`), standaard aan. De hamburger opent een popup van Elementor Pro, maar is al zichtbaar voordat Elementor Pro klaar is; een tik in die tussentijd ging verloren. De module vangt zo'n tik op en opent de bedoelde popup zodra Elementor Pro zover is, met een herhaallus omdat de eerste `showPopup` soms wordt genegeerd. Valt de tik na het load-event, dan start de lus meteen. Is Elementor Pro 15 seconden na de tik nog niet klaar, dan stopt het onderscheppen voor die paginaweergave, zodat er nooit een dode knop ontstaat. Het script staat in de head met `data-no-defer` en `data-no-optimize`, zodat LiteSpeed het niet uitstelt. Alleen op de voorkant, alleen met Elementor Pro, niet in de editor of het voorbeeld van Elementor. De vlag `window.mmPopupVroegeTik` voorkomt dat het twee keer actief wordt; staat de testversie nog in `functions.php`, dan doet de module niets.
+- Nieuwe module jQuery-wachtrem (`jquery_wacht`), standaard aan. Met jQuery uitgesteld (LiteSpeed defer) kon Elementor starten voordat Elementor Pro luisterde, waarna Pro die paginaweergave niet startte: geen mobiel menu, sticky headers of Pro-formulieren. De module zet direct achter `jquery-core` een regel die `jQuery.ready` vasthoudt tot `DOMContentLoaded`, zonder `data-no-defer`, zodat hij net als jQuery uitgesteld loopt. Doet niets als jQuery niet is uitgesteld of `holdReady` ontbreekt. `holdReady` is verouderd in jQuery 3; bij een overstap naar jQuery 4 opnieuw bekijken. Staat de testversie nog in `functions.php`, dan wordt de regel niet nog een keer toegevoegd.
+- Nieuwe module QUIC.cloud en kritieke CSS (`quic_cloud`), standaard uit. Per site aanzetten als de kritieke CSS van LiteSpeed via QUIC.cloud wordt ingericht. Drie onderdelen:
+  - REST-uitzondering: heeft iets (zoals "REST API uitschakelen" in ASE) een REST-verzoek op een route die begint met `/litespeed/` al geweigerd, dan laat de module het toch door, zodat QUIC.cloud kan terugbellen. Gefilterd op `rest_route`, ook bij `?rest_route=`. Werkt naast REST-gebruikers afschermen.
+  - Allowlist-bewaking: staat CSS asynchroon laden (`optm-css_async`) aan en ontbreekt `#elementor-device-mode` in de CCSS-allowlist (`optm-ccss_whitelist`), dan krijgen beheerders een melding met een knop Toevoegen. Die voegt het toe aan de bestaande lijst via `\LiteSpeed\Conf::cls()->update_confs()`, met nonce en capability-check. Zonder klik verandert er niets.
+  - De regel `.lazyload[data-src]{display:none !important;}` uit de noscript van EWWW Lazy Load wordt uit de kritieke CSS gehaald, zodat lazy-load-afbeeldingen niet onzichtbaar blijven.
+- Geen van de drie modules slaat iets op, dus `uninstall.php` hoeft er niets voor op te ruimen.
 
 ### 1.8.0
 
