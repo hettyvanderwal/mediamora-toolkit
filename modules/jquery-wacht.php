@@ -13,9 +13,16 @@
  * paginaweergave niet.
  *
  * Dit regeltje direct achter jQuery houdt jQuery.ready vast tot
- * DOMContentLoaded. Alle uitgestelde scripts, ook die van Pro, zijn dan
- * uitgevoerd. Bewezen op sanbao.be en Falcon-i met een kunstmatig vertraagd
+ * DOMContentLoaded, of uiterlijk tot het load-event. Alle uitgestelde
+ * scripts, ook die van Pro, zijn dan uitgevoerd. Bewezen op sanbao.be en Falcon-i met een kunstmatig vertraagd
  * Pro-bestand: zonder 0 modules, met 32 en het menu opent.
+ *
+ * Vangnet: loopt dit regeltje pas na DOMContentLoaded (bijvoorbeeld met
+ * LiteSpeed "JS vertraagd" en een vroege aanraking terwijl de afbeeldingen
+ * nog laden), dan komt dat event niet meer en zou jQuery.ready nooit vuren.
+ * Daarom laat ook het load-event los. De vlag los zorgt dat holdReady(false)
+ * maar één keer wordt aangeroepen: holdReady telt, een tweede aanroep zou de
+ * teller onder nul brengen.
  *
  * Bewust zonder data-no-defer: het moet net als jQuery uitgesteld lopen,
  * direct erachter. Is jQuery niet uitgesteld, dan doet het niets schadelijks.
@@ -47,7 +54,7 @@ function mm_jquery_wacht_toevoegen() {
 		}
 	}
 
-	wp_add_inline_script( 'jquery-core', "if(window.jQuery&&jQuery.holdReady&&document.readyState!=='complete'){jQuery.holdReady(true);document.addEventListener('DOMContentLoaded',function(){jQuery.holdReady(false);});}", 'after' );
+	wp_add_inline_script( 'jquery-core', "(function(){if(window.jQuery&&jQuery.holdReady&&document.readyState!=='complete'){var los=false;function vrij(){if(los)return;los=true;jQuery.holdReady(false);}jQuery.holdReady(true);document.addEventListener('DOMContentLoaded',vrij);window.addEventListener('load',vrij);}})();", 'after' );
 }
 
 add_action( 'wp_enqueue_scripts', 'mm_jquery_wacht_toevoegen', 20 );

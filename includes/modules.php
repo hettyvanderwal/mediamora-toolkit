@@ -130,7 +130,7 @@ function mm_toolkit_modules() {
 		),
 		'jquery_wacht'      => array(
 			'naam'         => 'jQuery-wachtrem',
-			'uitleg'       => 'Met jQuery uitgesteld (LiteSpeed defer) kon Elementor starten voordat Elementor Pro luisterde, waarna mobiel menu, sticky headers en Pro-formulieren die paginaweergave niet werkten. Deze module houdt jQuery.ready vast tot DOMContentLoaded. Doet niets als jQuery niet is uitgesteld. Gebruikt jQuery.holdReady, dat verouderd is in jQuery 3: bij een overstap naar jQuery 4 opnieuw bekijken.',
+			'uitleg'       => 'Met jQuery uitgesteld (LiteSpeed defer) kon Elementor starten voordat Elementor Pro luisterde, waarna mobiel menu, sticky headers en Pro-formulieren die paginaweergave niet werkten. Deze module houdt jQuery.ready vast tot DOMContentLoaded, met als vangnet het load-event, zodat jQuery.ready nooit blijft hangen als het regeltje pas na DOMContentLoaded uitvoert. Doet niets als jQuery niet is uitgesteld. Gebruikt jQuery.holdReady, dat verouderd is in jQuery 3: bij een overstap naar jQuery 4 opnieuw bekijken.',
 			'bestand'      => 'jquery-wacht.php',
 			'standaard'    => true,
 			'losse_mu'     => '',

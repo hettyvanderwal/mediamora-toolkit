@@ -9,7 +9,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 // =====================================================================
-// PADEN — afgeleide bestandslocaties (geen "instelling", niet in het
+// PADEN - afgeleide bestandslocaties (geen "instelling", niet in het
 // instellingenscherm, want dit zijn technische implementatiedetails)
 //
 // De mapnaam krijgt een willekeurig achtervoegsel dat per site eenmalig
@@ -107,7 +107,7 @@ function mediamora_antispam_log_path_label( $bestand ) {
 }
 
 // =====================================================================
-// INSTELLINGEN — opgeslagen in de database (get_option/update_option),
+// INSTELLINGEN - opgeslagen in de database (get_option/update_option),
 // bewerkbaar via wp-admin > Instellingen > Mediamora Anti-Spam
 // =====================================================================
 
@@ -513,7 +513,7 @@ function mediamora_antispam_validate_form( $record, $ajax_handler ) {
 			continue;
 		}
 
-		// Check 1e: afspraken-boekingslink (Calendly, Cal.com, enz. — cold-outreach patroon)
+		// Check 1e: afspraken-boekingslink (Calendly, Cal.com, enz. - cold-outreach patroon)
 		if ( $s['reject_scheduling_links'] && mediamora_contains_scheduling_link( $value ) ) {
 			$ajax_handler->add_error( $id, __( 'Ongeldige invoer gedetecteerd.', 'mediamora' ) );
 			mediamora_antispam_log( 'boekingslink', $id, $type, $value );
