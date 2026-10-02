@@ -67,6 +67,12 @@ Verwijderen via Plugins ruimt alles op: de opties en transients van de toolkit e
 
 ## Wijzigingen
 
+### 1.9.1
+
+- Hero-preload: de preload kiest nu het eerste element met een echte achtergrondafbeelding binnen de hero-sectie, in plaats van het eerste element met een achtergrond. De hero-sectie is, net als voorheen, het bovenste top-level element waarin of waaronder een `background_background` staat. Daarbinnen tellen alleen classic met een afbeelding (vast of via dynamic tag) en slideshow met een galerij (vast of via dynamic tag); een kaart met alleen een kleur, een verloop of een video wordt overgeslagen. Op Falcon-i stond een kleurkaart boven de fotocontainer, waardoor er geen preload kwam. Staat er in de hero-sectie geen afbeelding (een effen hero), dan geen preload: er wordt niet doorgezocht naar een volgende sectie.
+- Hero-preload: de controle op `background_image_tablet` en `background_image_mobile` kijkt alleen nog naar het gekozen element, met een niet-lege url of een dynamic tag. Voorheen zette zo'n sleutel ergens op de pagina, ook met een lege url, de preload voor de hele pagina uit.
+- Hero-preload: bij een slideshow komt de CSS-achtergrond van de eerste dia op het gekozen element, ook als dat genest is. Voorheen kwam die altijd op de bovenste container.
+
 ### 1.9.0
 
 - Nieuwe module Mobiel menu: vroege tik (`popup_tik`), standaard aan. De hamburger opent een popup van Elementor Pro, maar is al zichtbaar voordat Elementor Pro klaar is; een tik in die tussentijd ging verloren. De module vangt zo'n tik op en opent de bedoelde popup zodra Elementor Pro zover is, met een herhaallus omdat de eerste `showPopup` soms wordt genegeerd. Valt de tik na het load-event, dan start de lus meteen. Is Elementor Pro 15 seconden na de tik nog niet klaar, dan stopt het onderscheppen voor die paginaweergave, zodat er nooit een dode knop ontstaat. Het script staat in de head met `data-no-defer` en `data-no-optimize`, zodat LiteSpeed het niet uitstelt. Alleen op de voorkant, alleen met Elementor Pro, niet in de editor of het voorbeeld van Elementor. De vlag `window.mmPopupVroegeTik` voorkomt dat het twee keer actief wordt; staat de testversie nog in `functions.php`, dan doet de module niets.

@@ -137,6 +137,117 @@ function mm_hero_preload_eerste_achtergrond( $elementen ) {
 }
 
 /**
+ * Of de settings van een element een echte achtergrondafbeelding hebben: classic met een
+ * dynamic tag of een vaste afbeelding met url, of slideshow met een dynamic tag of een
+ * niet-lege galerij. Alleen een kleur, een verloop of een video telt niet.
+ *
+ * @param array $settings Settings van een element.
+ * @return bool
+ */
+function mm_hero_preload_heeft_afbeelding( $settings ) {
+
+	if ( empty( $settings['background_background'] ) || ! is_string( $settings['background_background'] ) ) {
+		return false;
+	}
+
+	$soort = $settings['background_background'];
+
+	if ( 'classic' === $soort ) {
+		if ( ! empty( $settings['__dynamic__']['background_image'] ) ) {
+			return true;
+		}
+		return isset( $settings['background_image']['url'] ) && is_string( $settings['background_image']['url'] ) && '' !== $settings['background_image']['url'];
+	}
+
+	if ( 'slideshow' === $soort ) {
+		if ( ! empty( $settings['__dynamic__']['background_slideshow_gallery'] ) ) {
+			return true;
+		}
+		return ! empty( $settings['background_slideshow_gallery'] ) && is_array( $settings['background_slideshow_gallery'] );
+	}
+
+	return false;
+}
+
+/**
+ * Zoekt in documentvolgorde (eerst het element zelf, dan zijn kinderen) het eerste element
+ * met een echte achtergrondafbeelding. Zie mm_hero_preload_heeft_afbeelding().
+ *
+ * @param array $elementen Elementen uit de gedecodeerde Elementor-data.
+ * @return array|null Het gevonden element (met id en settings), of null.
+ */
+function mm_hero_preload_eerste_afbeelding( $elementen ) {
+
+	foreach ( $elementen as $element ) {
+		if ( ! is_array( $element ) ) {
+			continue;
+		}
+
+		if ( isset( $element['settings'] ) && is_array( $element['settings'] ) && mm_hero_preload_heeft_afbeelding( $element['settings'] ) ) {
+			return $element;
+		}
+
+		if ( ! empty( $element['elements'] ) && is_array( $element['elements'] ) ) {
+			$gevonden = mm_hero_preload_eerste_afbeelding( $element['elements'] );
+			if ( $gevonden ) {
+				return $gevonden;
+			}
+		}
+	}
+
+	return null;
+}
+
+/**
+ * Bepaalt het element waarvan de achtergrond gepreload wordt.
+ *
+ * Eerst de hero-sectie: het bovenste top-level element waarin of waaronder een
+ * background_background staat (zie mm_hero_preload_eerste_achtergrond()). Daarbinnen,
+ * en alleen daarbinnen, het eerste element met een echte afbeelding. Een kaart met
+ * alleen een kleur boven de foto in dezelfde sectie wordt dus overgeslagen. Staat er in
+ * de hero-sectie geen afbeelding (een effen hero), dan null: niet doorzoeken naar een
+ * volgende sectie, want dan krijgt een foto verder op de pagina voorrang.
+ *
+ * @param array $elementen Elementen uit de gedecodeerde Elementor-data.
+ * @return array|null Het gekozen element (met id en settings), of null.
+ */
+function mm_hero_preload_hero_element( $elementen ) {
+
+	foreach ( $elementen as $element ) {
+		if ( ! is_array( $element ) ) {
+			continue;
+		}
+
+		if ( mm_hero_preload_eerste_achtergrond( array( $element ) ) ) {
+			return mm_hero_preload_eerste_afbeelding( array( $element ) );
+		}
+	}
+
+	return null;
+}
+
+/**
+ * Of een element een eigen tablet- of mobiele achtergrondafbeelding heeft: een niet-lege
+ * url of een dynamic tag voor background_image_tablet of background_image_mobile.
+ *
+ * @param array $settings Settings van het gekozen element.
+ * @return bool
+ */
+function mm_hero_preload_heeft_responsieve_afbeelding( $settings ) {
+
+	foreach ( array( 'background_image_tablet', 'background_image_mobile' ) as $sleutel ) {
+		if ( ! empty( $settings['__dynamic__'][ $sleutel ] ) ) {
+			return true;
+		}
+		if ( isset( $settings[ $sleutel ]['url'] ) && is_string( $settings[ $sleutel ]['url'] ) && '' !== $settings[ $sleutel ]['url'] ) {
+			return true;
+		}
+	}
+
+	return false;
+}
+
+/**
  * Lost een dynamic tag van Elementor op, zoals die in settings['__dynamic__'] staat, en
  * geeft de waarde terug: bij een afbeelding een array met id en url, bij een galerij een
  * lijst van zulke arrays. Zonder Elementor of als het misgaat: null.
@@ -192,24 +303,27 @@ add_action( 'wp_head', function () {
 	$bron_id = $bron['id'];
 	$data    = $bron['data'];
 
-	// Staat er een aparte tablet- of mobiele achtergrond ingesteld, dan is niet te
-	// bepalen welk bestand deze bezoeker krijgt. Dan liever niets preloaden dan het
-	// verkeerde bestand binnenhalen.
-	if ( false !== strpos( $data, 'background_image_mobile' ) || false !== strpos( $data, 'background_image_tablet' ) ) {
-		return;
-	}
-
 	// De hero kan een gewone achtergrondafbeelding zijn of een achtergrond-slideshow.
-	// Bepalend is het type van de EERSTE container in de Elementor-data, want dat is de
-	// bovenste sectie op de pagina. Niet zomaar zoeken op background_image: een container
-	// die ooit klassiek was en later een slideshow werd, houdt die oude sleutel gewoon.
+	// Bepalend is het type van het gekozen element, het eerste met een echte afbeelding
+	// in de bovenste sectie met een achtergrond. Niet zomaar zoeken op background_image:
+	// een container die ooit klassiek was en later een slideshow werd, houdt die oude
+	// sleutel gewoon.
 	$elementen = json_decode( $data, true );
 	if ( ! is_array( $elementen ) ) {
 		return;
 	}
 
-	$settings = mm_hero_preload_eerste_achtergrond( $elementen );
-	if ( ! $settings ) {
+	$element = mm_hero_preload_hero_element( $elementen );
+	if ( ! $element ) {
+		return;
+	}
+
+	$settings = $element['settings'];
+
+	// Heeft dit element een aparte tablet- of mobiele achtergrond, dan is niet te bepalen
+	// welk bestand deze bezoeker krijgt. Dan liever niets preloaden dan het verkeerde
+	// bestand binnenhalen. Zo'n sleutel op een ander element telt niet mee.
+	if ( mm_hero_preload_heeft_responsieve_afbeelding( $settings ) ) {
 		return;
 	}
 
@@ -270,17 +384,17 @@ add_action( 'wp_head', function () {
 		return;
 	}
 
-	// Het eerste element in de Elementor-data is de bovenste container op de pagina.
-	// Elementor zet het ID van de bron als class op de wrapper (.elementor-{ID}), op een
-	// archief dus het template-ID.
-	if ( ! preg_match( '#^\[\{"id":"([0-9a-zA-Z]+)"#', $data, $container ) ) {
+	// De CSS komt op het gekozen element, dat ook genest kan zijn. Elementor zet het ID
+	// van de bron als class op de wrapper (.elementor-{ID}), op een archief dus het
+	// template-ID.
+	if ( empty( $element['id'] ) || ! is_string( $element['id'] ) || ! preg_match( '#^[0-9a-zA-Z]+$#', $element['id'] ) ) {
 		return;
 	}
 
 	printf(
 		'<style id="mediamora-hero-verf">.elementor-%1$d .elementor-element.elementor-element-%2$s{background-image:url("%3$s");background-size:cover;background-position:center center;background-repeat:no-repeat;}</style>' . "\n",
 		(int) $bron_id,
-		esc_attr( $container[1] ),
+		esc_attr( $element['id'] ),
 		esc_url( $url )
 	);
 
