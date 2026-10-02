@@ -15,6 +15,7 @@ De vaste Mediamora-onderdelen in één WordPress-plugin. Elk onderdeel is een mo
 | Mobiel menu: vroege tik | aan | testcode in `functions.php` (script `mm-popup-vroege-tik`) |
 | jQuery-wachtrem | aan | testcode in `functions.php` (`jQuery.holdReady` achter `jquery-core`) |
 | QUIC.cloud en kritieke CSS | uit | testcode in `functions.php` (REST-uitzondering, `mm_ccss_zonder_noscript`) |
+| Schema op alle pagina's | aan, doet niets zonder Rank Math | nieuw |
 
 ## Overstappen
 
@@ -55,7 +56,7 @@ In `wp-config.php`, bijvoorbeeld op een academie:
 define( 'MM_TOOLKIT_MODULE_ALT_TEKSTEN', false );
 ```
 
-Beschikbaar: `MM_TOOLKIT_MODULE_ALT_TEKSTEN`, `MM_TOOLKIT_MODULE_HERO_PRELOAD`, `MM_TOOLKIT_MODULE_PREVIEW_LINK`, `MM_TOOLKIT_MODULE_ANTI_SPAM`, `MM_TOOLKIT_MODULE_FORMULIERMONITOR`, `MM_TOOLKIT_MODULE_AI_BOTS`, `MM_TOOLKIT_MODULE_REST_USERS`, `MM_TOOLKIT_MODULE_WITHDRAWAL_WAIVER`, `MM_TOOLKIT_MODULE_POPUP_TIK`, `MM_TOOLKIT_MODULE_JQUERY_WACHT`, `MM_TOOLKIT_MODULE_QUIC_CLOUD`.
+Beschikbaar: `MM_TOOLKIT_MODULE_ALT_TEKSTEN`, `MM_TOOLKIT_MODULE_HERO_PRELOAD`, `MM_TOOLKIT_MODULE_PREVIEW_LINK`, `MM_TOOLKIT_MODULE_ANTI_SPAM`, `MM_TOOLKIT_MODULE_FORMULIERMONITOR`, `MM_TOOLKIT_MODULE_AI_BOTS`, `MM_TOOLKIT_MODULE_REST_USERS`, `MM_TOOLKIT_MODULE_WITHDRAWAL_WAIVER`, `MM_TOOLKIT_MODULE_POPUP_TIK`, `MM_TOOLKIT_MODULE_JQUERY_WACHT`, `MM_TOOLKIT_MODULE_QUIC_CLOUD`, `MM_TOOLKIT_MODULE_SCHEMA_BASIS`.
 
 De oude namen zonder `MODULE_` (zoals `MM_TOOLKIT_ALT_TEKSTEN`) werken nog voor de eerste zeven modules, zodat bestaande regels in `wp-config.php` niet aangepast hoeven te worden. Staan beide er, dan wint de nieuwe naam. Een vastgezette module houdt bij het opslaan van het instellingenscherm de keuze die er al stond.
 
@@ -66,6 +67,10 @@ Deactiveren haalt alleen de cron-events en de blokken van de toolkit uit `.htacc
 Verwijderen via Plugins ruimt alles op: de opties en transients van de toolkit en de modules, de cron-events, de alt-tekstkenmerken (`_mm_alt_*`, de alt-teksten zelf blijven staan), de productmeta van Herroepingsrecht (`_mm_withdrawal_type` en het oude vinkje `_mm_withdrawal_waiver_applies`; de teksten `_mm_withdrawal_waiver` en `_mm_service_consent` op bestellingen blijven altijd staan, dat is het bewijs van de instemming), de `.htaccess`-blokken en de logmap van de anti-spam met de inzendingen erin. Kan de logmap niet worden weggehaald, dan blijft de optie `mediamora_antispam_log_dir` staan, zodat te vinden is waar hij staat. Staat de losse versie van een module nog op de site, als plugin of mu-plugin en actief of niet, dan blijft alles van die module staan, want de losse versie gebruikt dezelfde gegevens.
 
 ## Wijzigingen
+
+### 1.10.0
+
+- Nieuwe module Schema op alle pagina's (`schema_basis`), standaard aan. Staat in Rank Math het standaardschema voor pagina's op "Geen" (`pt_page_default_rich_snippet` = `off`), dan laat Rank Math op pagina's zonder eigen schema ook Organization, WebSite en WebPage weg; alleen de homepage krijgt ze dan nog (`can_add_global_entities()` in `class-jsonld.php`). Bij een controle van buitenaf hadden 11 van de 42 meetbare Rank Math-sites daardoor gewone pagina's zonder Organization en WebPage. De module geeft via het filter `rank_math/schema/add_global_entities` `true` terug op pagina's en berichten. Op categorie-, tag- en taxonomiepagina's blijft de waarde van Rank Math ongewijzigd, zodat `remove_<taxonomy>_snippet_data` blijft gelden. De module verandert niets aan `pt_page_default_rich_snippet` en voegt geen schematype toe: er komt geen Article op pagina's. Op sites met Article als paginastandaard roept Rank Math het filter niet aan en verandert er dus niets. Het filter wordt pas op `plugins_loaded` gezet en alleen als `RANK_MATH_VERSION` bestaat, want de toolkit laadt vóór Rank Math. De module slaat niets op, dus `uninstall.php` hoeft er niets voor op te ruimen.
 
 ### 1.9.1
 

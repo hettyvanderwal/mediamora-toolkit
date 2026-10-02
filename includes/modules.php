@@ -150,5 +150,16 @@ function mm_toolkit_modules() {
 			'scherm'       => '',
 			'vereist'      => '',
 		),
+		'schema_basis'      => array(
+			'naam'         => 'Schema op alle pagina\'s',
+			'uitleg'       => 'Zorgt dat Rank Math de gegevens van het bedrijf (Organization, WebSite en WebPage) ook op gewone pagina\'s en berichten zet, niet alleen op de homepage. Nodig als het standaardschema voor pagina\'s in Rank Math op "Geen" staat. Voegt geen Article-schema toe en verandert niets op categorie- en tagpagina\'s. Doet niets zonder Rank Math.',
+			'bestand'      => 'schema-basis.php',
+			'standaard'    => true,
+			'losse_mu'     => '',
+			'losse_plugin' => '',
+			'merkteken'    => array(),
+			'scherm'       => '',
+			'vereist'      => '',
+		),
 	);
 }
