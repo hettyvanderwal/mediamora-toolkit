@@ -44,6 +44,8 @@ Bij een variatie telt het hoofdproduct. Per soort die in de winkelmand zit komt 
 
 Per soort zijn de tekst bij het vinkje, de foutmelding, het label in mail en beheer en een herinnering in te stellen. Leeg geeft de standaardtekst in het Nederlands (site-taal `nl_*`) of Engels. De herinnering heeft geen standaardtekst; ingevuld staat hij in kleine grijze letters onderaan de mail "Bestelling in behandeling" (`customer_processing_order`), alleen bij bestellingen met de metakey van die soort. Springt een bestelling direct op Afgerond, dan gaat die mail niet en komt de herinnering dus niet aan.
 
+Per soort staat er een vinkje "Regel in de bestelmail" (`digitaal_mailregel`, `dienst_mailregel`), standaard aan. Uit laat de regel met label en opgeslagen tekst weg uit de bestelmails, naar koper en beheerder; op de bestelling en onder het factuuradres in het beheer blijft hij staan. Staat de regel van een soort uit en is de herinnering van die soort leeg, dan geven de instellingen een melding: de mail bevestigt de instemming dan nergens meer, en bij digitale content is die bevestiging op een duurzame drager verplicht.
+
 Mobiel menu: vroege tik, jQuery-wachtrem en QUIC.cloud en kritieke CSS vervangen testcode in `functions.php`. Die testcode bestaat uit closures zonder vaste functienaam, dus de modules hebben geen merkteken en laden altijd. Ze herkennen de testcode zelf en doen dan niets dubbel: de vroege tik ziet het script `mm-popup-vroege-tik` in de pagina, de jQuery-wachtrem ziet `holdReady` al in de inline scripts van `jquery-core`, en de CCSS-opschoning ziet de functie `mm_ccss_zonder_noscript`. Een dubbele REST-uitzondering kan geen kwaad. De testblokken kunnen dus blijven staan tot na de update, en daarna weg.
 
 REST-gebruikers afschermen ging van standaard aan naar standaard uit. Sites die daar nog geen keuze voor hadden opgeslagen, krijgen die eenmalig alsnog, maar alleen als WooCommerce aanstaat: een webshop houdt de module zo aan. Op een site zonder WooCommerce komt de module uit te staan en is ASE met "Disable REST API" weer de route.
@@ -67,6 +69,13 @@ Deactiveren haalt alleen de cron-events en de blokken van de toolkit uit `.htacc
 Verwijderen via Plugins ruimt alles op: de opties en transients van de toolkit en de modules, de cron-events, de alt-tekstkenmerken (`_mm_alt_*`, de alt-teksten zelf blijven staan), de productmeta van Herroepingsrecht (`_mm_withdrawal_type` en het oude vinkje `_mm_withdrawal_waiver_applies`; de teksten `_mm_withdrawal_waiver` en `_mm_service_consent` op bestellingen blijven altijd staan, dat is het bewijs van de instemming), de `.htaccess`-blokken en de logmap van de anti-spam met de inzendingen erin. Kan de logmap niet worden weggehaald, dan blijft de optie `mediamora_antispam_log_dir` staan, zodat te vinden is waar hij staat. Staat de losse versie van een module nog op de site, als plugin of mu-plugin en actief of niet, dan blijft alles van die module staan, want de losse versie gebruikt dezelfde gegevens.
 
 ## Wijzigingen
+
+### 1.11.0
+
+- Herroepingsrecht: per soort een nieuwe instelling "Regel in de bestelmail" in het tekstenblok (`digitaal_mailregel`, `dienst_mailregel`: `ja` of `nee`). Ontbreekt de sleutel, zoals op sites die na de update nog niet hebben opgeslagen, dan staat hij aan en verandert er niets. Uitgevinkt wordt `nee` opgeslagen.
+- Herroepingsrecht: `mm_herroeping_mail()` slaat een soort over als de mailregel uit staat, in de mails naar de koper en naar de beheerder. De tekst op de bestelling en de regel onder het factuuradres in het beheer blijven ongewijzigd, net als de herinnering.
+- Herroepingsrecht: melding in de instellingen als de mailregel van een soort uit staat en de herinnering van die soort leeg is. De mail bevestigt de instemming dan nergens meer; bij digitale content is die bevestiging op een duurzame drager verplicht. Soorten waarvan de oude `functions.php`-code nog actief is krijgen deze melding niet.
+- Geen nieuwe optie: de instelling staat in `mm_withdrawal_waiver_settings`, die `uninstall.php` al opruimt.
 
 ### 1.10.0
 

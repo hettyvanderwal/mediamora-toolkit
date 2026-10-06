@@ -17,7 +17,7 @@
  *
  * Per soort die in de winkelmand zit komt een verplicht vinkje boven de
  * bestelknop. De letterlijke tekst komt op de bestelling, in de bestelmail
- * en in het beheer.
+ * (tenzij de mailregel van die soort uit staat) en in het beheer.
  *
  * Welke soort een product heeft: de keuze op het product, anders de eerste
  * gekozen categorie (op naam), anders de standaardsoort. Zie
@@ -111,6 +111,8 @@ function mm_herroeping_instellingen() {
 		foreach ( mm_herroeping_tekstvelden() as $veld ) {
 			$standaard[ $soort . '_' . $veld ] = '';
 		}
+		// Sinds 1.11.0. Ontbreekt de sleutel, dan aan, zoals daarvoor.
+		$standaard[ $soort . '_mailregel' ] = 'ja';
 	}
 
 	$instellingen = wp_parse_args( $opgeslagen, $standaard );
@@ -120,9 +122,20 @@ function mm_herroeping_instellingen() {
 	}
 	foreach ( array_keys( mm_herroeping_soorten() ) as $soort ) {
 		$instellingen[ 'categorieen_' . $soort ] = array_values( array_filter( array_map( 'absint', (array) $instellingen[ 'categorieen_' . $soort ] ) ) );
+		$instellingen[ $soort . '_mailregel' ]    = 'nee' === $instellingen[ $soort . '_mailregel' ] ? 'nee' : 'ja';
 	}
 
 	return $instellingen;
+}
+
+/**
+ * Komt de regel met de opgeslagen tekst van deze soort in de bestelmails?
+ *
+ * @param string $soort digitaal of dienst.
+ */
+function mm_herroeping_mailregel( $soort ) {
+	$instellingen = mm_herroeping_instellingen();
+	return 'nee' !== $instellingen[ $soort . '_mailregel' ];
 }
 
 /**
@@ -259,6 +272,15 @@ function mm_herroeping_meldingen() {
 	}
 	if ( 'yes' !== get_option( 'woocommerce_feature_order_withdrawal_enabled' ) && mm_herroeping_dienst_in_gebruik() ) {
 		$meldingen[] = 'Er staat iets op Dienst. Bij een dienst blijft het herroepingsrecht gelden tot de dienst volledig is uitgevoerd, dus de koper moet kunnen herroepen. Zet Order withdrawal van WooCommerce waarschijnlijk aan (WooCommerce > Instellingen > Geavanceerd > Features).';
+	}
+	foreach ( mm_herroeping_actieve_soorten() as $soort => $gegevens ) {
+		if ( ! mm_herroeping_mailregel( $soort ) && '' === mm_herroeping_tekst( $soort, 'herinnering' ) ) {
+			$melding = $gegevens['naam'] . ': de regel in de bestelmail staat uit en er is geen herinnering. De mail bevestigt de instemming dan nergens meer.';
+			if ( 'digitaal' === $soort ) {
+				$melding .= ' Bij digitale content is die bevestiging op een duurzame drager verplicht. Zet de regel weer aan of vul een herinnering in.';
+			}
+			$meldingen[] = $melding;
+		}
 	}
 	return $meldingen;
 }
@@ -510,7 +532,8 @@ function mm_herroeping_op_bestelling( $order ) {
 
 /**
  * Regels in de bestelmails. Het label komt uit de instellingen, de waarde
- * is altijd de opgeslagen tekst.
+ * is altijd de opgeslagen tekst. Een soort waarvan de mailregel uit staat
+ * wordt overgeslagen; op de bestelling en in het beheer blijft hij staan.
  *
  * @param array    $velden
  * @param bool     $naar_beheerder
@@ -521,6 +544,9 @@ function mm_herroeping_mail( $velden, $naar_beheerder, $order ) {
 	$soorten = mm_herroeping_soorten();
 
 	foreach ( mm_herroeping_op_bestelling( $order ) as $soort => $waarde ) {
+		if ( ! mm_herroeping_mailregel( $soort ) ) {
+			continue;
+		}
 		$velden[ $soorten[ $soort ]['veld'] ] = array(
 			'label' => mm_herroeping_tekst( $soort, 'label' ),
 			'value' => $waarde,
@@ -756,6 +782,9 @@ function mm_herroeping_instellingen_opslaan( $post ) {
 				$schoon[ $sleutel ] = sanitize_text_field( $post[ $sleutel ] );
 			}
 		}
+
+		// Een checkbox die uit staat komt niet mee in de POST.
+		$schoon[ $soort . '_mailregel' ] = empty( $post[ $soort . '_mailregel' ] ) ? 'nee' : 'ja';
 	}
 
 	update_option( MM_HERROEPING_OPTIE, $schoon, false );
@@ -791,7 +820,7 @@ function mm_herroeping_scherm() {
 		echo '<div class="notice notice-warning"><p>' . esc_html( $melding ) . '</p></div>';
 	}
 
-	echo '<p>Per soort die in de winkelmand zit komt een verplicht vinkje boven de bestelknop: eerst digitale content, dan dienst. De tekst zoals de koper hem zag komt op de bestelling, in de bestelmail en onder het factuuradres in het beheer.</p>';
+	echo '<p>Per soort die in de winkelmand zit komt een verplicht vinkje boven de bestelknop: eerst digitale content, dan dienst. De tekst zoals de koper hem zag komt op de bestelling, in de bestelmail (per soort uit te zetten) en onder het factuuradres in het beheer.</p>';
 	echo '<ul style="list-style:disc;padding-left:20px;">';
 	echo '<li><strong>Digitale content</strong>, zoals een online cursus: de koper stemt in met directe toegang en verliest daarmee zijn herroepingsrecht.</li>';
 	echo '<li><strong>Dienst</strong>, zoals healing, coaching of een consult: de koper stemt in met directe uitvoering. Het herroepingsrecht vervalt pas als de dienst volledig is uitgevoerd; tot dan blijft het gelden.</li>';
@@ -861,6 +890,13 @@ function mm_herroeping_scherm() {
 				);
 			}
 		}
+
+		$id = $soort . '_mailregel';
+		printf(
+			'<tr><th scope="row">Regel in de bestelmail</th><td><label for="%1$s"><input type="checkbox" id="%1$s" name="%1$s" value="1"%2$s> Label en tekst van het vinkje in de bestelmails</label><p class="description">Uit: niet meer in de mails, wel nog op de bestelling en in het beheer. Vul dan de herinnering in, anders bevestigt de mail de instemming nergens.</p></td></tr>',
+			esc_attr( $id ),
+			checked( $s[ $id ], 'ja', false )
+		);
 		echo '</table>';
 	}
 
