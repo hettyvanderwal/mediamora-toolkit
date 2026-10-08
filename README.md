@@ -16,6 +16,7 @@ De vaste Mediamora-onderdelen in één WordPress-plugin. Elk onderdeel is een mo
 | jQuery-wachtrem | aan | testcode in `functions.php` (`jQuery.holdReady` achter `jquery-core`) |
 | QUIC.cloud en kritieke CSS | uit | testcode in `functions.php` (REST-uitzondering, `mm_ccss_zonder_noscript`) |
 | Schema op alle pagina's | aan, doet niets zonder Rank Math | nieuw |
+| Afbeeldingen: ruimte en voorrang | aan, doet niets zonder Elementor | testcode in `functions.php` (`mm_ig_elementor_img_attrs`) |
 
 ## Overstappen
 
@@ -48,6 +49,8 @@ Per soort staat er een vinkje "Regel in de bestelmail" (`digitaal_mailregel`, `d
 
 Mobiel menu: vroege tik, jQuery-wachtrem en QUIC.cloud en kritieke CSS vervangen testcode in `functions.php`. Die testcode bestaat uit closures zonder vaste functienaam, dus de modules hebben geen merkteken en laden altijd. Ze herkennen de testcode zelf en doen dan niets dubbel: de vroege tik ziet het script `mm-popup-vroege-tik` in de pagina, de jQuery-wachtrem ziet `holdReady` al in de inline scripts van `jquery-core`, en de CCSS-opschoning ziet de functie `mm_ccss_zonder_noscript`. Een dubbele REST-uitzondering kan geen kwaad. De testblokken kunnen dus blijven staan tot na de update, en daarna weg.
 
+Afbeeldingen: ruimte en voorrang vervangt de testcode `mm_ig_elementor_img_attrs` in `functions.php` (intens-gezond.nl). Die functie heeft een vaste naam, maar `functions.php` laadt na de plugins. Daarom staat hij in de lijst als `thema_merkteken` en niet als `merkteken`: de module laadt gewoon, kijkt in zijn eigen filters of de functie bestaat en doet dan niets. Na `after_setup_theme` telt `mm_toolkit_status()` de testcode als losse versie (`los`: "de testcode in functions.php", `laden`: false), zodat het instellingenscherm en de melding bovenaan het beheer hem tonen. Zodra het testblok weg is, neemt de module het over. De handmatige class `skip-lazy` die de testversie per widget nodig had, mag daarna van de widgets af.
+
 REST-gebruikers afschermen ging van standaard aan naar standaard uit. Sites die daar nog geen keuze voor hadden opgeslagen, krijgen die eenmalig alsnog, maar alleen als WooCommerce aanstaat: een webshop houdt de module zo aan. Op een site zonder WooCommerce komt de module uit te staan en is ASE met "Disable REST API" weer de route.
 
 ## Vastzetten per site
@@ -58,7 +61,7 @@ In `wp-config.php`, bijvoorbeeld op een academie:
 define( 'MM_TOOLKIT_MODULE_ALT_TEKSTEN', false );
 ```
 
-Beschikbaar: `MM_TOOLKIT_MODULE_ALT_TEKSTEN`, `MM_TOOLKIT_MODULE_HERO_PRELOAD`, `MM_TOOLKIT_MODULE_PREVIEW_LINK`, `MM_TOOLKIT_MODULE_ANTI_SPAM`, `MM_TOOLKIT_MODULE_FORMULIERMONITOR`, `MM_TOOLKIT_MODULE_AI_BOTS`, `MM_TOOLKIT_MODULE_REST_USERS`, `MM_TOOLKIT_MODULE_WITHDRAWAL_WAIVER`, `MM_TOOLKIT_MODULE_POPUP_TIK`, `MM_TOOLKIT_MODULE_JQUERY_WACHT`, `MM_TOOLKIT_MODULE_QUIC_CLOUD`, `MM_TOOLKIT_MODULE_SCHEMA_BASIS`.
+Beschikbaar: `MM_TOOLKIT_MODULE_ALT_TEKSTEN`, `MM_TOOLKIT_MODULE_HERO_PRELOAD`, `MM_TOOLKIT_MODULE_PREVIEW_LINK`, `MM_TOOLKIT_MODULE_ANTI_SPAM`, `MM_TOOLKIT_MODULE_FORMULIERMONITOR`, `MM_TOOLKIT_MODULE_AI_BOTS`, `MM_TOOLKIT_MODULE_REST_USERS`, `MM_TOOLKIT_MODULE_WITHDRAWAL_WAIVER`, `MM_TOOLKIT_MODULE_POPUP_TIK`, `MM_TOOLKIT_MODULE_JQUERY_WACHT`, `MM_TOOLKIT_MODULE_QUIC_CLOUD`, `MM_TOOLKIT_MODULE_SCHEMA_BASIS`, `MM_TOOLKIT_MODULE_AFBEELDING_RUIMTE`.
 
 De oude namen zonder `MODULE_` (zoals `MM_TOOLKIT_ALT_TEKSTEN`) werken nog voor de eerste zeven modules, zodat bestaande regels in `wp-config.php` niet aangepast hoeven te worden. Staan beide er, dan wint de nieuwe naam. Een vastgezette module houdt bij het opslaan van het instellingenscherm de keuze die er al stond.
 
@@ -69,6 +72,17 @@ Deactiveren haalt alleen de cron-events en de blokken van de toolkit uit `.htacc
 Verwijderen via Plugins ruimt alles op: de opties en transients van de toolkit en de modules, de cron-events, de alt-tekstkenmerken (`_mm_alt_*`, de alt-teksten zelf blijven staan), de productmeta van Herroepingsrecht (`_mm_withdrawal_type` en het oude vinkje `_mm_withdrawal_waiver_applies`; de teksten `_mm_withdrawal_waiver` en `_mm_service_consent` op bestellingen blijven altijd staan, dat is het bewijs van de instemming), de `.htaccess`-blokken en de logmap van de anti-spam met de inzendingen erin. Kan de logmap niet worden weggehaald, dan blijft de optie `mediamora_antispam_log_dir` staan, zodat te vinden is waar hij staat. Staat de losse versie van een module nog op de site, als plugin of mu-plugin en actief of niet, dan blijft alles van die module staan, want de losse versie gebruikt dezelfde gegevens.
 
 ## Wijzigingen
+
+### 1.12.0
+
+- Nieuwe module Afbeeldingen: ruimte en voorrang (`afbeelding_ruimte`), standaard aan. Met een eigen uitsnede (image_size custom, zoals 1000x1333) zet Elementor het bestand in `uploads/elementor/thumbs` en geeft de `<img>` geen width en height. Zolang EWWW Lazy Load alles lazyloadt valt dat niet op, maar met `ewww_image_optimizer_ll_abovethefold` op 2 krijgen de bovenste afbeeldingen geen tijdelijke PNG en verspringt de pagina (CLS 0,17 tot 0,28 op intens-gezond.nl). Twee onderdelen, allebei op `elementor/image_size/get_attachment_image_html`:
+  - Afmetingen: heeft de `<img>` geen width en wijst de src naar de eigen uploadsmap, dan komen width en height uit het bestand (`wp_getimagesize`). Heeft hij al een height, dan komt alleen width erbij. Een `<img>` die al width heeft blijft ongewijzigd. Externe url's, SVG's, data-uri's, paden met `../` en bestanden die niet bestaan of kapot zijn worden overgeslagen. http en https maken voor de vergelijking met de uploads-url niet uit, een querystring wordt genegeerd. De maat wordt per pad onthouden binnen het verzoek, ook als er niets uit kwam.
+  - Voorrang: afbeeldingswidgets (ook de uitgelichte afbeelding van Elementor Pro) in het eerste top-level element van het hoofddocument krijgen `loading="eager"` (een bestaande loading gaat eraf, anders zet WordPress er later weer lazy op) en de class `skip-lazy` voor EWWW. Het hoofddocument is het single- of archive-template van de Theme Builder als Elementor Pro er een rendert (bepaald via de conditions manager, net als Hero-preload), anders op een pagina of bericht de pagina zelf. Header, footer, popups en loop-items hebben een eigen document-ID en blijven ongewijzigd; op een pagina met single-template ook de eigen inhoud van de pagina. Lager op de pagina houden afbeeldingen hun lazy load.
+- Afbeeldingen: ruimte en voorrang markeert de widgets vooraf op `elementor/frontend/builder_content_data`, het enige filter met de elementboom en het document-ID samen. De markering is de class `mm-afbeelding-voorrang` in `_css_classes`: een geregistreerde control, dus hij komt gegarandeerd terug in de settings die het `<img>`-filter krijgt. Die class staat daardoor ook op de wrapper van de widget, handig bij het nakijken in de broncode.
+- Afbeeldingen: ruimte en voorrang zet geen fetchpriority: Hero-preload geeft de achtergrond van de hero al voorrang.
+- Na het aanzetten de cache van Elementor (bij Element Caching) en LiteSpeed legen, anders blijft de oude HTML staan.
+- Modules kunnen een `thema_merkteken` hebben: een functie uit testcode in `functions.php`. `mm_toolkit_status()` kijkt daar na `after_setup_theme` één keer naar en meldt de testcode dan als losse versie. De gewone merktekens worden daarbij niet opnieuw bekeken, want die definiëren de modules na het laden zelf. Zie "Overstappen".
+- De module slaat niets op, dus `uninstall.php` hoeft er niets voor op te ruimen.
 
 ### 1.11.0
 

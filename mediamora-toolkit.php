@@ -3,7 +3,7 @@
  * Plugin Name:       Mediamora Toolkit
  * Plugin URI:        https://github.com/hettyvanderwal/mediamora-toolkit
  * Description:       De vaste Mediamora-onderdelen in één plugin, per onderdeel aan en uit te zetten onder Instellingen > Mediamora Toolkit.
- * Version:           1.11.0
+ * Version:           1.12.0
  * Requires at least: 6.0
  * Requires PHP:      7.4
  * Update URI:        https://github.com/hettyvanderwal/mediamora-toolkit
@@ -22,7 +22,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  * updates telt alleen de kop, zie mm_toolkit_huidige_versie(); deze
  * constante is er voor de rest, zoals de mailheader van de Formuliermonitor.
  */
-const MM_TOOLKIT_VERSIE = '1.11.0';
+const MM_TOOLKIT_VERSIE = '1.12.0';
 const MM_TOOLKIT_REPO   = 'hettyvanderwal/mediamora-toolkit';
 const MM_TOOLKIT_SLUG   = 'mediamora-toolkit';
 const MM_TOOLKIT_OPTIE  = 'mm_toolkit_modules';
@@ -119,24 +119,38 @@ function mm_toolkit_vereiste_actief( $module ) {
  */
 function mm_toolkit_status() {
 	static $status = null;
-	if ( null !== $status ) {
-		return $status;
+	static $thema  = false;
+	if ( null === $status ) {
+		$status = array();
+		$keuzes = mm_toolkit_keuzes();
+		foreach ( mm_toolkit_modules() as $sleutel => $module ) {
+			$vast   = mm_toolkit_vastgezet( $sleutel );
+			$gewild = null === $vast ? $keuzes[ $sleutel ] : $vast;
+			$los    = mm_toolkit_losse_versie( $module );
+			$kan    = mm_toolkit_vereiste_actief( $module );
+			$status[ $sleutel ] = array(
+				'gewild'  => $gewild,
+				'vast'    => null !== $vast,
+				'los'     => $los,
+				'vereist' => $kan,
+				'bestand' => file_exists( MM_TOOLKIT_MAP . '/modules/' . $module['bestand'] ),
+				'laden'   => $gewild && $kan && '' === $los && file_exists( MM_TOOLKIT_MAP . '/modules/' . $module['bestand'] ),
+			);
+		}
 	}
-	$status = array();
-	$keuzes = mm_toolkit_keuzes();
-	foreach ( mm_toolkit_modules() as $sleutel => $module ) {
-		$vast   = mm_toolkit_vastgezet( $sleutel );
-		$gewild = null === $vast ? $keuzes[ $sleutel ] : $vast;
-		$los    = mm_toolkit_losse_versie( $module );
-		$kan    = mm_toolkit_vereiste_actief( $module );
-		$status[ $sleutel ] = array(
-			'gewild'  => $gewild,
-			'vast'    => null !== $vast,
-			'los'     => $los,
-			'vereist' => $kan,
-			'bestand' => file_exists( MM_TOOLKIT_MAP . '/modules/' . $module['bestand'] ),
-			'laden'   => $gewild && $kan && '' === $los && file_exists( MM_TOOLKIT_MAP . '/modules/' . $module['bestand'] ),
-		);
+	// Testcode in functions.php is pas na after_setup_theme te zien. Dan één
+	// keer nakijken, alleen voor thema_merkteken: de gewone merktekens niet
+	// opnieuw, want na het laden definiëren de modules die zelf. De module is
+	// dan al geladen, maar doet niets zolang de testcode er staat; laden gaat
+	// daarom op false.
+	if ( ! $thema && did_action( 'after_setup_theme' ) ) {
+		$thema = true;
+		foreach ( mm_toolkit_modules() as $sleutel => $module ) {
+			if ( '' === $status[ $sleutel ]['los'] && $module['thema_merkteken'] && function_exists( $module['thema_merkteken'] ) ) {
+				$status[ $sleutel ]['los']   = 'de testcode in functions.php';
+				$status[ $sleutel ]['laden'] = false;
+			}
+		}
 	}
 	return $status;
 }
