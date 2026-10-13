@@ -400,6 +400,19 @@ function mm_elementor_versie_script() {
  *   de callback daar loopt vóór de success-callback van Elementor, zodat de
  *   nieuwe waarde er al staat als Elementor verdergaat. fetch (REST en
  *   apiFetch) via een omhulsel.
+ * - De kit neemt een doorgeschoven vingerafdruk niet zomaar over. Een
+ *   globale kleur of typografie via REST schrijft de kit in de database bij,
+ *   maar alleen het commando globals/.../create zet het item ook in het
+ *   kitdocument in het geheugen (hook KitGlobalsUpdateColors en -Typography,
+ *   alleen met Site-instellingen open). Gaat het buiten dat commando om, zoals
+ *   met een kale $e.data.create, dan mist het geheugen het item en zou
+ *   opslaan van de kit het stil overschrijven. Daarom wacht de nieuwe waarde
+ *   tot het item met dat _id in custom_colors of custom_typography van de
+ *   geladen kit staat; zo niet, dan blijft de oude waarde staan en wordt
+ *   opslaan van de kit geweigerd. Andere schrijfacties naar de kit buiten
+ *   zijn eigen opslag schuiven niet door. De eigen opslag van de kit komt
+ *   binnen via config.document in het antwoord, dat Elementor zelf in de
+ *   config zet (de kit is dan het huidige document).
  * - Een geweigerde opslag: een dialoog van Elementor met de melding, de
  *   toast met dezelfde tekst blijft dan weg. Een geweigerde autosave meldt
  *   het per document één keer. In de console staan de vingerafdrukken.
@@ -411,14 +424,37 @@ function mm_elementor_versie_js() {
 	window.mmElementorVersie = true;
 
 	var TEKST = __TEKST__, KOP = 'X-MM-Vingerafdruk', GEWEIGERD = 'X-MM-Vingerafdruk-Geweigerd';
-	var gemeld = {}, dialoog = null;
+	var gemeld = {}, dialoog = null, wachtend = null;
 
 	function documenten() {
 		var e = window.elementor;
 		return e && e.documents && e.documents.documents ? e.documents.documents : {};
 	}
 
+	function kitId() {
+		return window.elementor && window.elementor.config ? parseInt(window.elementor.config.kit_id, 10) || 0 : 0;
+	}
+
+	// Een wachtende waarde voor de kit pas overnemen als het nieuwe item in
+	// het geheugen staat. Is de kit intussen opnieuw geladen, dan vervalt hij.
+	function beoordeelWachtend() {
+		if (!wachtend) return;
+		var kit = documenten()[wachtend.kit];
+		if (!kit || !kit.config || kit.config.mm_vingerafdruk !== wachtend.basis) {
+			wachtend = null;
+			return;
+		}
+		try {
+			var lijst = kit.container && kit.container.settings && kit.container.settings.get(wachtend.lijst);
+			if (lijst && typeof lijst.findWhere === 'function' && lijst.findWhere({ _id: wachtend.item })) {
+				kit.config.mm_vingerafdruk = wachtend.hash;
+				wachtend = null;
+			}
+		} catch (e) {}
+	}
+
 	function bekend() {
+		beoordeelWachtend();
 		var docs = documenten(), delen = [];
 		Object.keys(docs).forEach(function (id) {
 			var c = docs[id] && docs[id].config;
@@ -427,13 +463,26 @@ function mm_elementor_versie_js() {
 		return delen.join(',');
 	}
 
-	function bijwerken(waarde) {
+	// globaal: {lijst, item} bij het aanmaken van een globale kleur of
+	// typografie via REST, anders leeg.
+	function bijwerken(waarde, globaal) {
 		if (!waarde) return;
-		var docs = documenten();
+		var docs = documenten(), kit = kitId();
 		waarde.split(',').forEach(function (deel) {
 			var m = /^\s*(\d+):([a-f0-9]{32})\s*$/.exec(deel);
-			if (m && docs[m[1]] && docs[m[1]].config) docs[m[1]].config.mm_vingerafdruk = m[2];
+			if (!m || !docs[m[1]] || !docs[m[1]].config) return;
+			if (parseInt(m[1], 10) !== kit) {
+				docs[m[1]].config.mm_vingerafdruk = m[2];
+			} else if (globaal) {
+				wachtend = { kit: kit, hash: m[2], basis: docs[m[1]].config.mm_vingerafdruk, lijst: globaal.lijst, item: globaal.item };
+			}
 		});
+	}
+
+	function globaalItem(url, methode) {
+		if (String(methode || 'GET').toUpperCase() !== 'POST') return null;
+		var m = /elementor\/v1\/globals\/(colors|typography)\/([\w-]+)/.exec(decodeURIComponent(url.pathname + url.search));
+		return m ? { lijst: 'custom_' + m[1], item: m[2] } : null;
 	}
 
 	function toonDialoog() {
@@ -489,10 +538,13 @@ function mm_elementor_versie_js() {
 	if (typeof window.fetch === 'function') {
 		var fetchOrigineel = window.fetch;
 		window.fetch = function (invoer, init) {
-			var waarde = '';
+			var waarde = '', globaal = null;
 			try {
 				var url = new URL(invoer instanceof Request ? invoer.url : String(invoer), location.href);
-				if (url.origin === location.origin) waarde = bekend();
+				if (url.origin === location.origin) {
+					waarde = bekend();
+					globaal = globaalItem(url, (init && init.method) || (invoer instanceof Request ? invoer.method : 'GET'));
+				}
 			} catch (e) {}
 			if (!waarde) return fetchOrigineel.apply(window, arguments);
 			init = Object.assign({}, init);
@@ -500,7 +552,7 @@ function mm_elementor_versie_js() {
 			koppen.set(KOP, waarde);
 			init.headers = koppen;
 			return fetchOrigineel.call(window, invoer, init).then(function (antwoord) {
-				try { bijwerken(antwoord.headers.get(KOP)); } catch (e) {}
+				try { bijwerken(antwoord.headers.get(KOP), globaal); } catch (e) {}
 				return antwoord;
 			});
 		};
