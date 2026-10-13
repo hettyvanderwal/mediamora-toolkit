@@ -192,5 +192,17 @@ function mm_toolkit_modules() {
 			'vereist'         => '',
 			'thema_merkteken' => 'mm_ig_elementor_img_attrs',
 		),
+		'elementor_versie'  => array(
+			'naam'            => 'Elementor: oude versies tegenhouden',
+			'uitleg'          => 'Voorkomt dat een oud tabblad van de Elementor-editor nieuwer werk overschrijft. Elk document krijgt bij het openen een vingerafdruk van de opgeslagen inhoud. Is het document daarna veranderd, door iemand anders, in een ander tabblad of via Novamira, REST of WP-CLI, dan weigert Elementor het opslaan met de melding om eerst te herladen. Geldt voor pagina\'s, berichten, templates, popups, header, footer en de site-instellingen. Autosaves naar een revisie en het voorbeeld gaan gewoon door; bij een concept schrijft de autosave het document zelf en telt hij als opslaan. Wijzigingen buiten de editor worden niet tegengehouden. Doet niets zonder Elementor en niets op de voorkant.',
+			'bestand'         => 'elementor-versie.php',
+			'standaard'       => true,
+			'losse_mu'        => '',
+			'losse_plugin'    => '',
+			'merkteken'       => array(),
+			'scherm'          => '',
+			'vereist'         => '',
+			'thema_merkteken' => '',
+		),
 	);
 }

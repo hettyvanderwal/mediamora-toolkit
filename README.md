@@ -17,6 +17,7 @@ De vaste Mediamora-onderdelen in één WordPress-plugin. Elk onderdeel is een mo
 | QUIC.cloud en kritieke CSS | uit | testcode in `functions.php` (REST-uitzondering, `mm_ccss_zonder_noscript`) |
 | Schema op alle pagina's | aan, doet niets zonder Rank Math | nieuw |
 | Afbeeldingen: ruimte en voorrang | aan, doet niets zonder Elementor | testcode in `functions.php` (`mm_ig_elementor_img_attrs`) |
+| Elementor: oude versies tegenhouden | aan, doet niets zonder Elementor | nieuw |
 
 ## Overstappen
 
@@ -53,7 +54,18 @@ Afbeeldingen: ruimte en voorrang vervangt de testcode `mm_ig_elementor_img_attrs
 
 REST-gebruikers afschermen ging van standaard aan naar standaard uit. Sites die daar nog geen keuze voor hadden opgeslagen, krijgen die eenmalig alsnog, maar alleen als WooCommerce aanstaat: een webshop houdt de module zo aan. Op een site zonder WooCommerce komt de module uit te staan en is ASE met "Disable REST API" weer de route.
 
-## Vastzetten per site
+## Elementor: oude versies tegenhouden
+
+Elementor kijkt bij opslaan niet of een document sinds het laden is veranderd. Een tabblad dat al een tijd open staat, overschrijft dus alles wat er intussen is gebeurd: werk uit een ander tabblad, van een andere gebruiker of via Novamira, REST of WP-CLI. De post lock van WordPress helpt niet: die vervalt na 150 seconden zonder heartbeat (laptop in slaap), geldt niet tussen tabbladen van dezelfde gebruiker en wordt server-side niet gezet of gecontroleerd.
+
+De module geeft elk document dat de editor laadt een vingerafdruk mee in zijn config (`mm_vingerafdruk`, via `elementor/document/config`): een md5 over de ruwe waarden van `_elementor_data` en `_elementor_page_settings`, rechtstreeks uit de database. Het tabblad stuurt bij elke eigen aanvraag de header `X-MM-Vingerafdruk` mee (`id:hash,id:hash`, per geladen document). Bij `save_builder` van het document zelf vergelijkt de module die in `elementor/document/before_save` met de database; wijkt hij af, dan weigert Elementor de opslag voordat er iets geschreven is. De editor toont dan een dialoog: "Deze pagina is intussen aangepast, door iemand anders of in een ander tabblad. Herlaad de pagina voordat je opslaat. Wat je nu nog niet hebt opgeslagen, kun je eerst kopiëren." Er is geen knop om toch op te slaan. In de browserconsole staat welk document en welke vingerafdrukken (bij laden en in de database), en de response heeft de header `X-MM-Vingerafdruk-Geweigerd` (`id:geladen:database:soort`).
+
+- Na elke geslaagde opslag leest de module de vingerafdruk opnieuw uit de database en geeft hem terug (response-header en `elementor/documents/ajax_save/return_data`), zodat opslaan in hetzelfde tabblad gewoon blijft werken, ook als Elementor bij het opslaan nog normaliseert.
+- Doorschuiven: schrijft een aanvraag van het tabblad zelf naar `_elementor_data` of `_elementor_page_settings` van een document dat het tabblad kent, en kwam de database vlak daarvoor overeen met wat het tabblad kende, dan krijgt het tabblad na elke schrijfactie de nieuwe vingerafdruk. Meerdere schrijfacties in één aanvraag ketenen. Zo geven een nieuwe globale kleur of typografie (REST naar de kit), het opruimen van verwijderde global classes en hooks als `save_post` geen onterechte weigering. Een ander tabblad kent de oude waarde en wordt wel tegengehouden.
+- Autosave: schrijft Elementor naar een autosave-revisie (document gepubliceerd of privé, ook bij Voorbeeld), dan controleert de module niets. Bij een concept of een document in afwachting schrijft de autosave het document zelf; die telt als opslaan. Een geweigerde autosave meldt de dialoog per document één keer.
+- Stuurt een tabblad geen vingerafdruk mee, zoals een tabblad dat al open stond voordat de module aanging, dan wordt het nooit tegengehouden.
+- Wijzigingen buiten de editor worden niet tegengehouden, maar wel opgemerkt bij de volgende opslag vanuit een al geopend tabblad. Dat geldt ook voor wijzigingen die Elementor zelf buiten de editor doet, zoals een databasemigratie na een update of de sitetitel die onder Instellingen verandert (die staat ook in de kit).
+
 
 In `wp-config.php`, bijvoorbeeld op een academie:
 
@@ -61,7 +73,7 @@ In `wp-config.php`, bijvoorbeeld op een academie:
 define( 'MM_TOOLKIT_MODULE_ALT_TEKSTEN', false );
 ```
 
-Beschikbaar: `MM_TOOLKIT_MODULE_ALT_TEKSTEN`, `MM_TOOLKIT_MODULE_HERO_PRELOAD`, `MM_TOOLKIT_MODULE_PREVIEW_LINK`, `MM_TOOLKIT_MODULE_ANTI_SPAM`, `MM_TOOLKIT_MODULE_FORMULIERMONITOR`, `MM_TOOLKIT_MODULE_AI_BOTS`, `MM_TOOLKIT_MODULE_REST_USERS`, `MM_TOOLKIT_MODULE_WITHDRAWAL_WAIVER`, `MM_TOOLKIT_MODULE_POPUP_TIK`, `MM_TOOLKIT_MODULE_JQUERY_WACHT`, `MM_TOOLKIT_MODULE_QUIC_CLOUD`, `MM_TOOLKIT_MODULE_SCHEMA_BASIS`, `MM_TOOLKIT_MODULE_AFBEELDING_RUIMTE`.
+Beschikbaar: `MM_TOOLKIT_MODULE_ALT_TEKSTEN`, `MM_TOOLKIT_MODULE_HERO_PRELOAD`, `MM_TOOLKIT_MODULE_PREVIEW_LINK`, `MM_TOOLKIT_MODULE_ANTI_SPAM`, `MM_TOOLKIT_MODULE_FORMULIERMONITOR`, `MM_TOOLKIT_MODULE_AI_BOTS`, `MM_TOOLKIT_MODULE_REST_USERS`, `MM_TOOLKIT_MODULE_WITHDRAWAL_WAIVER`, `MM_TOOLKIT_MODULE_POPUP_TIK`, `MM_TOOLKIT_MODULE_JQUERY_WACHT`, `MM_TOOLKIT_MODULE_QUIC_CLOUD`, `MM_TOOLKIT_MODULE_SCHEMA_BASIS`, `MM_TOOLKIT_MODULE_AFBEELDING_RUIMTE`, `MM_TOOLKIT_MODULE_ELEMENTOR_VERSIE`.
 
 De oude namen zonder `MODULE_` (zoals `MM_TOOLKIT_ALT_TEKSTEN`) werken nog voor de eerste zeven modules, zodat bestaande regels in `wp-config.php` niet aangepast hoeven te worden. Staan beide er, dan wint de nieuwe naam. Een vastgezette module houdt bij het opslaan van het instellingenscherm de keuze die er al stond.
 
@@ -72,6 +84,11 @@ Deactiveren haalt alleen de cron-events en de blokken van de toolkit uit `.htacc
 Verwijderen via Plugins ruimt alles op: de opties en transients van de toolkit en de modules, de cron-events, de alt-tekstkenmerken (`_mm_alt_*`, de alt-teksten zelf blijven staan), de productmeta van Herroepingsrecht (`_mm_withdrawal_type` en het oude vinkje `_mm_withdrawal_waiver_applies`; de teksten `_mm_withdrawal_waiver` en `_mm_service_consent` op bestellingen blijven altijd staan, dat is het bewijs van de instemming), de `.htaccess`-blokken en de logmap van de anti-spam met de inzendingen erin. Kan de logmap niet worden weggehaald, dan blijft de optie `mediamora_antispam_log_dir` staan, zodat te vinden is waar hij staat. Staat de losse versie van een module nog op de site, als plugin of mu-plugin en actief of niet, dan blijft alles van die module staan, want de losse versie gebruikt dezelfde gegevens.
 
 ## Wijzigingen
+
+### 1.13.0
+
+- Nieuwe module Elementor: oude versies tegenhouden (`elementor_versie`), **standaard aan** op alle sites, ook op sites die de update krijgen. Uit te zetten met de schakelaar of `MM_TOOLKIT_MODULE_ELEMENTOR_VERSIE`. Weigert opslaan vanuit een Elementor-tabblad als het document sinds het laden is veranderd, met een dialoog om eerst te herladen. Werkt voor pagina's, berichten, Theme Builder-templates, popups, header, footer en de kit, elk met een eigen vingerafdruk. Zie "Elementor: oude versies tegenhouden".
+- Geen post lock, geen logging, geen opties of tabellen: `uninstall.php` hoeft er niets voor op te ruimen. Op de voorkant doet de module niets; de schrijfhooks komen er alleen bij als een aanvraag de header `X-MM-Vingerafdruk` meestuurt.
 
 ### 1.12.0
 
