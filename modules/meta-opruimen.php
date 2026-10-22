@@ -15,8 +15,7 @@
  * _elementor_data van verwijderde revisies. Het schema blijft in MainWP,
  * omdat het dan in de Pro Reports komt; deze module ruimt erachteraan op.
  *
- * Wat hij doet, elke woensdag (de dag na MainWP) en één keer kort na het
- * aanzetten:
+ * Wat hij doet, elke woensdag (de dag na MainWP):
  *
  * - wp_postmeta: regels weg waarvan de post_id niet meer in wp_posts staat.
  *   post_id 0 blijft staan, die gebruiken sommige plugins bewust.
@@ -56,10 +55,9 @@ const MM_META_OPRUIMEN_PAUZE   = 200000; // microseconden na elke DELETE
  * Staat het wekelijkse event er niet, dan is de module net aangezet: na een
  * update, na het aanzetten van de schakelaar of na opnieuw activeren (bij
  * uitzetten en deactiveren gaan de events weg, zie mediamora-toolkit.php).
- * Dan komt het wekelijkse event erin en over vijf minuten een eerste ronde,
- * zodat die niet in het verzoek van de update zelf loopt. Die eerste ronde
- * draagt het argument true; een gewone vervolgronde heeft geen argument en
- * begint nooit zelf een nieuwe ronde.
+ * Dan komt het wekelijkse event erin. Er wordt bij het aanzetten niet meteen
+ * opgeruimd: de eerste ronde is de eerstvolgende woensdag. Tot die tijd kan
+ * "Nu tellen" laten zien wat er weg zou gaan.
  *
  * Het tijdstip is woensdag 05:00 in de tijdzone van de site, plus een vaste
  * verschuiving van 0 tot 59 minuten per site. Zo begint niet elke site op
@@ -74,7 +72,6 @@ function mm_meta_opruimen_inplannen() {
 		return;
 	}
 	wp_schedule_event( mm_meta_opruimen_volgende_woensdag(), 'weekly', 'mm_meta_opruimen_wekelijks' );
-	wp_schedule_single_event( time() + 5 * MINUTE_IN_SECONDS, 'mm_meta_opruimen_vervolg', array( true ) );
 }
 
 /**
@@ -103,16 +100,10 @@ function mm_meta_opruimen_wekelijks() {
 }
 
 /**
- * De eerste ronde na het aanzetten, of een vervolgronde. Een vervolgronde
- * doet niets als er geen ronde meer bezig is.
- *
- * @param bool $start True bij de eerste ronde na het aanzetten.
+ * Vervolgronde. Doet niets als er geen ronde meer bezig is, dus een
+ * overgebleven vervolgevent begint nooit zelf een nieuwe ronde.
  */
-function mm_meta_opruimen_vervolg( $start = false ) {
-	if ( $start ) {
-		mm_meta_opruimen_draai( true );
-		return;
-	}
+function mm_meta_opruimen_vervolg() {
 	$stand = get_option( MM_META_OPRUIMEN_OPTIE, array() );
 	if ( is_array( $stand ) && isset( $stand['status'] ) && 'bezig' === $stand['status'] ) {
 		mm_meta_opruimen_draai( false );
@@ -433,7 +424,8 @@ function mm_meta_opruimen_datum( $timestamp ) {
 function mm_meta_opruimen_status_regel() {
 	$stand = get_option( MM_META_OPRUIMEN_OPTIE, array() );
 	if ( ! is_array( $stand ) || empty( $stand['status'] ) ) {
-		return 'Eerste ronde ingepland';
+		$volgende = wp_next_scheduled( 'mm_meta_opruimen_wekelijks' );
+		return $volgende ? 'Eerste ronde ' . esc_html( mm_meta_opruimen_datum( $volgende ) ) : 'Nog niet gedraaid';
 	}
 	if ( 'bezig' === $stand['status'] ) {
 		return 'Ronde bezig';
@@ -469,8 +461,7 @@ function mm_meta_opruimen_overzicht() {
 	// Laatste ronde.
 	echo '<h3>Laatste ronde</h3>';
 	if ( ! is_array( $stand ) || empty( $stand['status'] ) ) {
-		$volgende = wp_next_scheduled( 'mm_meta_opruimen_vervolg', array( true ) );
-		echo '<p>Nog niet gedraaid.' . ( $volgende ? ' De eerste ronde staat gepland voor ' . esc_html( mm_meta_opruimen_datum( $volgende ) ) . '.' : '' ) . '</p>';
+		echo '<p>Nog niet gedraaid.</p>';
 	} else {
 		echo '<table class="widefat striped" style="max-width:900px;"><thead><tr><th>Tabel</th><th>Verwijderd</th><th>Geschat</th></tr></thead><tbody>';
 		foreach ( $namen as $sleutel => $naam ) {

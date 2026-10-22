@@ -279,12 +279,13 @@ function mm_toolkit_deactiveren() {
  * Verweesde meta: de events weg en een lopende ronde afbreken. Bij
  * deactiveren, en op elke beheerpagina zolang de module niet laadt. Zo
  * vangt het ook de schakelaar, een define in wp-config.php en een losse
- * update die de module uitzet. Gaat de module later weer aan, dan begint hij
- * met een nieuwe ronde. De uitkomst van de laatste ronde blijft staan.
+ * update die de module uitzet. Gaat de module later weer aan, dan plant hij
+ * de eerstvolgende woensdag weer in. De uitkomst van de laatste ronde blijft
+ * staan.
  */
 function mm_toolkit_meta_opruimen_stoppen() {
-	// wp_unschedule_hook en niet wp_clear_scheduled_hook: de eerste ronde
-	// heeft een argument, en clear haalt alleen events zonder argumenten weg.
+	// wp_unschedule_hook haalt alle events van de hook weg, ook als er ooit
+	// een met argumenten is ingepland.
 	wp_unschedule_hook( 'mm_meta_opruimen_wekelijks' );
 	wp_unschedule_hook( 'mm_meta_opruimen_vervolg' );
 	delete_option( 'mm_meta_opruimen_slot' );

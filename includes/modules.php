@@ -206,7 +206,7 @@ function mm_toolkit_modules() {
 		),
 		'meta_opruimen'     => array(
 			'naam'            => 'Verweesde meta opruimen',
-			'uitleg'          => 'Haalt elke woensdag, en één keer kort na het aanzetten, regels uit wp_postmeta en wp_commentmeta weg waarvan de post of reactie niet meer bestaat. Die blijven achter na de wekelijkse database-opschoning van MainWP, die revisies en reacties zonder hun meta verwijdert. Werkt in kleine batches met een tijdsbudget en gaat later verder als dat op is. Geen OPTIMIZE TABLE. Verweesde regels in wp_term_relationships worden alleen geteld.',
+			'uitleg'          => 'Haalt elke woensdag rond 05:00 regels uit wp_postmeta en wp_commentmeta weg waarvan de post of reactie niet meer bestaat. Die blijven achter na de wekelijkse database-opschoning van MainWP, die revisies en reacties zonder hun meta verwijdert. Werkt in kleine batches met een tijdsbudget en gaat later verder als dat op is. Geen OPTIMIZE TABLE. Verweesde regels in wp_term_relationships worden alleen geteld. Na het aanzetten wordt niets meteen opgeruimd; met Nu tellen is te zien wat er de eerste woensdag weg gaat.',
 			'bestand'         => 'meta-opruimen.php',
 			'standaard'       => true,
 			'losse_mu'        => '',
