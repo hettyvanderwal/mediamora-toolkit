@@ -18,6 +18,7 @@ De vaste Mediamora-onderdelen in één WordPress-plugin. Elk onderdeel is een mo
 | Schema op alle pagina's | aan, doet niets zonder Rank Math | nieuw |
 | Afbeeldingen: ruimte en voorrang | aan, doet niets zonder Elementor | testcode in `functions.php` (`mm_ig_elementor_img_attrs`) |
 | Elementor: oude versies tegenhouden | aan, doet niets zonder Elementor | nieuw |
+| Verweesde meta opruimen | aan | nieuw |
 
 ## Overstappen
 
@@ -67,6 +68,17 @@ De module geeft elk document dat de editor laadt een vingerafdruk mee in zijn co
 - Stuurt een tabblad geen vingerafdruk mee, zoals een tabblad dat al open stond voordat de module aanging, dan wordt het nooit tegengehouden.
 - Wijzigingen buiten de editor worden niet tegengehouden, maar wel opgemerkt bij de volgende opslag vanuit een al geopend tabblad. Dat geldt ook voor wijzigingen die Elementor zelf buiten de editor doet, zoals een databasemigratie na een update of de sitetitel die onder Instellingen verandert (die staat ook in de kit).
 
+## Verweesde meta opruimen
+
+Sinds 22 oktober 2026 draait in MainWP (Maintenance-extensie) elke dinsdag rond 05:00 een database-opschoning op de klantsites: 20 revisies bewaren, automatische concepten, spam- en prullenbakreacties en verlopen transients weg. MainWP Child 6.3 doet dat met kale `DELETE`-queries op `wp_posts` en `wp_comments` (`maintenance_db()` en `maintenance_delete_revisions()` in `class-mainwp-child-maintenance.php`), zonder `wp_delete_post_revision()` of `wp_delete_comment()`. De meta van die revisies en reacties blijft daardoor achter. Op karinedebruijn.com was dat na de eerste ronde 40.968 regels in `wp_postmeta`, 90 MB, waarvan 88 MB `_elementor_data`. Het schema blijft in MainWP, omdat het dan in de Pro Reports komt; deze module ruimt erachteraan op.
+
+- Wanneer: elke woensdag vanaf 05:00 in de tijdzone van de site (WP-cron `mm_meta_opruimen_wekelijks`, `weekly`), met per site een vaste verschuiving van 0 tot 59 minuten uit een hash van `home_url()`. Daarnaast één ronde vijf minuten na het aanzetten (`mm_meta_opruimen_vervolg` met argument `true`): na de update, na de schakelaar of na opnieuw activeren.
+- Wat weggaat: regels in `wp_postmeta` waarvan de `post_id` niet in `wp_posts` staat, en regels in `wp_commentmeta` waarvan de `comment_id` niet in `wp_comments` staat. Id 0 blijft in beide tabellen staan.
+- Wat alleen geteld wordt: regels in `wp_term_relationships` waarvan de `object_id` niet in `wp_posts` staat, behalve taxonomie `link_category` (die hoort bij `wp_links`). Een regel waarvan ook de term_taxonomy weg is, telt mee.
+- Hoe: de module loopt de tabel op `meta_id` door in vensters van 50.000 id's. Per venster haalt een `LEFT JOIN` hooguit 5.000 verweesde id's op, die daarna met `DELETE ... WHERE meta_id IN (...)` weggaan (met de koppeling nog eens in de `WHERE`). Na elke `DELETE` 0,2 seconde pauze. Een ronde heeft 15 seconden; is die op, dan gaat een vervolgronde (`mm_meta_opruimen_vervolg` zonder argument) zes minuten later verder bij het venster waar hij was. Die vervolgronde staat al bij het begin van elke ronde klaar, zodat ook een ronde die PHP halverwege afkapt wordt afgemaakt. Een slot (`mm_meta_opruimen_slot`, vervalt na vijf minuten) voorkomt twee rondes tegelijk. De ronde loopt tot de hoogste `meta_id` bij de start.
+- Nooit `OPTIMIZE TABLE`: dat zet een lock op de tabel. De vrijgekomen ruimte wordt weer gebruikt en de dump in de back-up wordt meteen kleiner.
+- Uitkomst: in de optie `mm_meta_opruimen_laatste`: `status` (`bezig`, `klaar` of `fout`), `compleet`, `start` en `eind`, `rondes` (in hoeveel delen), `fout`, per tabel het aantal verwijderde regels en de bytes (lengte van `meta_key` plus `meta_value`, dus een schatting zonder indexen) en `termen`. Onder Instellingen > Mediamora Toolkit staat een korte regel bij de module en een overzicht onder de tabel, met de knop **Nu tellen**. Die telt in dezelfde vensters wat een ronde zou weghalen (hooguit 20 seconden, anders staat er "onvolledig") en bewaart dat in `mm_meta_opruimen_telling`. Hij verwijdert niets.
+- Uitzetten (schakelaar, `MM_TOOLKIT_MODULE_META_OPRUIMEN` of deactiveren) haalt de events weg en breekt een lopende ronde af; de uitkomst van de laatste ronde blijft staan. Gaat de module weer aan, dan begint hij met een nieuwe ronde.
 
 In `wp-config.php`, bijvoorbeeld op een academie:
 
@@ -74,17 +86,23 @@ In `wp-config.php`, bijvoorbeeld op een academie:
 define( 'MM_TOOLKIT_MODULE_ALT_TEKSTEN', false );
 ```
 
-Beschikbaar: `MM_TOOLKIT_MODULE_ALT_TEKSTEN`, `MM_TOOLKIT_MODULE_HERO_PRELOAD`, `MM_TOOLKIT_MODULE_PREVIEW_LINK`, `MM_TOOLKIT_MODULE_ANTI_SPAM`, `MM_TOOLKIT_MODULE_FORMULIERMONITOR`, `MM_TOOLKIT_MODULE_AI_BOTS`, `MM_TOOLKIT_MODULE_REST_USERS`, `MM_TOOLKIT_MODULE_WITHDRAWAL_WAIVER`, `MM_TOOLKIT_MODULE_POPUP_TIK`, `MM_TOOLKIT_MODULE_JQUERY_WACHT`, `MM_TOOLKIT_MODULE_QUIC_CLOUD`, `MM_TOOLKIT_MODULE_SCHEMA_BASIS`, `MM_TOOLKIT_MODULE_AFBEELDING_RUIMTE`, `MM_TOOLKIT_MODULE_ELEMENTOR_VERSIE`.
+Beschikbaar: `MM_TOOLKIT_MODULE_ALT_TEKSTEN`, `MM_TOOLKIT_MODULE_HERO_PRELOAD`, `MM_TOOLKIT_MODULE_PREVIEW_LINK`, `MM_TOOLKIT_MODULE_ANTI_SPAM`, `MM_TOOLKIT_MODULE_FORMULIERMONITOR`, `MM_TOOLKIT_MODULE_AI_BOTS`, `MM_TOOLKIT_MODULE_REST_USERS`, `MM_TOOLKIT_MODULE_WITHDRAWAL_WAIVER`, `MM_TOOLKIT_MODULE_POPUP_TIK`, `MM_TOOLKIT_MODULE_JQUERY_WACHT`, `MM_TOOLKIT_MODULE_QUIC_CLOUD`, `MM_TOOLKIT_MODULE_SCHEMA_BASIS`, `MM_TOOLKIT_MODULE_AFBEELDING_RUIMTE`, `MM_TOOLKIT_MODULE_ELEMENTOR_VERSIE`, `MM_TOOLKIT_MODULE_META_OPRUIMEN`.
 
 De oude namen zonder `MODULE_` (zoals `MM_TOOLKIT_ALT_TEKSTEN`) werken nog voor de eerste zeven modules, zodat bestaande regels in `wp-config.php` niet aangepast hoeven te worden. Staan beide er, dan wint de nieuwe naam. Een vastgezette module houdt bij het opslaan van het instellingenscherm de keuze die er al stond.
 
 ## Deactiveren en verwijderen
 
-Deactiveren haalt alleen de cron-events en de blokken van de toolkit uit `.htaccess` weg. Instellingen en logs blijven staan.
+Deactiveren haalt alleen de cron-events (ook die van Verweesde meta opruimen) en de blokken van de toolkit uit `.htaccess` weg. Instellingen en logs blijven staan.
 
-Verwijderen via Plugins ruimt alles op: de opties en transients van de toolkit en de modules, de cron-events, de alt-tekstkenmerken (`_mm_alt_*`, de alt-teksten zelf blijven staan), de productmeta van Herroepingsrecht (`_mm_withdrawal_type` en het oude vinkje `_mm_withdrawal_waiver_applies`; de teksten `_mm_withdrawal_waiver` en `_mm_service_consent` op bestellingen blijven altijd staan, dat is het bewijs van de instemming), de `.htaccess`-blokken en de logmap van de anti-spam met de inzendingen erin. Kan de logmap niet worden weggehaald, dan blijft de optie `mediamora_antispam_log_dir` staan, zodat te vinden is waar hij staat. Staat de losse versie van een module nog op de site, als plugin of mu-plugin en actief of niet, dan blijft alles van die module staan, want de losse versie gebruikt dezelfde gegevens.
+Verwijderen via Plugins ruimt alles op: de opties en transients van de toolkit en de modules, de cron-events, de alt-tekstkenmerken (`_mm_alt_*`, de alt-teksten zelf blijven staan), de productmeta van Herroepingsrecht (`_mm_withdrawal_type` en het oude vinkje `_mm_withdrawal_waiver_applies`; de teksten `_mm_withdrawal_waiver` en `_mm_service_consent` op bestellingen blijven altijd staan, dat is het bewijs van de instemming), de opties van Verweesde meta opruimen, de `.htaccess`-blokken en de logmap van de anti-spam met de inzendingen erin. Kan de logmap niet worden weggehaald, dan blijft de optie `mediamora_antispam_log_dir` staan, zodat te vinden is waar hij staat. Staat de losse versie van een module nog op de site, als plugin of mu-plugin en actief of niet, dan blijft alles van die module staan, want de losse versie gebruikt dezelfde gegevens.
 
 ## Wijzigingen
+
+### 1.14.0
+
+- Nieuwe module Verweesde meta opruimen (`meta_opruimen`), **standaard aan** op alle sites, ook op sites die de update krijgen. Uit te zetten met de schakelaar of `MM_TOOLKIT_MODULE_META_OPRUIMEN`. Haalt elke woensdag regels uit `wp_postmeta` en `wp_commentmeta` weg waarvan de post of reactie niet meer bestaat, zoals na de database-opschoning van MainWP op dinsdag. Eén ronde vijf minuten na het aanzetten. In batches met een tijdsbudget en vervolgrondes, zonder `OPTIMIZE TABLE`. Verweesde `wp_term_relationships` worden alleen geteld. Uitkomst en de knop Nu tellen op het instellingenscherm. Zie "Verweesde meta opruimen".
+- Het instellingenscherm kan onder de moduletabel een overzicht van een module tonen, met een eigen formulier.
+- `uninstall.php` ruimt `mm_meta_opruimen_laatste`, `mm_meta_opruimen_telling`, `mm_meta_opruimen_slot` en de twee cron-events op.
 
 ### 1.13.0
 

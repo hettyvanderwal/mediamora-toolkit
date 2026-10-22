@@ -3,7 +3,7 @@
  * Plugin Name:       Mediamora Toolkit
  * Plugin URI:        https://github.com/hettyvanderwal/mediamora-toolkit
  * Description:       De vaste Mediamora-onderdelen in één plugin, per onderdeel aan en uit te zetten onder Instellingen > Mediamora Toolkit.
- * Version:           1.13.0
+ * Version:           1.14.0
  * Requires at least: 6.0
  * Requires PHP:      7.4
  * Update URI:        https://github.com/hettyvanderwal/mediamora-toolkit
@@ -22,7 +22,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  * updates telt alleen de kop, zie mm_toolkit_huidige_versie(); deze
  * constante is er voor de rest, zoals de mailheader van de Formuliermonitor.
  */
-const MM_TOOLKIT_VERSIE = '1.13.0';
+const MM_TOOLKIT_VERSIE = '1.14.0';
 const MM_TOOLKIT_REPO   = 'hettyvanderwal/mediamora-toolkit';
 const MM_TOOLKIT_SLUG   = 'mediamora-toolkit';
 const MM_TOOLKIT_OPTIE  = 'mm_toolkit_modules';
@@ -272,6 +272,31 @@ function mm_toolkit_deactiveren() {
 	wp_clear_scheduled_hook( 'mm_aibots_opschonen' );
 	wp_clear_scheduled_hook( 'mediamora_antispam_report' );
 	wp_clear_scheduled_hook( 'mediamora_antispam_nearmiss_alert' );
+	mm_toolkit_meta_opruimen_stoppen();
+}
+
+/**
+ * Verweesde meta: de events weg en een lopende ronde afbreken. Bij
+ * deactiveren, en op elke beheerpagina zolang de module niet laadt. Zo
+ * vangt het ook de schakelaar, een define in wp-config.php en een losse
+ * update die de module uitzet. Gaat de module later weer aan, dan begint hij
+ * met een nieuwe ronde. De uitkomst van de laatste ronde blijft staan.
+ */
+function mm_toolkit_meta_opruimen_stoppen() {
+	// wp_unschedule_hook en niet wp_clear_scheduled_hook: de eerste ronde
+	// heeft een argument, en clear haalt alleen events zonder argumenten weg.
+	wp_unschedule_hook( 'mm_meta_opruimen_wekelijks' );
+	wp_unschedule_hook( 'mm_meta_opruimen_vervolg' );
+	delete_option( 'mm_meta_opruimen_slot' );
+}
+
+add_action( 'admin_init', 'mm_toolkit_meta_opruimen_herstel' );
+
+function mm_toolkit_meta_opruimen_herstel() {
+	$status = mm_toolkit_status();
+	if ( ! $status['meta_opruimen']['laden'] && wp_next_scheduled( 'mm_meta_opruimen_wekelijks' ) ) {
+		mm_toolkit_meta_opruimen_stoppen();
+	}
 }
 
 
@@ -406,6 +431,9 @@ function mm_toolkit_scherm() {
 		if ( 'ai_bots' === $sleutel && get_transient( 'mm_toolkit_aibots_htaccess_fout' ) ) {
 			$tekst .= '<br><span style="color:#b32d2e;">Kon .htaccess niet bijwerken: AI-crawlers krijgen nog gecachete pagina\'s</span>';
 		}
+		if ( 'meta_opruimen' === $sleutel && $s['laden'] && function_exists( 'mm_meta_opruimen_status_regel' ) ) {
+			$tekst .= '<br><span style="color:#646970;">' . mm_meta_opruimen_status_regel() . '</span> <a href="#mm-meta-opruimen">Overzicht</a>';
+		}
 		if ( 'withdrawal_waiver' === $sleutel && $s['laden'] && function_exists( 'mm_herroeping_meldingen' ) ) {
 			foreach ( mm_herroeping_meldingen() as $melding ) {
 				$tekst .= '<br><span style="color:#b32d2e;">' . esc_html( $melding ) . '</span>';
@@ -426,7 +454,14 @@ function mm_toolkit_scherm() {
 
 	echo '</tbody></table>';
 	submit_button( 'Opslaan' );
-	echo '</form></div>';
+	echo '</form>';
+
+	// Eigen formulier met de knop Nu tellen, dus na het formulier hierboven.
+	if ( $status['meta_opruimen']['laden'] && function_exists( 'mm_meta_opruimen_overzicht' ) ) {
+		mm_meta_opruimen_overzicht();
+	}
+
+	echo '</div>';
 }
 
 /**

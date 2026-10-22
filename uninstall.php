@@ -146,6 +146,13 @@ function mm_toolkit_uninstall_site( $los ) {
 		}
 	}
 
+	// Verweesde meta: geen losse versie, dus altijd opruimen.
+	wp_unschedule_hook( 'mm_meta_opruimen_wekelijks' );
+	wp_unschedule_hook( 'mm_meta_opruimen_vervolg' );
+	delete_option( 'mm_meta_opruimen_laatste' );
+	delete_option( 'mm_meta_opruimen_telling' );
+	delete_option( 'mm_meta_opruimen_slot' );
+
 	// Alleen de instellingen en de productmeta (de soort, en het vinkje van
 	// 1.6.0). _mm_withdrawal_waiver en _mm_service_consent op bestellingen
 	// blijven altijd staan: dat is het bewijs van de instemming.
