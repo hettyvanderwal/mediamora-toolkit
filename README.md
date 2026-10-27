@@ -19,6 +19,7 @@ De vaste Mediamora-onderdelen in één WordPress-plugin. Elk onderdeel is een mo
 | Afbeeldingen: ruimte en voorrang | aan, doet niets zonder Elementor | testcode in `functions.php` (`mm_ig_elementor_img_attrs`) |
 | Elementor: oude versies tegenhouden | aan, doet niets zonder Elementor | nieuw |
 | Verweesde meta opruimen | aan | nieuw |
+| Instagram-feed | uit, per site aanzetten | nieuw |
 
 ## Overstappen
 
@@ -81,23 +82,44 @@ Sinds 22 oktober 2026 draait in MainWP (Maintenance-extensie) elke dinsdag rond 
 - Uitkomst: in de optie `mm_meta_opruimen_laatste`: `status` (`bezig`, `klaar` of `fout`), `compleet`, `start` en `eind`, `rondes` (in hoeveel delen), `fout`, per tabel het aantal verwijderde regels en de bytes (lengte van `meta_key` plus `meta_value`, dus een schatting zonder indexen) en `termen`. Onder Instellingen > Mediamora Toolkit staat een korte regel bij de module en een overzicht onder de tabel, met de knop **Nu tellen**. Die telt in dezelfde vensters wat een ronde zou weghalen (hooguit 20 seconden, anders staat er "onvolledig") en bewaart dat in `mm_meta_opruimen_telling`. Hij verwijdert niets.
 - Uitzetten (schakelaar, `MM_TOOLKIT_MODULE_META_OPRUIMEN` of deactiveren) haalt de events weg en breekt een lopende ronde af; de uitkomst van de laatste ronde blijft staan. Gaat de module weer aan, dan plant hij de eerstvolgende donderdag weer in.
 
+## Instagram-feed
+
+Laat de laatste Instagram-posts van de klant zien met de shortcode `[mm_instagram]`, bijvoorbeeld in een Shortcode-widget in de footer. De gegevens komen uit een JSON-feed van [Behold](https://behold.so). De klant koppelt haar Instagram-account zelf via de koppellink van Behold (account moet zakelijk of creator zijn); in de module komt alleen de feed-URL.
+
+Waarom niet de widget van Behold: die laadt bij elke bezoeker een script en de foto's van Behold, en elke paginaweergave telt dan als view. Het gratis plan heeft 1.200 views per maand en pauzeert het account tot de volgende maand als die op zijn. In de footer is dat snel bereikt.
+
+- Ophalen: WP-cron `mm_instagram_ophalen`, `twicedaily`, met per site een vaste verschuiving uit een hash van `home_url()`. Alleen ingepland als er een feed-URL is. De feed van Behold ververst op het gratis plan één keer per dag, dus vaker heeft geen zin. Opslaan met een nieuwe URL of een ander aantal haalt meteen op; daarnaast is er de knop **Nu ophalen**.
+- Alleen `https://feeds.behold.so/<id>` als feed-URL. Foto's alleen van `behold.pictures`, `cdninstagram.com` en `fbcdn.net`, en alleen als `getimagesize()` er een JPEG, PNG of WebP in ziet.
+- Foto's: de vierkante versies `small` (400 px) en `medium` (700 px) van Behold, in `uploads/mediamora-instagram/<post-id>-klein|middel.<ext>`. Zonder `sizes` de originele afbeelding (bij video de omslag). Een foto die er al staat wordt niet opnieuw gedownload. Foto's van posts die uit de feed vallen blijven nog 14 dagen staan, zodat pagina's in een cache geen kapotte afbeelding tonen; daarna gaan ze weg bij de volgende ophaalronde.
+- Bij een fout (Behold onbereikbaar, account gepauzeerd, lege feed) blijft de vorige feed staan en komt de fout op het instellingenscherm en in de moduletabel. Lukt één foto niet, dan valt alleen die post weg.
+- Views bij Behold: elke ophaalactie telt als één view, dus zo'n 60 per maand. Bezoekers laden niets van Behold of Instagram: geen externe scripts, geen cookies. Het scherm telt de aanvragen per maand (laatste zes maanden).
+- Shortcode: `aantal` (standaard alles), `kolommen` (3), `kolommen_tablet` en `kolommen_mobiel` (standaard gelijk aan de maat erboven), `ruimte` (8 px) en `afronding` (0 px). De breekpunten komen uit Elementor. Een `<ul class="mm-instagram">` met per post een link naar Instagram (nieuw tabblad) en een afbeelding met `srcset`, `width`/`height`, `loading="lazy"` en als alt-tekst de eerste regel van het bijschrift (hooguit 120 tekens). Kleuren, titel en knop eromheen bouw je in Elementor met de globals van de kit.
+- Cache: de shortcode zet de LiteSpeed-tag `mm_instagram`. Is de feed na het ophalen veranderd, dan wordt alleen die tag gepurged. De Shortcode-widget van Elementor valt niet onder de element cache.
+- Opslag: `mm_instagram_instellingen` (url en aantal), `mm_instagram_feed` (de posts, autoload) en `mm_instagram_status` (laatste poging, fout, teller, oude foto's).
+- Uitzetten (schakelaar, `MM_TOOLKIT_MODULE_INSTAGRAM` of deactiveren) haalt het cron-event weg; feed en foto's blijven staan, maar de shortcode toont niets meer zolang de module uit staat.
+
 In `wp-config.php`, bijvoorbeeld op een academie:
 
 ```php
 define( 'MM_TOOLKIT_MODULE_ALT_TEKSTEN', false );
 ```
 
-Beschikbaar: `MM_TOOLKIT_MODULE_ALT_TEKSTEN`, `MM_TOOLKIT_MODULE_HERO_PRELOAD`, `MM_TOOLKIT_MODULE_PREVIEW_LINK`, `MM_TOOLKIT_MODULE_ANTI_SPAM`, `MM_TOOLKIT_MODULE_FORMULIERMONITOR`, `MM_TOOLKIT_MODULE_AI_BOTS`, `MM_TOOLKIT_MODULE_REST_USERS`, `MM_TOOLKIT_MODULE_WITHDRAWAL_WAIVER`, `MM_TOOLKIT_MODULE_POPUP_TIK`, `MM_TOOLKIT_MODULE_JQUERY_WACHT`, `MM_TOOLKIT_MODULE_QUIC_CLOUD`, `MM_TOOLKIT_MODULE_SCHEMA_BASIS`, `MM_TOOLKIT_MODULE_AFBEELDING_RUIMTE`, `MM_TOOLKIT_MODULE_ELEMENTOR_VERSIE`, `MM_TOOLKIT_MODULE_META_OPRUIMEN`.
+Beschikbaar: `MM_TOOLKIT_MODULE_ALT_TEKSTEN`, `MM_TOOLKIT_MODULE_HERO_PRELOAD`, `MM_TOOLKIT_MODULE_PREVIEW_LINK`, `MM_TOOLKIT_MODULE_ANTI_SPAM`, `MM_TOOLKIT_MODULE_FORMULIERMONITOR`, `MM_TOOLKIT_MODULE_AI_BOTS`, `MM_TOOLKIT_MODULE_REST_USERS`, `MM_TOOLKIT_MODULE_WITHDRAWAL_WAIVER`, `MM_TOOLKIT_MODULE_POPUP_TIK`, `MM_TOOLKIT_MODULE_JQUERY_WACHT`, `MM_TOOLKIT_MODULE_QUIC_CLOUD`, `MM_TOOLKIT_MODULE_SCHEMA_BASIS`, `MM_TOOLKIT_MODULE_AFBEELDING_RUIMTE`, `MM_TOOLKIT_MODULE_ELEMENTOR_VERSIE`, `MM_TOOLKIT_MODULE_META_OPRUIMEN`, `MM_TOOLKIT_MODULE_INSTAGRAM`.
 
 De oude namen zonder `MODULE_` (zoals `MM_TOOLKIT_ALT_TEKSTEN`) werken nog voor de eerste zeven modules, zodat bestaande regels in `wp-config.php` niet aangepast hoeven te worden. Staan beide er, dan wint de nieuwe naam. Een vastgezette module houdt bij het opslaan van het instellingenscherm de keuze die er al stond.
 
 ## Deactiveren en verwijderen
 
-Deactiveren haalt alleen de cron-events (ook die van Verweesde meta opruimen) en de blokken van de toolkit uit `.htaccess` weg. Instellingen en logs blijven staan.
+Deactiveren haalt alleen de cron-events (ook die van Verweesde meta opruimen en de Instagram-feed) en de blokken van de toolkit uit `.htaccess` weg. Instellingen en logs blijven staan.
 
-Verwijderen via Plugins ruimt alles op: de opties en transients van de toolkit en de modules, de cron-events, de alt-tekstkenmerken (`_mm_alt_*`, de alt-teksten zelf blijven staan), de productmeta van Herroepingsrecht (`_mm_withdrawal_type` en het oude vinkje `_mm_withdrawal_waiver_applies`; de teksten `_mm_withdrawal_waiver` en `_mm_service_consent` op bestellingen blijven altijd staan, dat is het bewijs van de instemming), de opties van Verweesde meta opruimen, de `.htaccess`-blokken en de logmap van de anti-spam met de inzendingen erin. Kan de logmap niet worden weggehaald, dan blijft de optie `mediamora_antispam_log_dir` staan, zodat te vinden is waar hij staat. Staat de losse versie van een module nog op de site, als plugin of mu-plugin en actief of niet, dan blijft alles van die module staan, want de losse versie gebruikt dezelfde gegevens.
+Verwijderen via Plugins ruimt alles op: de opties en transients van de toolkit en de modules, de cron-events, de alt-tekstkenmerken (`_mm_alt_*`, de alt-teksten zelf blijven staan), de productmeta van Herroepingsrecht (`_mm_withdrawal_type` en het oude vinkje `_mm_withdrawal_waiver_applies`; de teksten `_mm_withdrawal_waiver` en `_mm_service_consent` op bestellingen blijven altijd staan, dat is het bewijs van de instemming), de opties van Verweesde meta opruimen, de opties en de fotomap `uploads/mediamora-instagram` van de Instagram-feed, de `.htaccess`-blokken en de logmap van de anti-spam met de inzendingen erin. Kan de logmap niet worden weggehaald, dan blijft de optie `mediamora_antispam_log_dir` staan, zodat te vinden is waar hij staat. Staat de losse versie van een module nog op de site, als plugin of mu-plugin en actief of niet, dan blijft alles van die module staan, want de losse versie gebruikt dezelfde gegevens.
 
 ## Wijzigingen
+
+### 1.15.0
+
+- Nieuwe module Instagram-feed (`instagram`), **standaard uit**. Toont de laatste Instagram-posts met `[mm_instagram]`, uit een JSON-feed van Behold die de site twee keer per dag zelf ophaalt, met de foto's op de eigen server. Zo tellen bij Behold alleen de ophaalacties als views en laden bezoekers niets extern. Instellingen onder Instellingen > Instagram-feed (feed-URL, aantal posts, status, Nu ophalen). Zie "Instagram-feed". Eerst ingezet op Traditierijk (footer).
+- `uninstall.php` ruimt de opties, het cron-event en de map `uploads/mediamora-instagram` op.
 
 ### 1.14.0
 
