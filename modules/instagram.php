@@ -20,7 +20,7 @@
  *
  * Gebruik: [mm_instagram] in een Shortcode-widget van Elementor, bijvoorbeeld
  * in de footer. Opties: aantal, kolommen, kolommen_tablet, kolommen_mobiel,
- * ruimte (px) en afronding (px). Kleuren en titel komen uit Elementor zelf.
+ * ruimte (px), afronding (px) en verhouding (auto of bijvoorbeeld 1/1). Kleuren en titel komen uit Elementor zelf.
  *
  * Cache: de shortcode zet de LiteSpeed-tag mm_instagram op de pagina. Is de
  * feed veranderd, dan purget de module alleen die tag. Foto's van posts die
@@ -496,6 +496,7 @@ function mm_instagram_shortcode( $atts ) {
 			'kolommen_mobiel' => '',
 			'ruimte'          => 8,
 			'afronding'       => 0,
+			'verhouding'      => 'auto',
 		),
 		$atts,
 		'mm_instagram'
@@ -530,7 +531,7 @@ function mm_instagram_shortcode( $atts ) {
 		$html      .= '<style id="mm-instagram-css">'
 			. '.mm-instagram{display:grid;grid-template-columns:repeat(var(--mm-ig-kol),minmax(0,1fr));gap:var(--mm-ig-ruimte);margin:0;padding:0;list-style:none}'
 			. '.mm-instagram li{margin:0;padding:0}'
-			. '.mm-instagram a{display:block;aspect-ratio:1/1;overflow:hidden;border-radius:var(--mm-ig-afronding)}'
+			. '.mm-instagram a{display:block;aspect-ratio:var(--mm-ig-verhouding,1/1);overflow:hidden;border-radius:var(--mm-ig-afronding)}'
 			. '.mm-instagram img{display:block;width:100%;height:100%;object-fit:cover;transition:opacity .2s}'
 			. '.mm-instagram a:hover img{opacity:.85}'
 			. '@media (max-width:' . (int) $tablet . 'px){.mm-instagram{grid-template-columns:repeat(var(--mm-ig-kol-t),minmax(0,1fr))}}'
@@ -538,13 +539,27 @@ function mm_instagram_shortcode( $atts ) {
 			. '</style>';
 	}
 
+	// Verhouding van de tegels: "auto" volgt de eerste foto (Instagram en
+	// Behold leveren tegenwoordig vaak 4:5), anders bijvoorbeeld "1/1".
+	$verhouding = '1 / 1';
+	if ( preg_match( '#^\s*(\d{1,4})\s*[/:]\s*(\d{1,4})\s*$#', (string) $atts['verhouding'], $deel ) && (int) $deel[1] > 0 && (int) $deel[2] > 0 ) {
+		$verhouding = (int) $deel[1] . ' / ' . (int) $deel[2];
+	} else {
+		$eerste = reset( $posts );
+		$foto   = isset( $eerste['fotos']['middel'] ) ? $eerste['fotos']['middel'] : $eerste['fotos']['klein'];
+		if ( ! empty( $foto['breedte'] ) && ! empty( $foto['hoogte'] ) ) {
+			$verhouding = (int) $foto['breedte'] . ' / ' . (int) $foto['hoogte'];
+		}
+	}
+
 	$stijl = sprintf(
-		'--mm-ig-kol:%d;--mm-ig-kol-t:%d;--mm-ig-kol-m:%d;--mm-ig-ruimte:%dpx;--mm-ig-afronding:%dpx',
+		'--mm-ig-kol:%d;--mm-ig-kol-t:%d;--mm-ig-kol-m:%d;--mm-ig-ruimte:%dpx;--mm-ig-afronding:%dpx;--mm-ig-verhouding:%s',
 		$kol,
 		$kol_t,
 		$kol_m,
 		max( 0, (int) $atts['ruimte'] ),
-		max( 0, (int) $atts['afronding'] )
+		max( 0, (int) $atts['afronding'] ),
+		$verhouding
 	);
 
 	$sizes = sprintf(
@@ -734,7 +749,7 @@ function mm_instagram_scherm() {
 	echo '<h2>Gebruik</h2>';
 	echo '<p>Zet een Shortcode-widget van Elementor waar de feed moet komen, bijvoorbeeld in de footer:</p>';
 	echo '<p><code>[mm_instagram]</code></p>';
-	echo '<p>Opties: <code>aantal</code> (standaard alles), <code>kolommen</code> (3), <code>kolommen_tablet</code>, <code>kolommen_mobiel</code> (standaard gelijk aan de maat erboven), <code>ruimte</code> (8, in px) en <code>afronding</code> (0, in px). Bijvoorbeeld:</p>';
+	echo '<p>Opties: <code>aantal</code> (standaard alles), <code>kolommen</code> (3), <code>kolommen_tablet</code>, <code>kolommen_mobiel</code> (standaard gelijk aan de maat erboven), <code>ruimte</code> (8, in px), <code>afronding</code> (0, in px) en <code>verhouding</code> (auto: volgt de foto\'s, of bijvoorbeeld 1/1 voor vierkant). Bijvoorbeeld:</p>';
 	echo '<p><code>[mm_instagram aantal="6" kolommen="3" kolommen_mobiel="3" ruimte="6"]</code></p>';
 
 	echo '</div>';
