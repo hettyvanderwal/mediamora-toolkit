@@ -216,5 +216,17 @@ function mm_toolkit_modules() {
 			'vereist'         => '',
 			'thema_merkteken' => '',
 		),
+		'instagram'         => array(
+			'naam'            => 'Instagram-feed',
+			'uitleg'          => 'Toont de laatste Instagram-posts met de shortcode [mm_instagram], bijvoorbeeld in de footer. De site haalt de JSON-feed van Behold twee keer per dag op en zet de foto\'s op de eigen server, dus bezoekers laden niets van Behold of Instagram en bij Behold tellen alleen die ophaalacties als views (zo\'n 60 per maand). Feed-URL en aantal posts onder Instellingen > Instagram-feed.',
+			'bestand'         => 'instagram.php',
+			'standaard'       => false,
+			'losse_mu'        => '',
+			'losse_plugin'    => '',
+			'merkteken'       => array(),
+			'scherm'          => 'options-general.php?page=mm-instagram',
+			'vereist'         => '',
+			'thema_merkteken' => '',
+		),
 	);
 }

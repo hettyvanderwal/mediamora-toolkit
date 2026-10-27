@@ -153,6 +153,17 @@ function mm_toolkit_uninstall_site( $los ) {
 	delete_option( 'mm_meta_opruimen_telling' );
 	delete_option( 'mm_meta_opruimen_slot' );
 
+	// Instagram-feed: geen losse versie, dus altijd opruimen, ook de foto's.
+	wp_unschedule_hook( 'mm_instagram_ophalen' );
+	delete_option( 'mm_instagram_instellingen' );
+	delete_option( 'mm_instagram_feed' );
+	delete_option( 'mm_instagram_status' );
+	delete_transient( 'mm_instagram_slot' );
+	$mm_ig_uploads = wp_upload_dir( null, false );
+	if ( ! empty( $mm_ig_uploads['basedir'] ) ) {
+		mm_toolkit_uninstall_logmap_weg( trailingslashit( $mm_ig_uploads['basedir'] ) . 'mediamora-instagram' );
+	}
+
 	// Alleen de instellingen en de productmeta (de soort, en het vinkje van
 	// 1.6.0). _mm_withdrawal_waiver en _mm_service_consent op bestellingen
 	// blijven altijd staan: dat is het bewijs van de instemming.

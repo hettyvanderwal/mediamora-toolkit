@@ -3,7 +3,7 @@
  * Plugin Name:       Mediamora Toolkit
  * Plugin URI:        https://github.com/hettyvanderwal/mediamora-toolkit
  * Description:       De vaste Mediamora-onderdelen in één plugin, per onderdeel aan en uit te zetten onder Instellingen > Mediamora Toolkit.
- * Version:           1.14.0
+ * Version:           1.15.0
  * Requires at least: 6.0
  * Requires PHP:      7.4
  * Update URI:        https://github.com/hettyvanderwal/mediamora-toolkit
@@ -22,7 +22,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  * updates telt alleen de kop, zie mm_toolkit_huidige_versie(); deze
  * constante is er voor de rest, zoals de mailheader van de Formuliermonitor.
  */
-const MM_TOOLKIT_VERSIE = '1.14.0';
+const MM_TOOLKIT_VERSIE = '1.15.0';
 const MM_TOOLKIT_REPO   = 'hettyvanderwal/mediamora-toolkit';
 const MM_TOOLKIT_SLUG   = 'mediamora-toolkit';
 const MM_TOOLKIT_OPTIE  = 'mm_toolkit_modules';
@@ -273,6 +273,7 @@ function mm_toolkit_deactiveren() {
 	wp_clear_scheduled_hook( 'mediamora_antispam_report' );
 	wp_clear_scheduled_hook( 'mediamora_antispam_nearmiss_alert' );
 	mm_toolkit_meta_opruimen_stoppen();
+	wp_unschedule_hook( 'mm_instagram_ophalen' );
 }
 
 /**
@@ -297,6 +298,10 @@ function mm_toolkit_meta_opruimen_herstel() {
 	$status = mm_toolkit_status();
 	if ( ! $status['meta_opruimen']['laden'] && wp_next_scheduled( 'mm_meta_opruimen_wekelijks' ) ) {
 		mm_toolkit_meta_opruimen_stoppen();
+	}
+	// Instagram-feed uit: niet meer ophalen. Feed en foto's blijven staan.
+	if ( ! $status['instagram']['laden'] && wp_next_scheduled( 'mm_instagram_ophalen' ) ) {
+		wp_unschedule_hook( 'mm_instagram_ophalen' );
 	}
 }
 
@@ -434,6 +439,9 @@ function mm_toolkit_scherm() {
 		}
 		if ( 'meta_opruimen' === $sleutel && $s['laden'] && function_exists( 'mm_meta_opruimen_status_regel' ) ) {
 			$tekst .= '<br><span style="color:#646970;">' . mm_meta_opruimen_status_regel() . '</span> <a href="#mm-meta-opruimen">Overzicht</a>';
+		}
+		if ( 'instagram' === $sleutel && $s['laden'] && function_exists( 'mm_instagram_status_regel' ) ) {
+			$tekst .= '<br><span style="color:#646970;">' . mm_instagram_status_regel() . '</span>';
 		}
 		if ( 'withdrawal_waiver' === $sleutel && $s['laden'] && function_exists( 'mm_herroeping_meldingen' ) ) {
 			foreach ( mm_herroeping_meldingen() as $melding ) {
