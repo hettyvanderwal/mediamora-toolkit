@@ -280,7 +280,7 @@ function mm_toolkit_deactiveren() {
  * deactiveren, en op elke beheerpagina zolang de module niet laadt. Zo
  * vangt het ook de schakelaar, een define in wp-config.php en een losse
  * update die de module uitzet. Gaat de module later weer aan, dan plant hij
- * de eerstvolgende woensdag weer in. De uitkomst van de laatste ronde blijft
+ * de eerstvolgende donderdag weer in. De uitkomst van de laatste ronde blijft
  * staan.
  */
 function mm_toolkit_meta_opruimen_stoppen() {

@@ -15,7 +15,12 @@
  * _elementor_data van verwijderde revisies. Het schema blijft in MainWP,
  * omdat het dan in de Pro Reports komt; deze module ruimt erachteraan op.
  *
- * Wat hij doet, elke woensdag (de dag na MainWP):
+ * MainWP verwerkt de sites in batches, dus niet elke site is dinsdag aan de
+ * beurt: op mediamora.nl kwam de opschoning pas woensdag om 10:05 langs.
+ * Daarom draait deze module op donderdag en niet op woensdag; anders bleef
+ * de verweesde meta van die week een week staan.
+ *
+ * Wat hij doet, elke donderdag:
  *
  * - wp_postmeta: regels weg waarvan de post_id niet meer in wp_posts staat.
  *   post_id 0 blijft staan, die gebruiken sommige plugins bewust.
@@ -56,10 +61,14 @@ const MM_META_OPRUIMEN_PAUZE   = 200000; // microseconden na elke DELETE
  * update, na het aanzetten van de schakelaar of na opnieuw activeren (bij
  * uitzetten en deactiveren gaan de events weg, zie mediamora-toolkit.php).
  * Dan komt het wekelijkse event erin. Er wordt bij het aanzetten niet meteen
- * opgeruimd: de eerste ronde is de eerstvolgende woensdag. Tot die tijd kan
+ * opgeruimd: de eerste ronde is de eerstvolgende donderdag. Tot die tijd kan
  * "Nu tellen" laten zien wat er weg zou gaan.
  *
- * Het tijdstip is woensdag 05:00 in de tijdzone van de site, plus een vaste
+ * Staat het event nog op een woensdag (ingepland door een dev-build van
+ * 1.14.0, onder andere op mediamora.nl en traditierijk.nl), dan gaat het eruit
+ * en komt de eerstvolgende donderdag ervoor in de plaats.
+ *
+ * Het tijdstip is donderdag 05:00 in de tijdzone van de site, plus een vaste
  * verschuiving van 0 tot 59 minuten per site. Zo begint niet elke site op
  * dezelfde server tegelijk, en vallen twee gelijktijdige verzoeken op
  * hetzelfde tijdstip, zodat er geen dubbel event ontstaat.
@@ -68,18 +77,23 @@ const MM_META_OPRUIMEN_PAUZE   = 200000; // microseconden na elke DELETE
 add_action( 'init', 'mm_meta_opruimen_inplannen' );
 
 function mm_meta_opruimen_inplannen() {
-	if ( wp_next_scheduled( 'mm_meta_opruimen_wekelijks' ) ) {
+	$volgende = wp_next_scheduled( 'mm_meta_opruimen_wekelijks' );
+	if ( $volgende && '3' === wp_date( 'N', $volgende ) ) {
+		wp_unschedule_hook( 'mm_meta_opruimen_wekelijks' );
+		$volgende = false;
+	}
+	if ( $volgende ) {
 		return;
 	}
-	wp_schedule_event( mm_meta_opruimen_volgende_woensdag(), 'weekly', 'mm_meta_opruimen_wekelijks' );
+	wp_schedule_event( mm_meta_opruimen_volgende_donderdag(), 'weekly', 'mm_meta_opruimen_wekelijks' );
 }
 
 /**
- * Eerstvolgende woensdag 05:00 plus de verschuiving van deze site, als
+ * Eerstvolgende donderdag 05:00 plus de verschuiving van deze site, als
  * timestamp.
  */
-function mm_meta_opruimen_volgende_woensdag() {
-	$moment = new DateTime( 'wednesday 05:00', wp_timezone() );
+function mm_meta_opruimen_volgende_donderdag() {
+	$moment = new DateTime( 'thursday 05:00', wp_timezone() );
 	$moment->modify( '+' . ( absint( crc32( home_url() ) ) % 60 ) . ' minutes' );
 	if ( $moment->getTimestamp() <= time() ) {
 		$moment->modify( '+7 days' );
