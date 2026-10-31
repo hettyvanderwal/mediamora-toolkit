@@ -483,7 +483,7 @@ function mediamora_antispam_validate_form( $record, $ajax_handler ) {
 
 		// Check 1: link injection (BBCode, of te veel URLs voor het veldtype)
 		if ( $is_link ) {
-			$ajax_handler->add_error( $id, __( 'Ongeldige invoer gedetecteerd.', 'mediamora' ) );
+			$ajax_handler->add_error( $id, __( 'Ongeldige invoer gedetecteerd.', 'mediamora-toolkit' ) );
 			mediamora_antispam_log( 'verdachte link', $id, $type, $value );
 			$submission_rejected = true;
 			continue; // dit veld is al afgekeurd, geen zin om ook nog op gibberish te checken
@@ -491,7 +491,7 @@ function mediamora_antispam_validate_form( $record, $ajax_handler ) {
 
 		// Check 1b: niet-Latijns schrift, ook zonder link (alleen als expliciet ingeschakeld)
 		if ( $s['reject_non_latin_text'] && mediamora_is_mostly_non_latin( $value ) ) {
-			$ajax_handler->add_error( $id, __( 'Ongeldige invoer gedetecteerd.', 'mediamora' ) );
+			$ajax_handler->add_error( $id, __( 'Ongeldige invoer gedetecteerd.', 'mediamora-toolkit' ) );
 			mediamora_antispam_log( 'niet-Latijns schrift', $id, $type, $value );
 			$submission_rejected = true;
 			continue;
@@ -499,7 +499,7 @@ function mediamora_antispam_validate_form( $record, $ajax_handler ) {
 
 		// Check 1c: bericht noemt de domeinnaam van de site zelf (bulk-outreach patroon)
 		if ( $s['reject_own_domain_mention'] && mediamora_mentions_own_domain( $value ) ) {
-			$ajax_handler->add_error( $id, __( 'Ongeldige invoer gedetecteerd.', 'mediamora' ) );
+			$ajax_handler->add_error( $id, __( 'Ongeldige invoer gedetecteerd.', 'mediamora-toolkit' ) );
 			mediamora_antispam_log( 'noemt eigen domeinnaam', $id, $type, $value );
 			$submission_rejected = true;
 			continue;
@@ -507,7 +507,7 @@ function mediamora_antispam_validate_form( $record, $ajax_handler ) {
 
 		// Check 1d: verkorte URL-services (bit.ly, tinyurl, psee.io, enz.)
 		if ( $s['reject_shortened_urls'] && mediamora_contains_shortened_url( $value ) ) {
-			$ajax_handler->add_error( $id, __( 'Ongeldige invoer gedetecteerd.', 'mediamora' ) );
+			$ajax_handler->add_error( $id, __( 'Ongeldige invoer gedetecteerd.', 'mediamora-toolkit' ) );
 			mediamora_antispam_log( 'verkorte URL', $id, $type, $value );
 			$submission_rejected = true;
 			continue;
@@ -515,7 +515,7 @@ function mediamora_antispam_validate_form( $record, $ajax_handler ) {
 
 		// Check 1e: afspraken-boekingslink (Calendly, Cal.com, enz. - cold-outreach patroon)
 		if ( $s['reject_scheduling_links'] && mediamora_contains_scheduling_link( $value ) ) {
-			$ajax_handler->add_error( $id, __( 'Ongeldige invoer gedetecteerd.', 'mediamora' ) );
+			$ajax_handler->add_error( $id, __( 'Ongeldige invoer gedetecteerd.', 'mediamora-toolkit' ) );
 			mediamora_antispam_log( 'boekingslink', $id, $type, $value );
 			$submission_rejected = true;
 			continue;
@@ -523,7 +523,7 @@ function mediamora_antispam_validate_form( $record, $ajax_handler ) {
 
 		// Check 2: automatisch gegenereerde ("random") tekst
 		if ( $is_gibberish ) {
-			$ajax_handler->add_error( $id, __( 'Ongeldige invoer gedetecteerd.', 'mediamora' ) );
+			$ajax_handler->add_error( $id, __( 'Ongeldige invoer gedetecteerd.', 'mediamora-toolkit' ) );
 			mediamora_antispam_log( 'onleesbare tekst', $id, $type, $value );
 			$submission_rejected = true;
 			continue;
@@ -531,7 +531,7 @@ function mediamora_antispam_validate_form( $record, $ajax_handler ) {
 
 		// Check 2b: overmatige woordherhaling (keyword stuffing)
 		if ( mediamora_has_excessive_repetition( $value ) ) {
-			$ajax_handler->add_error( $id, __( 'Ongeldige invoer gedetecteerd.', 'mediamora' ) );
+			$ajax_handler->add_error( $id, __( 'Ongeldige invoer gedetecteerd.', 'mediamora-toolkit' ) );
 			mediamora_antispam_log( 'herhaalde trefwoorden', $id, $type, $value );
 			$submission_rejected = true;
 			continue;
@@ -564,7 +564,7 @@ function mediamora_antispam_validate_form( $record, $ajax_handler ) {
 	// Check 3: identieke lange inhoud in meerdere velden (bot die overal dezelfde tekst plakt)
 	if ( count( $long_values ) > 1 && count( $long_values ) !== count( array_unique( $long_values ) ) ) {
 		foreach ( $long_values as $id => $value ) {
-			$ajax_handler->add_error( $id, __( 'Ongeldige invoer gedetecteerd.', 'mediamora' ) );
+			$ajax_handler->add_error( $id, __( 'Ongeldige invoer gedetecteerd.', 'mediamora-toolkit' ) );
 			mediamora_antispam_log( 'dubbele inhoud', $id, 'n.v.t.', $value );
 			$submission_rejected = true;
 		}
