@@ -28,13 +28,21 @@ if ( ! defined( 'ABSPATH' ) ) {
  * ?rest_route=/litespeed/... Alleen ingrijpen als er al een WP_Error is,
  * dus als ASE (of iets anders) het verzoek al heeft geweigerd.
  *
+ * En alleen voor wie niet is ingelogd, zoals QUIC.cloud. Een ingelogde
+ * gebruiker met een ongeldige nonce (rest_cookie_invalid_nonce) blijft
+ * geweigerd: anders kan een andere site via de browser van een ingelogde
+ * beheerder de routes van LiteSpeed aanroepen.
+ *
  * Werkt naast REST-gebruikers afschermen: die module zit op rest_pre_dispatch
  * en alleen op /wp/v2/users, deze alleen op /litespeed/.
  * ---------------------------------------------------------------------- */
 
 function mm_quic_rest_uitzondering( $result ) {
 	$route = isset( $GLOBALS['wp']->query_vars['rest_route'] ) ? (string) $GLOBALS['wp']->query_vars['rest_route'] : '';
-	if ( is_wp_error( $result ) && strpos( $route, '/litespeed/' ) === 0 ) {
+	if ( is_wp_error( $result )
+		&& strpos( $route, '/litespeed/' ) === 0
+		&& 0 === get_current_user_id()
+		&& ! in_array( 'rest_cookie_invalid_nonce', $result->get_error_codes(), true ) ) {
 		return null;
 	}
 	return $result;
