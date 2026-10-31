@@ -180,8 +180,11 @@ function mm_instagram_ophalen_uitvoeren( $instellingen ) {
 	$antwoord = wp_remote_get(
 		$instellingen['url'],
 		array(
-			'timeout' => 15,
-			'headers' => array( 'Accept' => 'application/json' ),
+			'timeout'             => 15,
+			'headers'             => array( 'Accept' => 'application/json' ),
+			// Een feed is een paar tientallen kB. Meer dan dit inlezen heeft
+			// geen zin; een afgekapt antwoord valt hieronder af als ongeldige JSON.
+			'limit_response_size' => 2 * MB_IN_BYTES,
 		)
 	);
 
@@ -296,12 +299,12 @@ function mm_instagram_ophalen_uitvoeren( $instellingen ) {
  */
 function mm_instagram_post_klaarzetten( $item, $pad, $oud ) {
 
-	$id = isset( $item['id'] ) ? preg_replace( '/[^0-9A-Za-z_]/', '', (string) $item['id'] ) : '';
+	$id = preg_replace( '/[^0-9A-Za-z_]/', '', mm_instagram_waarde( $item, 'id' ) );
 	if ( '' === $id ) {
 		return null;
 	}
 
-	$permalink = isset( $item['permalink'] ) ? esc_url_raw( $item['permalink'] ) : '';
+	$permalink = esc_url_raw( mm_instagram_waarde( $item, 'permalink' ) );
 	if ( ! preg_match( '#^https://(www\.)?instagram\.com/#', $permalink ) ) {
 		$permalink = '';
 	}
@@ -309,18 +312,17 @@ function mm_instagram_post_klaarzetten( $item, $pad, $oud ) {
 	// Vierkante versies van Behold. Bij een video of carrousel is dat de
 	// omslag of de eerste foto. Zonder sizes: de originele afbeelding.
 	$bronnen = array();
-	if ( isset( $item['sizes']['small']['mediaUrl'] ) ) {
-		$bronnen['klein'] = $item['sizes']['small']['mediaUrl'];
-	}
-	if ( isset( $item['sizes']['medium']['mediaUrl'] ) ) {
-		$bronnen['middel'] = $item['sizes']['medium']['mediaUrl'];
+	$maten   = isset( $item['sizes'] ) && is_array( $item['sizes'] ) ? $item['sizes'] : array();
+	foreach ( array( 'klein' => 'small', 'middel' => 'medium' ) as $maat => $sleutel ) {
+		$bron = isset( $maten[ $sleutel ] ) && is_array( $maten[ $sleutel ] ) ? mm_instagram_waarde( $maten[ $sleutel ], 'mediaUrl' ) : '';
+		if ( '' !== $bron ) {
+			$bronnen[ $maat ] = $bron;
+		}
 	}
 	if ( empty( $bronnen ) ) {
-		$los = '';
-		if ( isset( $item['thumbnailUrl'] ) ) {
-			$los = $item['thumbnailUrl'];
-		} elseif ( isset( $item['mediaUrl'] ) && ( ! isset( $item['mediaType'] ) || 'VIDEO' !== $item['mediaType'] ) ) {
-			$los = $item['mediaUrl'];
+		$los = mm_instagram_waarde( $item, 'thumbnailUrl' );
+		if ( '' === $los && 'VIDEO' !== mm_instagram_waarde( $item, 'mediaType' ) ) {
+			$los = mm_instagram_waarde( $item, 'mediaUrl' );
 		}
 		if ( $los ) {
 			$bronnen['middel'] = $los;
@@ -352,21 +354,37 @@ function mm_instagram_post_klaarzetten( $item, $pad, $oud ) {
 		return null;
 	}
 
-	$tekst = '';
-	if ( isset( $item['prunedCaption'] ) ) {
-		$tekst = (string) $item['prunedCaption'];
-	} elseif ( isset( $item['caption'] ) ) {
-		$tekst = (string) $item['caption'];
+	$tekst = mm_instagram_waarde( $item, 'prunedCaption' );
+	if ( '' === $tekst ) {
+		$tekst = mm_instagram_waarde( $item, 'caption' );
 	}
+
+	$type = sanitize_key( mm_instagram_waarde( $item, 'mediaType' ) );
+	$tijd = mm_instagram_waarde( $item, 'timestamp' );
 
 	return array(
 		'id'        => $id,
 		'permalink' => $permalink,
-		'type'      => isset( $item['mediaType'] ) ? sanitize_key( $item['mediaType'] ) : 'image',
-		'datum'     => isset( $item['timestamp'] ) ? (int) strtotime( $item['timestamp'] ) : 0,
+		'type'      => '' !== $type ? $type : 'image',
+		'datum'     => '' !== $tijd ? (int) strtotime( $tijd ) : 0,
 		'alt'       => mm_instagram_alt( $tekst ),
 		'fotos'     => $fotos,
 	);
+}
+
+/**
+ * Een tekstwaarde uit de JSON van Behold. Is het iets anders dan tekst of een
+ * getal, dan een lege string, zodat een afwijkende feed geen fout geeft.
+ *
+ * @param array  $item
+ * @param string $sleutel
+ * @return string
+ */
+function mm_instagram_waarde( $item, $sleutel ) {
+	if ( ! isset( $item[ $sleutel ] ) || ! is_scalar( $item[ $sleutel ] ) || is_bool( $item[ $sleutel ] ) ) {
+		return '';
+	}
+	return (string) $item[ $sleutel ];
 }
 
 /**
