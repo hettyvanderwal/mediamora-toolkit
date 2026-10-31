@@ -660,7 +660,6 @@ function mediamora_contains_shortened_url( $value ) {
 		'shortened\.me',
 		'sh\.st',
 		'go2l\.ink',
-		'x\.co',
 		'shorturl\.at',
 		'1url\.com',
 		'rlnk\.co',
@@ -671,9 +670,7 @@ function mediamora_contains_shortened_url( $value ) {
 		'telegra\.ph',
 	);
 
-	$pattern = '/(' . implode( '|', $shorteners ) . ')/i';
-
-	return (bool) preg_match( $pattern, $value );
+	return mediamora_antispam_matches_domain( $value, $shorteners );
 }
 
 /**
@@ -730,9 +727,39 @@ function mediamora_contains_scheduling_link( $value ) {
 		'koalendar\.com',
 	);
 
-	$pattern = '/(' . implode( '|', $schedulers ) . ')/i';
+	return mediamora_antispam_matches_domain( $value, $schedulers );
+}
+
+/**
+ * Komt een van de domeinen als los domein in de tekst voor?
+ *
+ * E-mailadressen gaan er eerst uit, zoals bij het tellen van links. Het
+ * domein moet daarna los staan: geen letter, cijfer of streepje ervoor of
+ * erna. Zonder die grens raakte cal.com ook medical.com, en u.to ook
+ * "van u.Tot ziens". Een punt of slash ervoor mag wel, dus www.bit.ly en
+ * https://bit.ly/abc worden nog steeds herkend.
+ *
+ * @param string   $value
+ * @param string[] $domains Reguliere expressies, met de punt al ge-escaped.
+ * @return bool
+ */
+function mediamora_antispam_matches_domain( $value, $domains ) {
+
+	$value   = mediamora_antispam_strip_emails( $value );
+	$pattern = '/(?<![a-z0-9-])(?:' . implode( '|', $domains ) . ')(?![a-z0-9-])/i';
 
 	return (bool) preg_match( $pattern, $value );
+}
+
+/**
+ * Haalt e-mailadressen uit een tekst. Het domein in "jan@voorbeeld.nl" is
+ * een normaal onderdeel van het adres, geen link.
+ *
+ * @param string $value
+ * @return string
+ */
+function mediamora_antispam_strip_emails( $value ) {
+	return (string) preg_replace( '/[a-z0-9._%+-]+@[a-z0-9-]+(?:\.[a-z0-9-]+)*\.[a-z]{2,}/i', ' ', $value );
 }
 
 /**
@@ -749,7 +776,7 @@ function mediamora_contains_scheduling_link( $value ) {
  */
 function mediamora_antispam_count_links( $value ) {
 
-	$value = preg_replace( '/[a-z0-9._%+-]+@[a-z0-9-]+(?:\.[a-z0-9-]+)*\.[a-z]{2,}/i', ' ', $value );
+	$value = mediamora_antispam_strip_emails( $value );
 
 	$protocol_urls = preg_match_all( '/https?:\/\/\S+/i', $value );
 
