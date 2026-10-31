@@ -218,10 +218,28 @@ function mm_toolkit_oude_standaarden() {
 		return;
 	}
 
-	update_option( MM_TOOLKIT_OPTIE, array_merge( $opgeslagen, $vastleggen ), false );
+	update_option( MM_TOOLKIT_OPTIE, array_merge( $opgeslagen, $vastleggen ), true );
 }
 
 mm_toolkit_oude_standaarden();
+
+/**
+ * De keuzes worden op elke pagina gelezen, dus horen ze bij de opties die
+ * WordPress in één keer laadt. Tot en met 1.15.2 stond autoload uit, en
+ * update_option() past dat alleen aan als de waarde verandert. Daarom hier
+ * eenmalig omzetten; de controle kost niets, want die opties zijn al geladen.
+ * wp_set_option_autoload() bestaat vanaf WordPress 6.4.
+ */
+add_action( 'admin_init', 'mm_toolkit_keuzes_autoload' );
+
+function mm_toolkit_keuzes_autoload() {
+	if ( ! function_exists( 'wp_set_option_autoload' ) || array_key_exists( MM_TOOLKIT_OPTIE, wp_load_alloptions() ) ) {
+		return;
+	}
+	if ( false !== get_option( MM_TOOLKIT_OPTIE, false ) ) {
+		wp_set_option_autoload( MM_TOOLKIT_OPTIE, true );
+	}
+}
 
 // Modules laden. Bewust op het hoogste niveau van het bestand en niet
 // binnen een functie, zodat variabelen in de modules globaal blijven.
@@ -280,7 +298,7 @@ function mm_toolkit_activeren() {
 	foreach ( mm_toolkit_modules() as $sleutel => $module ) {
 		$keuzes[ $sleutel ] = $module['standaard'] || '' !== mm_toolkit_losse_versie( $module );
 	}
-	add_option( MM_TOOLKIT_OPTIE, $keuzes, '', false );
+	add_option( MM_TOOLKIT_OPTIE, $keuzes, '', true );
 }
 
 register_deactivation_hook( __FILE__, 'mm_toolkit_deactiveren' );
@@ -393,7 +411,7 @@ function mm_toolkit_opslaan() {
 		$opslaan[ $sleutel ] = $nieuw[ $sleutel ];
 	}
 
-	update_option( MM_TOOLKIT_OPTIE, $opslaan, false );
+	update_option( MM_TOOLKIT_OPTIE, $opslaan, true );
 
 	// Opruimen bij uitzetten. De sleutel en de cron-events delen de modules
 	// met hun losse versie; staat die er nog, dan blijven ze staan. De
