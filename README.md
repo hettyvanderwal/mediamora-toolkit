@@ -116,7 +116,7 @@ Verwijderen via Plugins ruimt alles op: de opties en transients van de toolkit e
 
 ## Wijzigingen
 
-### Nog niet uitgebracht
+### 1.15.1
 
 - Formuliermonitor: de melding noemt het onderwerp van de mislukte mail niet meer, want daar staat vaak een klantnaam of ordernummer in. In plaats daarvan staat er het domein van de ontvanger (`Ontvanger: @gmail.com`), niet het volledige adres. Site, tijdstip, aantal vandaag en de melding van de server blijven. Ook `mm_monitor_log` bewaart het onderwerp niet meer; oudere regels verliezen het bij de eerstvolgende fout.
 - Anti-spam: text domain `mediamora` vervangen door `mediamora-toolkit`, gelijk aan de kop van de plugin.
