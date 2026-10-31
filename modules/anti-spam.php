@@ -235,7 +235,6 @@ function mediamora_antispam_sanitize_and_save_settings( $post, &$errors = array(
 		}
 	}
 	$clean['report_enabled'] = ! empty( $post['report_enabled'] );
-	$clean['report_enabled'] = ! empty( $post['report_enabled'] );
 	$clean['email_interval'] = max( 1, (int) ( $post['email_interval_hours'] ?? 24 ) ) * HOUR_IN_SECONDS;
 	$clean['log_max_age']    = max( 1, (int) ( $post['log_max_age_days'] ?? 30 ) ) * DAY_IN_SECONDS;
 

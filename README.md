@@ -116,6 +116,10 @@ Verwijderen via Plugins ruimt alles op: de opties en transients van de toolkit e
 
 ## Wijzigingen
 
+### 1.15.2
+
+- Anti-spam: een ongeldig of leeg e-mailadres voor meldingen wordt niet meer opgeslagen. Eerst maakte `sanitize_email()` daar een lege string van, die stil werd bewaard, waarna de rapportmail en de vangnet-mail nergens meer aankwamen. Nu blijft het vorige adres staan en toont het instellingenscherm een foutmelding; de overige instellingen worden wel opgeslagen. Een site waar het adres door de oude fout al leeg is, blijft leeg tot er een geldig adres wordt ingevuld.
+
 ### 1.15.1
 
 - Formuliermonitor: de melding noemt het onderwerp van de mislukte mail niet meer, want daar staat vaak een klantnaam of ordernummer in. In plaats daarvan staat er het domein van de ontvanger (`Ontvanger: @gmail.com`), niet het volledige adres. Site, tijdstip, aantal vandaag en de melding van de server blijven. Ook `mm_monitor_log` bewaart het onderwerp niet meer; oudere regels verliezen het bij de eerstvolgende fout.
