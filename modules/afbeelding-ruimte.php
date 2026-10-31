@@ -16,7 +16,8 @@
  *
  * 2. Voorrang. Afbeeldingswidgets in het eerste top-level element (container
  *    of sectie) van het hoofddocument krijgen loading="eager" en de class
- *    skip-lazy, zodat WordPress en EWWW ze niet lazyloaden. Dat is vaak de LCP.
+ *    skip-lazy en data-no-lazy="1", zodat WordPress, EWWW en LiteSpeed ze niet
+ *    lazyloaden. Dat is vaak de LCP.
  *
  * Bewust geen fetchpriority: Hero-preload geeft de achtergrond van de hero al
  * voorrang, en twee bronnen met high gaan met elkaar concurreren.
@@ -362,8 +363,9 @@ function mm_afbeelding_ruimte_pad( $url ) {
 }
 
 /**
- * Laat een <img> direct laden: loading="eager" en de class skip-lazy voor
- * EWWW. Een bestaande loading gaat eraf. Zonder loading zet WordPress er bij
+ * Laat een <img> direct laden: loading="eager", de class skip-lazy voor
+ * EWWW en data-no-lazy="1" voor lazyloaders die naar dat attribuut kijken,
+ * zoals die van LiteSpeed Cache. Een bestaande loading gaat eraf. Zonder loading zet WordPress er bij
  * wp_filter_content_tags later zelf weer lazy op.
  *
  * @param string $tag Eén <img>-tag.
@@ -381,6 +383,10 @@ function mm_afbeelding_ruimte_voorrang( $tag ) {
 		}
 	} else {
 		$tag = preg_replace( '/^<img\b/i', '<img class="skip-lazy"', $tag, 1 );
+	}
+
+	if ( ! preg_match( '/\sdata-no-lazy\s*=/i', $tag ) ) {
+		$tag = preg_replace( '/^<img\b/i', '<img data-no-lazy="1"', $tag, 1 );
 	}
 
 	return $tag;
