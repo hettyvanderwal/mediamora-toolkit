@@ -230,3 +230,24 @@ function mm_toolkit_modules() {
 		),
 	);
 }
+
+/**
+ * Staat de losse versie van deze module als bestand op de site, als plugin
+ * of mu-plugin, actief of niet? Gebruikt bij het opruimen van gedeelde data,
+ * zodat een losse versie die (weer) aangaat zijn opties nog heeft.
+ *
+ * @param array $module Een regel uit mm_toolkit_modules().
+ * @return bool
+ */
+function mm_toolkit_los_bestand_aanwezig( $module ) {
+
+	if ( $module['losse_mu'] && defined( 'WPMU_PLUGIN_DIR' ) && file_exists( WPMU_PLUGIN_DIR . '/' . $module['losse_mu'] ) ) {
+		return true;
+	}
+
+	if ( $module['losse_plugin'] && defined( 'WP_PLUGIN_DIR' ) && file_exists( WP_PLUGIN_DIR . '/' . $module['losse_plugin'] ) ) {
+		return true;
+	}
+
+	return false;
+}

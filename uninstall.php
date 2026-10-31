@@ -24,32 +24,6 @@ require_once MM_TOOLKIT_MAP . '/includes/modules.php';
 require_once MM_TOOLKIT_MAP . '/includes/htaccess.php';
 
 /**
- * Staat de losse versie van deze module nog op de site? Anders dan
- * mm_toolkit_losse_versie() telt hier ook een plugin die niet actief is.
- *
- * Het merkteken telt hier niet mee. Wordt de plugin in hetzelfde verzoek
- * gedeactiveerd en verwijderd, dan zijn de modules van de toolkit zelf nog
- * geladen en vindt de controle hun eigen functies, waardoor er niets werd
- * opgeruimd. Een losse versie staat altijd als bestand op de site, en dat
- * vangen de twee controles hieronder al.
- *
- * @param array $module Een regel uit mm_toolkit_modules().
- * @return bool
- */
-function mm_toolkit_uninstall_los_aanwezig( $module ) {
-
-	if ( $module['losse_mu'] && defined( 'WPMU_PLUGIN_DIR' ) && file_exists( WPMU_PLUGIN_DIR . '/' . $module['losse_mu'] ) ) {
-		return true;
-	}
-
-	if ( $module['losse_plugin'] && defined( 'WP_PLUGIN_DIR' ) && file_exists( WP_PLUGIN_DIR . '/' . $module['losse_plugin'] ) ) {
-		return true;
-	}
-
-	return false;
-}
-
-/**
  * Verwijdert een logmap van de anti-spam met alles erin. Er komen daar
  * alleen losse bestanden in; staat er toch een submap, dan blijft de map
  * staan in plaats van dat we gaan graven.
@@ -178,9 +152,17 @@ function mm_toolkit_uninstall_site( $los ) {
 	}
 }
 
+// Staat de losse versie van een module nog op de site? Anders dan
+// mm_toolkit_losse_versie() telt hier ook een plugin die niet actief is.
+//
+// Het merkteken telt hier niet mee. Wordt de plugin in hetzelfde verzoek
+// gedeactiveerd en verwijderd, dan zijn de modules van de toolkit zelf nog
+// geladen en vindt de controle hun eigen functies, waardoor er niets werd
+// opgeruimd. Een losse versie staat altijd als bestand op de site, en dat
+// vangt mm_toolkit_los_bestand_aanwezig() al.
 $mm_toolkit_los = array();
 foreach ( mm_toolkit_modules() as $mm_toolkit_sleutel => $mm_toolkit_module ) {
-	$mm_toolkit_los[ $mm_toolkit_sleutel ] = mm_toolkit_uninstall_los_aanwezig( $mm_toolkit_module );
+	$mm_toolkit_los[ $mm_toolkit_sleutel ] = mm_toolkit_los_bestand_aanwezig( $mm_toolkit_module );
 }
 
 if ( is_multisite() ) {

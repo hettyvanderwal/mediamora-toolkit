@@ -370,17 +370,25 @@ function mm_toolkit_opslaan() {
 
 	update_option( MM_TOOLKIT_OPTIE, $opslaan, false );
 
-	// Opruimen bij uitzetten.
-	if ( $oud['preview_link'] && ! $nieuw['preview_link'] ) {
+	// Opruimen bij uitzetten. De sleutel en de cron-events delen de modules
+	// met hun losse versie; staat die er nog, dan blijven ze staan. De
+	// opschoning van de anti-spamlogs is alleen van de toolkit.
+	$modules = mm_toolkit_modules();
+	$los     = function ( $sleutel ) use ( $modules ) {
+		return '' !== mm_toolkit_status()[ $sleutel ]['los'] || mm_toolkit_los_bestand_aanwezig( $modules[ $sleutel ] );
+	};
+	if ( $oud['preview_link'] && ! $nieuw['preview_link'] && ! $los( 'preview_link' ) ) {
 		delete_option( 'mm_preview_key' );
 	}
-	if ( $oud['ai_bots'] && ! $nieuw['ai_bots'] ) {
+	if ( $oud['ai_bots'] && ! $nieuw['ai_bots'] && ! $los( 'ai_bots' ) ) {
 		wp_clear_scheduled_hook( 'mm_aibots_opschonen' );
 	}
 	if ( $oud['anti_spam'] && ! $nieuw['anti_spam'] ) {
-		wp_clear_scheduled_hook( 'mediamora_antispam_report' );
-		wp_clear_scheduled_hook( 'mediamora_antispam_nearmiss_alert' );
 		wp_clear_scheduled_hook( 'mediamora_antispam_prune_logs' );
+		if ( ! $los( 'anti_spam' ) ) {
+			wp_clear_scheduled_hook( 'mediamora_antispam_report' );
+			wp_clear_scheduled_hook( 'mediamora_antispam_nearmiss_alert' );
+		}
 	}
 
 	// mm_toolkit_status() is al berekend met de oude keuzes, dus hier zelf
