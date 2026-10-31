@@ -11,11 +11,13 @@ if ( ! defined( 'ABSPATH' ) ) {
 /**
  * Bepaalt waar de hero van de opgevraagde pagina in staat.
  *
- * Op een losse pagina of post is dat de eigen Elementor-data. Op een archief (winkel,
- * productcategorie, blog, zoekresultaten) staat de hero in het archieftemplate van de
- * Theme Builder. Welk template dat is, laten we Elementor Pro zelf bepalen via zijn
- * conditions manager, zodat het precies het template is dat Elementor op deze pagina
- * rendert. Product-archive-templates vallen ook onder de locatie archive.
+ * Op een losse pagina of post is dat het single-template van de Theme Builder als er een
+ * is, zoals bij blogberichten, en anders de eigen Elementor-data. Op een archief (winkel,
+ * productcategorie, blog, zoekresultaten) staat de hero in het archieftemplate. Welk
+ * template dat is, laten we Elementor Pro zelf bepalen via zijn conditions manager, zodat
+ * het precies het template is dat Elementor op deze pagina rendert. Product-templates
+ * vallen ook onder de locaties single en archive. Zelfde volgorde als in
+ * afbeelding-ruimte.php.
  *
  * Een site kan de bron overschrijven met het filter mediamora_hero_preload_bron. Dat
  * krijgt de gevonden bron mee (of null) en moet een array met id en data teruggeven.
@@ -27,7 +29,10 @@ function mm_hero_preload_bron() {
 	$bron = null;
 
 	if ( is_singular() ) {
-		$post_id = get_queried_object_id();
+		$post_id = mm_hero_preload_template( 'single' );
+		if ( ! $post_id ) {
+			$post_id = get_queried_object_id();
+		}
 		if ( $post_id ) {
 			$bron = array(
 				'id'   => $post_id,
@@ -35,7 +40,7 @@ function mm_hero_preload_bron() {
 			);
 		}
 	} elseif ( is_archive() || is_home() || is_search() ) {
-		$template_id = mm_hero_preload_archieftemplate();
+		$template_id = mm_hero_preload_template( 'archive' );
 		if ( $template_id ) {
 			$bron = array(
 				'id'   => $template_id,
@@ -67,10 +72,14 @@ function mm_hero_preload_bron() {
 }
 
 /**
- * Geeft het ID van het archieftemplate dat Elementor Pro op deze pagina rendert, of 0.
- * Zonder Elementor Pro, zonder Theme Builder of zonder passend template: 0.
+ * Geeft het ID van het Theme Builder-template dat Elementor Pro op deze pagina rendert
+ * voor de locatie, of 0. Zonder Elementor Pro, zonder Theme Builder of zonder passend
+ * template: 0.
+ *
+ * @param string $locatie 'single' of 'archive'.
+ * @return int
  */
-function mm_hero_preload_archieftemplate() {
+function mm_hero_preload_template( $locatie ) {
 
 	if ( ! class_exists( '\ElementorPro\Modules\ThemeBuilder\Module' ) ) {
 		return 0;
@@ -87,9 +96,10 @@ function mm_hero_preload_archieftemplate() {
 			return 0;
 		}
 
-		// Array van template-ID naar document, al gesorteerd op prioriteit. De locatie
-		// archive toont er maar één, dus de eerste is het template dat wordt gerenderd.
-		$documenten = $conditions->get_documents_for_location( 'archive' );
+		// Array van template-ID naar document, al gesorteerd op prioriteit. De locaties
+		// single en archive tonen er maar één, dus de eerste is het template dat wordt
+		// gerenderd.
+		$documenten = $conditions->get_documents_for_location( $locatie );
 		if ( empty( $documenten ) || ! is_array( $documenten ) ) {
 			return 0;
 		}
@@ -280,7 +290,7 @@ function mm_hero_preload_dynamische_tag( $tag ) {
 
 /**
  * Leest de eerste achtergrondafbeelding uit de Elementor-data van de opgevraagde pagina,
- * of op een archief uit het archieftemplate, en zet daar een preload voor in de head.
+ * of uit het single- of archieftemplate, en zet daar een preload voor in de head.
  * Geen vaste bestandsnaam, dus de preload beweegt mee zodra de afbeelding wordt vervangen.
  *
  * Uitschakelen kan met: add_filter( 'mediamora_hero_preload_actief', '__return_false' );
@@ -385,7 +395,7 @@ add_action( 'wp_head', function () {
 	}
 
 	// De CSS komt op het gekozen element, dat ook genest kan zijn. Elementor zet het ID
-	// van de bron als class op de wrapper (.elementor-{ID}), op een archief dus het
+	// van de bron als class op de wrapper (.elementor-{ID}), bij een template dus het
 	// template-ID.
 	if ( empty( $element['id'] ) || ! is_string( $element['id'] ) || ! preg_match( '#^[0-9a-zA-Z]+$#', $element['id'] ) ) {
 		return;

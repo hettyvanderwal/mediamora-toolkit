@@ -94,7 +94,7 @@ function mm_afbeelding_ruimte_hoofddocument() {
 
 /**
  * ID van het Theme Builder-template dat Elementor Pro voor deze locatie
- * rendert, of 0. Zelfde aanpak als mm_hero_preload_archieftemplate(), maar
+ * rendert, of 0. Zelfde aanpak als mm_hero_preload_template(), maar
  * een eigen kopie: Hero-preload kan uit staan.
  *
  * @param string $locatie 'single' of 'archive'.
