@@ -887,7 +887,9 @@ function mm_toolkit_herstel_mapnaam( $bron, $externe_bron, $upgrader, $extra = n
 		return trailingslashit( $gewenst );
 	}
 
-	return $bron;
+	// Met de verkeerde mapnaam installeren zou een tweede plugin opleveren
+	// naast de oude. Liever de update afbreken; de oude versie blijft staan.
+	return new WP_Error( 'mm_toolkit_mapnaam', 'De map van de update kon niet worden hernoemd naar ' . MM_TOOLKIT_SLUG . '. De huidige versie blijft staan.' );
 }
 
 add_action( 'upgrader_process_complete', 'mm_toolkit_leeg_cache' );
