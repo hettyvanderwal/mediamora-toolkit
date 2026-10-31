@@ -114,6 +114,7 @@ function mm_toolkit_uninstall_site( $los ) {
 
 		wp_clear_scheduled_hook( 'mediamora_antispam_report' );
 		wp_clear_scheduled_hook( 'mediamora_antispam_nearmiss_alert' );
+		wp_clear_scheduled_hook( 'mediamora_antispam_prune_logs' );
 
 		// Eerst de map, dan pas de optie met de naam. Lukt het weghalen niet,
 		// dan blijft de optie staan, zodat nog te vinden is waar de map met

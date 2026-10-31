@@ -1175,48 +1175,56 @@ function mediamora_antispam_debug_log( $field_id, $field_type, $value, $is_link,
 	);
 
 	file_put_contents( $debug_file, $line . "\n", FILE_APPEND | LOCK_EX );
+}
 
-	mediamora_antispam_prune_debug_log();
+// Opschonen op de bewaartermijn gebeurt in een eigen dagelijks cron-event,
+// los van de mails: die draaien alleen als er iets is gelogd en als ze aan
+// staan, en debug.txt loopt juist ook vol met inzendingen die gewoon zijn
+// doorgelaten. Uitzetten, deactiveren en verwijderen halen het event weg,
+// zie mediamora-toolkit.php en uninstall.php.
+add_action( 'mediamora_antispam_prune_logs', 'mediamora_antispam_prune_logs' );
+
+add_action( 'init', 'mediamora_antispam_plan_prune', 20 );
+
+function mediamora_antispam_plan_prune() {
+	if ( ! wp_next_scheduled( 'mediamora_antispam_prune_logs' ) ) {
+		wp_schedule_event( time() + HOUR_IN_SECONDS, 'daily', 'mediamora_antispam_prune_logs' );
+	}
 }
 
 /**
- * Houdt debug.txt onder dezelfde bewaartermijn als log.txt en near-miss.txt.
- *
- * Hangt bewust aan het schrijven van debug.txt zelf en niet aan de rapportmail,
- * waar de andere twee worden opgeschoond: die draait alleen als er iets is
- * geweigerd, terwijl debug.txt juist ook volloopt met inzendingen die gewoon
- * zijn doorgelaten. Op een site zonder spam zou het bestand dan nooit aan de
- * beurt komen.
- *
- * Hooguit een keer per dag, want dit leest en herschrijft het hele bestand, en
- * debug_log() draait per veld per inzending.
+ * Haalt uit log.txt, near-miss.txt en debug.txt de regels die ouder zijn dan
+ * de bewaartermijn.
  */
-function mediamora_antispam_prune_debug_log() {
+function mediamora_antispam_prune_logs() {
 
-	$laatste = (int) get_option( 'mediamora_antispam_last_debug_prune', 0 );
+	$s     = mediamora_antispam_settings();
+	$grens = time() - $s['log_max_age'];
 
-	if ( ( time() - $laatste ) < DAY_IN_SECONDS ) {
+	foreach ( array( mediamora_antispam_log_file(), mediamora_antispam_nearmiss_file(), mediamora_antispam_debug_file() ) as $bestand ) {
+		mediamora_antispam_prune_file( $bestand, $grens );
+	}
+}
+
+/**
+ * Haalt uit een logbestand de regels van voor $grens. Regels zonder
+ * leesbare tijd gaan er ook uit. Is er niets verlopen, dan blijft het
+ * bestand onaangeroerd.
+ *
+ * @param string $bestand
+ * @param int    $grens Unix-tijd.
+ */
+function mediamora_antispam_prune_file( $bestand, $grens ) {
+
+	if ( ! file_exists( $bestand ) ) {
 		return;
 	}
 
-	// Meteen bijwerken, ook als er hieronder niets te doen blijkt: anders wordt
-	// het bestand bij elke volgende regel opnieuw ingelezen.
-	update_option( 'mediamora_antispam_last_debug_prune', time(), false );
-
-	$debug_file = mediamora_antispam_debug_file();
-
-	if ( ! file_exists( $debug_file ) ) {
-		return;
-	}
-
-	$regels = file( $debug_file, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES );
+	$regels = file( $bestand, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES );
 
 	if ( empty( $regels ) ) {
 		return;
 	}
-
-	$s     = mediamora_antispam_settings();
-	$grens = time() - $s['log_max_age'];
 
 	$blijft = array();
 
@@ -1227,13 +1235,12 @@ function mediamora_antispam_prune_debug_log() {
 		}
 	}
 
-	// Niets verlopen: bestand niet onnodig herschrijven.
 	if ( count( $blijft ) === count( $regels ) ) {
 		return;
 	}
 
 	file_put_contents(
-		$debug_file,
+		$bestand,
 		implode( "\n", $blijft ) . ( empty( $blijft ) ? '' : "\n" ),
 		LOCK_EX
 	);

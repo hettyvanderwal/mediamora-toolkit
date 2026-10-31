@@ -272,6 +272,7 @@ function mm_toolkit_deactiveren() {
 	wp_clear_scheduled_hook( 'mm_aibots_opschonen' );
 	wp_clear_scheduled_hook( 'mediamora_antispam_report' );
 	wp_clear_scheduled_hook( 'mediamora_antispam_nearmiss_alert' );
+	wp_clear_scheduled_hook( 'mediamora_antispam_prune_logs' );
 	mm_toolkit_meta_opruimen_stoppen();
 	wp_unschedule_hook( 'mm_instagram_ophalen' );
 }
@@ -302,6 +303,11 @@ function mm_toolkit_meta_opruimen_herstel() {
 	// Instagram-feed uit: niet meer ophalen. Feed en foto's blijven staan.
 	if ( ! $status['instagram']['laden'] && wp_next_scheduled( 'mm_instagram_ophalen' ) ) {
 		wp_unschedule_hook( 'mm_instagram_ophalen' );
+	}
+	// Anti-spam uit: de dagelijkse opschoning van de logs stopt. De logs zelf
+	// blijven staan tot de plugin wordt verwijderd.
+	if ( ! $status['anti_spam']['laden'] && wp_next_scheduled( 'mediamora_antispam_prune_logs' ) ) {
+		wp_unschedule_hook( 'mediamora_antispam_prune_logs' );
 	}
 }
 
@@ -368,6 +374,7 @@ function mm_toolkit_opslaan() {
 	if ( $oud['anti_spam'] && ! $nieuw['anti_spam'] ) {
 		wp_clear_scheduled_hook( 'mediamora_antispam_report' );
 		wp_clear_scheduled_hook( 'mediamora_antispam_nearmiss_alert' );
+		wp_clear_scheduled_hook( 'mediamora_antispam_prune_logs' );
 	}
 
 	// mm_toolkit_status() is al berekend met de oude keuzes, dus hier zelf
