@@ -468,6 +468,7 @@ function mediamora_antispam_validate_form( $record, $ajax_handler ) {
 		'time',
 		'number',
 		'url',
+		'password', // niet beoordelen en nooit loggen, ook niet in debug.txt
 		'recaptcha',
 		'recaptcha_v3',
 		'honeypot',
@@ -495,7 +496,7 @@ function mediamora_antispam_validate_form( $record, $ajax_handler ) {
 
 		if ( '' === $value || in_array( $type, $skip_types, true ) ) {
 			if ( $s['debug'] ) {
-				mediamora_antispam_debug_log( $id, $type, $value, false, null, 'overgeslagen (leeg of skip-type)' );
+				mediamora_antispam_debug_log( $id, $type, 'password' === $type ? '(niet gelogd)' : $value, false, null, 'overgeslagen (leeg of skip-type)' );
 			}
 			continue;
 		}
