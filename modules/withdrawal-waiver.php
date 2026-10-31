@@ -569,7 +569,7 @@ function mm_herroeping_mail( $velden, $naar_beheerder, $order ) {
  */
 function mm_herroeping_herinneringen( $email ) {
 
-	if ( ! is_object( $email ) || ! isset( $email->id ) || 'customer_processing_order' !== $email->id ) {
+	if ( ! $email instanceof WC_Email || 'customer_processing_order' !== $email->id ) {
 		return array();
 	}
 
@@ -593,7 +593,7 @@ function mm_herroeping_herinneringen( $email ) {
  */
 function mm_herroeping_herinnering( $email = null ) {
 
-	if ( ! is_object( $email ) || 'plain' === $email->get_email_type() ) {
+	if ( ! $email instanceof WC_Email || 'plain' === $email->get_email_type() ) {
 		return;
 	}
 
@@ -688,7 +688,7 @@ JS;
 
 	wp_register_style( 'mm-herroeping', false, array(), MM_TOOLKIT_VERSIE );
 	wp_enqueue_style( 'mm-herroeping' );
-	wp_add_inline_style( 'mm-herroeping', implode( ',', $css ) . '{outline:2px solid var(--wc-red);outline-offset:2px;}' );
+	wp_add_inline_style( 'mm-herroeping', implode( ',', $css ) . '{outline:2px solid var(--wc-red,#a00);outline-offset:2px;}' );
 }
 
 
