@@ -52,13 +52,14 @@ function mm_monitor_verwerk_fout( $fout ) {
 	/*
 	 * Het onderwerp van de mislukte mail wordt bewust niet overgenomen: daar
 	 * staat vaak een klantnaam of ordernummer in. Van de ontvanger alleen het
-	 * domein, niet het volledige adres.
+	 * domein, niet het volledige adres. Ook in de melding zelf, want PHPMailer
+	 * zet er adressen in ("recipients failed: jan@voorbeeld.nl").
 	 */
 	$gegevens = $fout->get_error_data();
 
 	$regel = array(
 		'tijd'      => current_time( 'Y-m-d H:i:s' ),
-		'melding'   => $fout->get_error_message(),
+		'melding'   => mm_monitor_maskeer_adressen( $fout->get_error_message() ),
 		'code'      => $fout->get_error_code(),
 		'ontvanger' => mm_monitor_ontvanger_domein( is_array( $gegevens ) && isset( $gegevens['to'] ) ? $gegevens['to'] : '' ),
 	);
@@ -185,6 +186,17 @@ function mm_monitor_ontvanger_domein( $to ) {
 }
 
 /**
+ * Vervangt in een tekst het deel van elk e-mailadres voor de @ door ***,
+ * zodat alleen het domein overblijft.
+ *
+ * @param string $tekst
+ * @return string
+ */
+function mm_monitor_maskeer_adressen( $tekst ) {
+	return (string) preg_replace( '/[a-z0-9._%+\'-]+@([a-z0-9-]+(?:\.[a-z0-9-]+)*\.[a-z]{2,})/i', '***@$1', (string) $tekst );
+}
+
+/**
  * Houdt de laatste fouten lokaal bij, zodat je achteraf kunt terugkijken
  * ook als de melding zelf niet is aangekomen.
  *
@@ -197,11 +209,14 @@ function mm_monitor_schrijf_log( $regel ) {
 		$log = array();
 	}
 
-	// Oudere regels bevatten nog het onderwerp van de mail, dat gaat er bij de
-	// eerstvolgende fout alsnog uit.
+	// Oudere regels bevatten nog het onderwerp van de mail of volledige
+	// adressen in de melding. Dat gaat er bij de eerstvolgende fout alsnog uit.
 	foreach ( $log as $i => $oud ) {
 		if ( is_array( $oud ) ) {
 			unset( $log[ $i ]['onderwerp'] );
+			if ( isset( $oud['melding'] ) ) {
+				$log[ $i ]['melding'] = mm_monitor_maskeer_adressen( $oud['melding'] );
+			}
 		}
 	}
 
