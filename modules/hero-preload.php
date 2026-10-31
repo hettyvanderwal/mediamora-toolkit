@@ -401,11 +401,14 @@ add_action( 'wp_head', function () {
 		return;
 	}
 
+	// esc_url_raw en niet esc_url: binnen <style> worden entiteiten niet gelezen, dus
+	// een & als &#038; breekt de url. esc_url_raw laat geen ", \ of < door, dus de
+	// string en het style-blok blijven dicht.
 	printf(
 		'<style id="mediamora-hero-verf">.elementor-%1$d .elementor-element.elementor-element-%2$s{background-image:url("%3$s");background-size:cover;background-position:center center;background-repeat:no-repeat;}</style>' . "\n",
 		(int) $bron_id,
 		esc_attr( $element['id'] ),
-		esc_url( $url )
+		esc_url_raw( $url )
 	);
 
 }, 1 );
