@@ -14,7 +14,11 @@ if ( ! defined( 'WP_UNINSTALL_PLUGIN' ) ) {
 	exit;
 }
 
-define( 'MM_TOOLKIT_MAP', __DIR__ );
+// Bij wp plugin uninstall --deactivate is de plugin in hetzelfde verzoek al
+// geladen, en staat de constante er al.
+if ( ! defined( 'MM_TOOLKIT_MAP' ) ) {
+	define( 'MM_TOOLKIT_MAP', __DIR__ );
+}
 
 require_once MM_TOOLKIT_MAP . '/includes/modules.php';
 require_once MM_TOOLKIT_MAP . '/includes/htaccess.php';
@@ -22,6 +26,12 @@ require_once MM_TOOLKIT_MAP . '/includes/htaccess.php';
 /**
  * Staat de losse versie van deze module nog op de site? Anders dan
  * mm_toolkit_losse_versie() telt hier ook een plugin die niet actief is.
+ *
+ * Het merkteken telt hier niet mee. Wordt de plugin in hetzelfde verzoek
+ * gedeactiveerd en verwijderd, dan zijn de modules van de toolkit zelf nog
+ * geladen en vindt de controle hun eigen functies, waardoor er niets werd
+ * opgeruimd. Een losse versie staat altijd als bestand op de site, en dat
+ * vangen de twee controles hieronder al.
  *
  * @param array $module Een regel uit mm_toolkit_modules().
  * @return bool
@@ -34,13 +44,6 @@ function mm_toolkit_uninstall_los_aanwezig( $module ) {
 
 	if ( $module['losse_plugin'] && defined( 'WP_PLUGIN_DIR' ) && file_exists( WP_PLUGIN_DIR . '/' . $module['losse_plugin'] ) ) {
 		return true;
-	}
-
-	if ( ! empty( $module['merkteken'] ) ) {
-		list( $soort, $naam ) = $module['merkteken'];
-		if ( ( 'class' === $soort && class_exists( $naam, false ) ) || ( 'function' === $soort && function_exists( $naam ) ) ) {
-			return true;
-		}
 	}
 
 	return false;
