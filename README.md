@@ -42,9 +42,10 @@ Welke soort een product heeft, in deze volgorde:
 
 1. De keuze Herroepingsrecht in de tab Algemeen van het product (`_mm_withdrawal_type`): Standaard, Digitale content, Dienst of Geen vinkje.
 2. Bij Standaard: de categorieën van het product. Per soort zijn categorieën te kiezen onder Instellingen > Herroepingsrecht; subcategorieën tellen mee. Staat een product in categorieën van beide soorten, dan geldt de soort van de eerste categorie op alfabetische volgorde van de naam (de volgorde van `get_the_terms`; de module sorteert zelf op naam, omdat WooCommerce productcategorieën ook op de eigen volgorde uit het beheer kan zetten). Hoort één categorie, direct of via een bovenliggende, bij beide soorten, dan wint digitaal. Er wordt niets gelogd.
-3. Anders de standaardsoort: Digitale content (standaard), Dienst of Geen vinkje.
+3. Anders geen vinkje als het product verzonden wordt (`needs_shipping()`, dus niet virtueel): een fysiek product is geen digitale content of dienst. Staat de soort expliciet op het product of de categorie, dan geldt die wel.
+4. Anders de standaardsoort: Digitale content (standaard), Dienst of Geen vinkje. Die geldt dus alleen voor producten zonder verzending.
 
-Bij een variatie telt het hoofdproduct. Per soort die in de winkelmand zit komt één verplicht vinkje, onder het voorwaardenvinkje en boven de bestelknop; zitten beide soorten erin, dan eerst digitaal en dan dienst. Tonen, valideren, opslaan, mail en beheer gebruiken allemaal dezelfde soortbepaling.
+Bij een variatie telt het hoofdproduct, behalve voor de verzending: die komt van de variatie in de winkelmand. Per soort die in de winkelmand zit komt één verplicht vinkje, onder het voorwaardenvinkje en boven de bestelknop; zitten beide soorten erin, dan eerst digitaal en dan dienst. Tonen, valideren, opslaan, mail en beheer gebruiken allemaal dezelfde soortbepaling.
 
 Per soort zijn de tekst bij het vinkje, de foutmelding, het label in mail en beheer en een herinnering in te stellen. Leeg geeft de standaardtekst in het Nederlands (site-taal `nl_*`) of Engels. De herinnering heeft geen standaardtekst; ingevuld staat hij in kleine grijze letters onderaan de mail "Bestelling in behandeling" (`customer_processing_order`), alleen bij bestellingen met de metakey van die soort. Springt een bestelling direct op Afgerond, dan gaat die mail niet en komt de herinnering dus niet aan.
 
@@ -110,11 +111,35 @@ De oude namen zonder `MODULE_` (zoals `MM_TOOLKIT_ALT_TEKSTEN`) werken nog voor 
 
 ## Deactiveren en verwijderen
 
-Deactiveren haalt alleen de cron-events (ook die van Verweesde meta opruimen en de Instagram-feed) en de blokken van de toolkit uit `.htaccess` weg. Instellingen en logs blijven staan.
+Deactiveren haalt alleen de cron-events (ook die van Verweesde meta opruimen, de Instagram-feed en de dagelijkse opschoning van de anti-spamlogs) en de blokken van de toolkit uit `.htaccess` weg. Instellingen en logs blijven staan.
 
-Verwijderen via Plugins ruimt alles op: de opties en transients van de toolkit en de modules, de cron-events, de alt-tekstkenmerken (`_mm_alt_*`, de alt-teksten zelf blijven staan), de productmeta van Herroepingsrecht (`_mm_withdrawal_type` en het oude vinkje `_mm_withdrawal_waiver_applies`; de teksten `_mm_withdrawal_waiver` en `_mm_service_consent` op bestellingen blijven altijd staan, dat is het bewijs van de instemming), de opties van Verweesde meta opruimen, de opties en de fotomap `uploads/mediamora-instagram` van de Instagram-feed, de `.htaccess`-blokken en de logmap van de anti-spam met de inzendingen erin. Kan de logmap niet worden weggehaald, dan blijft de optie `mediamora_antispam_log_dir` staan, zodat te vinden is waar hij staat. Staat de losse versie van een module nog op de site, als plugin of mu-plugin en actief of niet, dan blijft alles van die module staan, want de losse versie gebruikt dezelfde gegevens.
+Een module uitvinken ruimt alleen op wat zonder de module blijft doorlopen: de cron-events en, bij Preview-link, de sleutel `mm_preview_key` (alle links vervallen). Gedeelde gegevens blijven staan zolang de losse versie van die module nog op de site staat, actief of niet.
+
+Verwijderen via Plugins ruimt alles op: de opties en transients van de toolkit en de modules, de cron-events, de alt-tekstkenmerken (`_mm_alt_*`, de alt-teksten zelf blijven staan), de productmeta van Herroepingsrecht (`_mm_withdrawal_type` en het oude vinkje `_mm_withdrawal_waiver_applies`; de teksten `_mm_withdrawal_waiver` en `_mm_service_consent` op bestellingen blijven altijd staan, dat is het bewijs van de instemming), de opties van Verweesde meta opruimen, de opties en de fotomap `uploads/mediamora-instagram` van de Instagram-feed, de `.htaccess`-blokken en de logmap van de anti-spam met de inzendingen erin. Kan de logmap niet worden weggehaald, dan blijft de optie `mediamora_antispam_log_dir` staan, zodat te vinden is waar hij staat. Staat de losse versie van een module nog op de site, als plugin of mu-plugin en actief of niet, dan blijft alles van die module staan, want de losse versie gebruikt dezelfde gegevens. Dat werkt ook met `wp plugin uninstall --deactivate`, waarbij de toolkit in hetzelfde verzoek nog geladen is.
 
 ## Wijzigingen
+
+### 1.16.0
+
+Fixes uit de tweede codereview.
+
+- Anti-spam: verkorte links en boekingslinks tellen alleen nog als los domein. E-mailadressen gaan er eerst uit, en het domein mag geen letter, cijfer of streepje ervoor of erna hebben. Zo raakt `cal.com` niet meer `medical.com` en `u.to` niet meer "van u.Tot ziens". `x.co` is uit de lijst: dat raakte `netflix.com`, `dropbox.com` en `gmx.com`. Testgevallen in `tests/anti-spam-links.php` (`php tests/anti-spam-links.php`); de map `tests` zit via `.gitattributes` niet in de releasezip.
+- Anti-spam: een eigen dagelijks cron-event `mediamora_antispam_prune_logs` schoont `log.txt`, `near-miss.txt` en `debug.txt` op de bewaartermijn op, los van de mails. Eerst gebeurde dat alleen bij het versturen van een rapportmail of het schrijven van `debug.txt`. Uitzetten, deactiveren en verwijderen halen het event weg. De optie `mediamora_antispam_last_debug_prune` wordt niet meer gebruikt.
+- Anti-spam: velden van het type `password` worden niet beoordeeld en niet gelogd, ook niet in `debug.txt`.
+- QUIC.cloud: de REST-uitzondering voor `/litespeed/` geldt alleen nog voor wie niet is ingelogd, en een fout `rest_cookie_invalid_nonce` blijft altijd staan. Eerst kon een andere site via de browser van een ingelogde beheerder de routes van LiteSpeed aanroepen.
+- `.htaccess`: een blok van de toolkit dat precies één keer, ongewijzigd en boven `# BEGIN WordPress` staat, blijft staan. Eerst duwden het preview- en het AI-bots-blok elkaar bij elke beheerpagina van de eerste plek, en schoof het blok na elke schrijfactie van LiteSpeed Cache weer omhoog.
+- Verwijderen: bij `wp plugin uninstall --deactivate` werd niets opgeruimd, omdat de controle op een losse versie de eigen functies van de toolkit vond. `uninstall.php` kijkt nu alleen naar de bestanden van de losse versies (`mm_toolkit_los_bestand_aanwezig()` in `includes/modules.php`), en `MM_TOOLKIT_MAP` wordt alleen gedefinieerd als hij er nog niet is.
+- Module uitvinken: `mm_preview_key` en de cron-events van AI-bots en anti-spam blijven staan als de losse versie van die module nog op de site staat.
+- Formuliermonitor: e-mailadressen in de melding van de server worden gemaskeerd (`***@voorbeeld.nl`) voordat ze in het log en de mail komen. PHPMailer zet die erin bij "recipients failed". Oudere logregels worden bij de volgende fout ook gemaskeerd.
+- Updater: lukt het hernoemen van de map van de update niet, dan stopt de update met een foutmelding en blijft de huidige versie staan. Eerst werd de update met de mapnaam van GitHub geïnstalleerd, als tweede plugin.
+- Instagram-feed: staat de module uit, dan is `[mm_instagram]` een lege shortcode, zoals hierboven al beschreven stond; eerst stond de kale tekst op de pagina. De LiteSpeed-tag `mm_instagram` komt er ook op pagina's met een lege feed, zodat die gepurged worden als de eerste posts binnenkomen. Waarden uit de JSON van Behold worden op type gecontroleerd en het antwoord wordt hooguit 2 MB ingelezen.
+- Herroepingsrecht: een product met verzending krijgt zonder keuze op het product of de categorie geen vinkje meer; de standaardsoort geldt alleen nog voor producten zonder verzending. Zie "Herroepingsrecht: welke soort per product". Verder `instanceof WC_Email` in de mailhooks, een terugval `#a00` voor `var(--wc-red)`, en het omzetten van de instellingen van 1.6.0 alleen als WooCommerce actief is.
+- Hero-preload: op losse pagina's en berichten eerst het single-template van de Theme Builder, en pas zonder template de eigen Elementor-data, zoals Afbeeldingen: ruimte en voorrang al deed. De url in het style-blok van een slideshow gaat door `esc_url_raw()` in plaats van `esc_url()`, zodat een `&` niet als `&#038;` in de CSS komt.
+- Afbeeldingen: ruimte en voorrang zet naast `skip-lazy` ook `data-no-lazy="1"`.
+- Preview-link: `MM_PREVIEW_KEY` uit `wp-config.php` wordt als string gebruikt, zodat `hash_equals()` geen fout geeft op een getal.
+- AI-bots: het cron-event `mm_aibots_opschonen` gaat ook weg als de module via een constante of een update uitgaat (zelfherstel op beheerpagina's), behalve als de losse versie er nog staat.
+- HPOS-verenigbaarheid wordt altijd verklaard vanuit het hoofdbestand, niet alleen als de herroepingsmodule laadt.
+- `mm_toolkit_modules` wordt met autoload opgeslagen. Bestaande sites worden op de eerste beheerpagina omgezet (WordPress 6.4 en nieuwer).
 
 ### 1.15.2
 
@@ -245,6 +270,8 @@ Verwijderen via Plugins ruimt alles op: de opties en transients van de toolkit e
 - REST-gebruikers afschermen staat standaard uit, behalve op webshops (WooCommerce aan).
 
 ## Release maken
+
+Eerst de testgevallen draaien (`php tests/anti-spam-links.php`) en `php -l` op alle bestanden.
 
 1. Versie ophogen op twee plekken in `mediamora-toolkit.php`: `Version:` in de kop en `MM_TOOLKIT_VERSIE`. Of een update wordt aangeboden hangt alleen af van `Version:` in de kop; de constante wordt gelijk gehouden voor de rest, zoals de mailheader van de Formuliermonitor.
 2. Bestanden uploaden naar de repo.
