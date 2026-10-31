@@ -241,6 +241,24 @@ if ( ! mm_toolkit_status()['instagram']['laden'] ) {
 
 
 /* -------------------------------------------------------------------------
+ * WooCommerce: HPOS
+ *
+ * Altijd verklaren, ook als de herroepingsmodule uit staat. WooCommerce kijkt
+ * per plugin, en zonder verklaring meldt het de hele toolkit als
+ * onverenigbaar met de bestellingstabellen. Alleen die module raakt
+ * bestellingen aan, en dan via de order-API.
+ * ---------------------------------------------------------------------- */
+
+add_action( 'before_woocommerce_init', 'mm_toolkit_hpos_verklaren' );
+
+function mm_toolkit_hpos_verklaren() {
+	if ( class_exists( '\Automattic\WooCommerce\Utilities\FeaturesUtil' ) ) {
+		\Automattic\WooCommerce\Utilities\FeaturesUtil::declare_compatibility( 'custom_order_tables', MM_TOOLKIT_BESTAND, true );
+	}
+}
+
+
+/* -------------------------------------------------------------------------
  * Activeren
  *
  * Bij de eerste activering neemt de toolkit over wat er al draaide: staat

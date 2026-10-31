@@ -41,21 +41,13 @@
  * Het omzetten van de instellingen van 1.6.0 en de gedeelde constanten
  * staan in includes/herroeping.php.
  *
- * Bestellingen alleen via de order-API, dus werkt met en zonder HPOS.
+ * Bestellingen alleen via de order-API, dus werkt met en zonder HPOS. De
+ * verklaring daarvoor staat in mediamora-toolkit.php.
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
-
-add_action(
-	'before_woocommerce_init',
-	function () {
-		if ( class_exists( '\Automattic\WooCommerce\Utilities\FeaturesUtil' ) ) {
-			\Automattic\WooCommerce\Utilities\FeaturesUtil::declare_compatibility( 'custom_order_tables', MM_TOOLKIT_BESTAND, true );
-		}
-	}
-);
 
 
 /* -------------------------------------------------------------------------
