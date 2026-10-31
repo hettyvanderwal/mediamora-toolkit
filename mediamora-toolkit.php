@@ -233,6 +233,12 @@ foreach ( mm_toolkit_status() as $mm_toolkit_sleutel => $mm_toolkit_s ) {
 }
 unset( $mm_toolkit_sleutel, $mm_toolkit_s, $mm_toolkit_m );
 
+// Instagram-feed uit: de shortcode toont niets, in plaats van de kale tekst
+// [mm_instagram] in bijvoorbeeld de footer.
+if ( ! mm_toolkit_status()['instagram']['laden'] ) {
+	add_shortcode( 'mm_instagram', '__return_empty_string' );
+}
+
 
 /* -------------------------------------------------------------------------
  * Activeren

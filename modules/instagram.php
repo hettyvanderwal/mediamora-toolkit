@@ -502,6 +502,11 @@ function mm_instagram_shortcode( $atts ) {
 		'mm_instagram'
 	);
 
+	// LiteSpeed: deze pagina toont de feed, zodat een nieuwe feed alleen
+	// deze pagina's purget. Ook met een lege feed, anders blijft een pagina
+	// leeg in de cache staan als de eerste posts binnenkomen.
+	do_action( 'litespeed_tag_add', 'mm_instagram' );
+
 	$feed  = mm_instagram_feed();
 	$posts = $feed['posts'];
 	if ( empty( $posts ) ) {
@@ -516,10 +521,6 @@ function mm_instagram_shortcode( $atts ) {
 	$kol   = max( 1, min( 12, (int) $atts['kolommen'] ) );
 	$kol_t = '' === $atts['kolommen_tablet'] ? $kol : max( 1, min( 12, (int) $atts['kolommen_tablet'] ) );
 	$kol_m = '' === $atts['kolommen_mobiel'] ? $kol_t : max( 1, min( 12, (int) $atts['kolommen_mobiel'] ) );
-
-	// LiteSpeed: deze pagina toont de feed, zodat een nieuwe feed alleen
-	// deze pagina's purget.
-	do_action( 'litespeed_tag_add', 'mm_instagram' );
 
 	list( $tablet, $mobiel ) = mm_instagram_breekpunten();
 	$map  = mm_instagram_map();
