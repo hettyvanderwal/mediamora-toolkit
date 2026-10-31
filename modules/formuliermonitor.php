@@ -49,18 +49,18 @@ function mm_monitor_verwerk_fout( $fout ) {
 		return;
 	}
 
-	$gegevens  = $fout->get_error_data();
-	$onderwerp = '';
-
-	if ( is_array( $gegevens ) && ! empty( $gegevens['subject'] ) ) {
-		$onderwerp = (string) $gegevens['subject'];
-	}
+	/*
+	 * Het onderwerp van de mislukte mail wordt bewust niet overgenomen: daar
+	 * staat vaak een klantnaam of ordernummer in. Van de ontvanger alleen het
+	 * domein, niet het volledige adres.
+	 */
+	$gegevens = $fout->get_error_data();
 
 	$regel = array(
 		'tijd'      => current_time( 'Y-m-d H:i:s' ),
 		'melding'   => $fout->get_error_message(),
 		'code'      => $fout->get_error_code(),
-		'onderwerp' => $onderwerp,
+		'ontvanger' => mm_monitor_ontvanger_domein( is_array( $gegevens ) && isset( $gegevens['to'] ) ? $gegevens['to'] : '' ),
 	);
 
 	mm_monitor_schrijf_log( $regel );
@@ -117,15 +117,14 @@ function mm_monitor_verstuur_melding( $regel, $aantal_vandaag ) {
 	$body[] = sprintf( 'Site:     %s', $domein );
 	$body[] = sprintf( 'Tijdstip: %s (%s)', $regel['tijd'], wp_timezone_string() );
 	$body[] = sprintf( 'Aantal vandaag: %d', $aantal_vandaag );
+
+	if ( '' !== $regel['ontvanger'] ) {
+		$body[] = sprintf( 'Ontvanger: %s', $regel['ontvanger'] );
+	}
+
 	$body[] = '';
 	$body[] = 'Melding van de server:';
 	$body[] = $regel['melding'];
-
-	if ( '' !== $regel['onderwerp'] ) {
-		$body[] = '';
-		$body[] = sprintf( 'Betrof: %s', $regel['onderwerp'] );
-	}
-
 	$body[] = '';
 	$body[] = 'Maximaal een bericht per dag per site.';
 
@@ -165,6 +164,27 @@ function mm_monitor_domein() {
 }
 
 /**
+ * Alleen de domeinen van de ontvanger(s), zonder naam of adres ervoor.
+ * wp_mail geeft 'to' door als lijst, maar een losse string met komma's
+ * kan ook, net als de vorm "Naam <adres@domein.nl>".
+ *
+ * @param string|array $to
+ * @return string Bijvoorbeeld "@gmail.com, @mediamora.nl", of leeg.
+ */
+function mm_monitor_ontvanger_domein( $to ) {
+	$adressen = is_array( $to ) ? $to : explode( ',', (string) $to );
+	$domeinen = array();
+
+	foreach ( $adressen as $adres ) {
+		if ( preg_match( '/@([^\s>@]+)\s*>?\s*$/', trim( (string) $adres ), $m ) ) {
+			$domeinen[] = '@' . strtolower( $m[1] );
+		}
+	}
+
+	return implode( ', ', array_unique( $domeinen ) );
+}
+
+/**
  * Houdt de laatste fouten lokaal bij, zodat je achteraf kunt terugkijken
  * ook als de melding zelf niet is aangekomen.
  *
@@ -175,6 +195,14 @@ function mm_monitor_schrijf_log( $regel ) {
 
 	if ( ! is_array( $log ) ) {
 		$log = array();
+	}
+
+	// Oudere regels bevatten nog het onderwerp van de mail, dat gaat er bij de
+	// eerstvolgende fout alsnog uit.
+	foreach ( $log as $i => $oud ) {
+		if ( is_array( $oud ) ) {
+			unset( $log[ $i ]['onderwerp'] );
+		}
 	}
 
 	array_unshift( $log, $regel );
@@ -216,7 +244,7 @@ function mm_monitor_test() {
 		'tijd'      => current_time( 'Y-m-d H:i:s' ),
 		'melding'   => 'Dit is een testmelding, er is niets kapot.',
 		'code'      => 'test',
-		'onderwerp' => 'Testmelding vanuit de Formuliermonitor',
+		'ontvanger' => mm_monitor_ontvanger_domein( MM_MONITOR_ONTVANGER ),
 	);
 
 	$gelukt = mm_monitor_verstuur_melding( $regel, 0 );
