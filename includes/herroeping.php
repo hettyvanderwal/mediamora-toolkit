@@ -31,8 +31,16 @@ const MM_HERROEPING_SOORT_META = '_mm_withdrawal_type';
  */
 const MM_HERROEPING_OUD_PRODUCT_META = '_mm_withdrawal_waiver_applies';
 
-// Vóór de hooks van de module, die ook op init staan.
-add_action( 'init', 'mm_herroeping_omzetten', -1 );
+// Vóór de hooks van de module, die ook op init staan. Alleen met WooCommerce:
+// zonder webshop is er niets om te zetten, en dan zou de query naar de oude
+// productmeta voor niets draaien.
+add_action( 'init', 'mm_herroeping_omzetten_bij_init', -1 );
+
+function mm_herroeping_omzetten_bij_init() {
+	if ( function_exists( 'WC' ) ) {
+		mm_herroeping_omzetten();
+	}
+}
 
 /**
  * Zet de optie van 1.6.0 eenmalig om. Doet niets als er geen optie is (dan
