@@ -333,6 +333,13 @@ function mm_toolkit_meta_opruimen_herstel() {
 	if ( ! $status['anti_spam']['laden'] && wp_next_scheduled( 'mediamora_antispam_prune_logs' ) ) {
 		wp_unschedule_hook( 'mediamora_antispam_prune_logs' );
 	}
+	// AI-bots uit: de opschoning van de tellingen stopt. Niet als de losse
+	// versie er nog staat, die gebruikt hetzelfde event en zet het op init
+	// weer terug.
+	if ( ! $status['ai_bots']['laden'] && '' === $status['ai_bots']['los'] && wp_next_scheduled( 'mm_aibots_opschonen' )
+		&& ! mm_toolkit_los_bestand_aanwezig( mm_toolkit_modules()['ai_bots'] ) ) {
+		wp_unschedule_hook( 'mm_aibots_opschonen' );
+	}
 }
 
 
