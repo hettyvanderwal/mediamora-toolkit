@@ -134,7 +134,11 @@ function mm_toolkit_aibots_cache_bijwerken( $gewenst ) {
  * het blok niet boven WordPress, dan komt de vorige inhoud terug.
  *
  * Elk blok haalt alleen zijn eigen marker weg, dus de blokken van de
- * toolkit kunnen naast elkaar boven WordPress staan.
+ * toolkit kunnen naast elkaar boven WordPress staan. Staat een gewenst blok
+ * er al goed in, dan blijft het bestand onaangeroerd, ook als er iets boven
+ * staat. Anders duwden de twee blokken elkaar bij elke beheerpagina van de
+ * eerste plek, en schoof het blok na elke schrijfactie van LiteSpeed Cache
+ * (die zet zijn eigen blok bovenaan) weer omhoog.
  *
  * @param string $marker  Naam na # BEGIN en # END.
  * @param string $blok    Het hele blok met markers. Leeg bij weghalen.
@@ -165,6 +169,11 @@ function mm_toolkit_htaccess_blok_bijwerken( $marker, $blok, $gewenst, $fout ) {
 
 	$begin = '# BEGIN ' . $marker;
 	$einde = '# END ' . $marker;
+
+	if ( $gewenst && mm_toolkit_htaccess_blok_in_orde( $oud, $blok, $begin, $einde ) ) {
+		delete_transient( $fout );
+		return true;
+	}
 
 	$zonder = preg_replace(
 		'/^' . preg_quote( $begin, '/' ) . '[ \t]*\r?$.*?^' . preg_quote( $einde, '/' ) . '[ \t]*\r?$\R*/ms',
@@ -207,6 +216,38 @@ function mm_toolkit_htaccess_blok_bijwerken( $marker, $blok, $gewenst, $fout ) {
 
 	delete_transient( $fout );
 	return true;
+}
+
+/**
+ * Staat het blok er precies één keer, ongewijzigd, op een eigen regel en
+ * boven # BEGIN WordPress? Regeleinden van Windows tellen niet als verschil.
+ *
+ * @param string $inhoud De huidige .htaccess.
+ * @param string $blok   Het blok zoals het hoort.
+ * @param string $begin  Regel # BEGIN van het blok.
+ * @param string $einde  Regel # END van het blok.
+ * @return bool
+ */
+function mm_toolkit_htaccess_blok_in_orde( $inhoud, $blok, $begin, $einde ) {
+
+	$inhoud = str_replace( "\r\n", "\n", $inhoud );
+
+	if ( 1 !== mm_toolkit_htaccess_tel( $inhoud, $begin )
+		|| 1 !== mm_toolkit_htaccess_tel( $inhoud, $einde )
+		|| 1 !== mm_toolkit_htaccess_tel( $inhoud, '# BEGIN WordPress' ) ) {
+		return false;
+	}
+
+	$plek = strpos( $inhoud, $blok );
+	if ( false === $plek || ( 0 !== $plek && "\n" !== $inhoud[ $plek - 1 ] ) ) {
+		return false;
+	}
+
+	if ( ! preg_match( '/^# BEGIN WordPress[ \t]*$/m', $inhoud, $treffer, PREG_OFFSET_CAPTURE ) ) {
+		return false;
+	}
+
+	return $plek < $treffer[0][1];
 }
 
 /**
