@@ -20,7 +20,8 @@
  * (tenzij de mailregel van die soort uit staat) en in het beheer.
  *
  * Welke soort een product heeft: de keuze op het product, anders de eerste
- * gekozen categorie (op naam), anders de standaardsoort. Zie
+ * gekozen categorie (op naam), anders geen vinkje als het product verzonden
+ * wordt, anders de standaardsoort. Zie
  * mm_herroeping_soort(); tonen, valideren, opslaan, mail en beheer gaan
  * allemaal via die ene functie.
  *
@@ -323,18 +324,27 @@ function mm_herroeping_met_subcategorieen( $categorieen ) {
  * 2. De categorieën van het product, op naam (alfabetisch). De eerste die
  *    bij een soort hoort (ook via een bovenliggende categorie) bepaalt de
  *    soort. Hoort één categorie bij beide soorten, dan wint digitaal.
- * 3. De standaardsoort.
+ * 3. Wordt het product verzonden (needs_shipping), dan geen vinkje: een
+ *    fysiek product is geen digitale content of dienst. Staat de soort
+ *    expliciet op het product of de categorie, dan geldt die wel.
+ * 4. De standaardsoort.
  *
- * Bij een variatie telt het hoofdproduct.
+ * Bij een variatie telt het hoofdproduct, behalve voor de verzending: die
+ * kan per variatie verschillen en komt dan van de winkelmandregel.
  *
- * @param int $product_id
+ * @param int       $product_id
+ * @param bool|null $verzending Wordt het gekochte product verzonden? Null:
+ *                              af te lezen aan het product zelf.
  * @return string digitaal, dienst of geen.
  */
-function mm_herroeping_soort( $product_id ) {
+function mm_herroeping_soort( $product_id, $verzending = null ) {
 
 	$product = wc_get_product( $product_id );
 	if ( ! $product ) {
 		return 'geen';
+	}
+	if ( null === $verzending ) {
+		$verzending = $product->needs_shipping();
 	}
 	if ( $product->is_type( 'variation' ) ) {
 		$product = wc_get_product( $product->get_parent_id() );
@@ -379,7 +389,7 @@ function mm_herroeping_soort( $product_id ) {
 		}
 	}
 
-	return $instellingen['standaardsoort'];
+	return $verzending ? 'geen' : $instellingen['standaardsoort'];
 }
 
 /**
@@ -402,9 +412,10 @@ function mm_herroeping_soorten_in_winkelmand() {
 
 	$gevonden = array();
 	foreach ( WC()->cart->get_cart() as $regel ) {
-		// Bij een variatie is product_id het hoofdproduct.
+		// Bij een variatie is product_id het hoofdproduct en data de variatie.
 		if ( ! empty( $regel['product_id'] ) ) {
-			$gevonden[ mm_herroeping_soort( (int) $regel['product_id'] ) ] = true;
+			$verzending = isset( $regel['data'] ) && $regel['data'] instanceof WC_Product ? $regel['data']->needs_shipping() : null;
+			$gevonden[ mm_herroeping_soort( (int) $regel['product_id'], $verzending ) ] = true;
 		}
 	}
 
@@ -710,7 +721,7 @@ function mm_herroeping_productveld() {
 			'id'          => MM_HERROEPING_SOORT_META,
 			'label'       => 'Herroepingsrecht',
 			'options'     => array(
-				''         => 'Standaard (categorie, anders ' . $standaard[ $instellingen['standaardsoort'] ] . ')',
+				''         => 'Standaard (categorie, anders ' . $standaard[ $instellingen['standaardsoort'] ] . '; met verzending geen vinkje)',
 				'digitaal' => 'Digitale content (direct toegang, recht vervalt)',
 				'dienst'   => 'Dienst (direct uitvoeren, recht vervalt na uitvoering)',
 				'geen'     => 'Geen vinkje',
@@ -839,7 +850,7 @@ function mm_herroeping_scherm() {
 	foreach ( $keuzes as $waarde => $label ) {
 		echo '<label><input type="radio" name="standaardsoort" value="' . esc_attr( $waarde ) . '"' . checked( $s['standaardsoort'], $waarde, false ) . '> ' . esc_html( $label ) . '</label><br>';
 	}
-	echo '<p class="description">Volgorde: de keuze Herroepingsrecht in de tab Algemeen van het product gaat voor, dan de categorieën hieronder (ook via een subcategorie), dan deze standaardsoort. Staat een product in categorieën van beide soorten, dan geldt de soort van de eerste categorie op alfabetische volgorde. Bij een variatie telt het hoofdproduct.</p>';
+	echo '<p class="description">Volgorde: de keuze Herroepingsrecht in de tab Algemeen van het product gaat voor, dan de categorieën hieronder (ook via een subcategorie), dan deze standaardsoort. Een product met verzending (niet virtueel) krijgt zonder keuze op het product of de categorie geen vinkje. Staat een product in categorieën van beide soorten, dan geldt de soort van de eerste categorie op alfabetische volgorde. Bij een variatie telt het hoofdproduct.</p>';
 	echo '</fieldset></td></tr>';
 
 	foreach ( mm_herroeping_soorten() as $soort => $gegevens ) {
