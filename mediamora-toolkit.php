@@ -934,8 +934,9 @@ function mm_toolkit_herstel_mapnaam( $bron, $externe_bron, $upgrader, $extra = n
 		return $bron;
 	}
 
+	// Zonder bestandssysteem kan de map niet hernoemd worden; zie hieronder.
 	if ( ! $wp_filesystem ) {
-		return $bron;
+		return new WP_Error( 'mm_toolkit_mapnaam', 'De map van de update kon niet worden hernoemd naar ' . MM_TOOLKIT_SLUG . '. De huidige versie blijft staan.' );
 	}
 
 	// Een map van een afgebroken update kan de verplaatsing laten mislukken.
