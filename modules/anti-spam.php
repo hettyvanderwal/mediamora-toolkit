@@ -203,15 +203,38 @@ function mediamora_antispam_add_settings_page() {
  * opgeslagen waardes (met standaardwaardes aangevuld), zodat de pagina
  * de nieuwe waardes direct kan tonen.
  *
+ * Een ongeldig of leeg meldingsadres wordt niet opgeslagen: dan blijft het
+ * vorige adres staan en komt er een foutmelding in $errors. Anders zou
+ * sanitize_email() er een lege string van maken, die stil wordt bewaard,
+ * waarna er geen enkele mail meer aankomt. Leeg is hier nooit bedoeld, het
+ * veld is verplicht.
+ *
  * @param array $post
+ * @param array $errors Foutmeldingen voor het instellingenscherm.
  * @return array
  */
-function mediamora_antispam_sanitize_and_save_settings( $post ) {
+function mediamora_antispam_sanitize_and_save_settings( $post, &$errors = array() ) {
 
 	$defaults = mediamora_antispam_default_settings();
+	$current  = mediamora_antispam_settings();
 	$clean    = array();
+	$errors   = array();
 
-	$clean['alert_email']    = isset( $post['alert_email'] ) ? sanitize_email( $post['alert_email'] ) : $defaults['alert_email'];
+	$clean['alert_email'] = $current['alert_email'];
+	if ( isset( $post['alert_email'] ) ) {
+		$entered = trim( (string) $post['alert_email'] );
+		$email   = sanitize_email( $entered );
+		if ( is_email( $email ) ) {
+			$clean['alert_email'] = $email;
+		} else {
+			$errors[] = sprintf(
+				'%s Het vorige adres (%s) is blijven staan.',
+				'' === $entered ? 'Het e-mailadres voor meldingen mag niet leeg zijn.' : sprintf( '"%s" is geen geldig e-mailadres.', $entered ),
+				'' !== $current['alert_email'] ? $current['alert_email'] : 'leeg'
+			);
+		}
+	}
+	$clean['report_enabled'] = ! empty( $post['report_enabled'] );
 	$clean['report_enabled'] = ! empty( $post['report_enabled'] );
 	$clean['email_interval'] = max( 1, (int) ( $post['email_interval_hours'] ?? 24 ) ) * HOUR_IN_SECONDS;
 	$clean['log_max_age']    = max( 1, (int) ( $post['log_max_age_days'] ?? 30 ) ) * DAY_IN_SECONDS;
@@ -270,10 +293,11 @@ function mediamora_antispam_render_settings_page() {
 		return;
 	}
 
-	$saved = false;
+	$saved  = false;
+	$errors = array();
 
 	if ( isset( $_POST['mediamora_antispam_save'] ) && check_admin_referer( 'mediamora_antispam_save_settings' ) ) {
-		$s     = mediamora_antispam_sanitize_and_save_settings( wp_unslash( $_POST ) );
+		$s     = mediamora_antispam_sanitize_and_save_settings( wp_unslash( $_POST ), $errors );
 		$saved = true;
 	} else {
 		$s = mediamora_antispam_settings();
@@ -282,8 +306,12 @@ function mediamora_antispam_render_settings_page() {
 	<div class="wrap">
 		<h1>Mediamora Anti-Spam voor Elementor Forms</h1>
 
+		<?php foreach ( $errors as $error ) : ?>
+			<div class="notice notice-error is-dismissible"><p><?php echo esc_html( $error ); ?></p></div>
+		<?php endforeach; ?>
+
 		<?php if ( $saved ) : ?>
-			<div class="notice notice-success is-dismissible"><p>Instellingen opgeslagen.</p></div>
+			<div class="notice notice-success is-dismissible"><p><?php echo $errors ? 'De overige instellingen zijn opgeslagen.' : 'Instellingen opgeslagen.'; ?></p></div>
 		<?php endif; ?>
 
 		<p>Deze instellingen staan in de database van deze site en blijven dus behouden als het plugin-bestand zelf een keer wordt vervangen door een nieuwere versie.</p>
