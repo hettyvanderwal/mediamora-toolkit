@@ -116,6 +116,11 @@ Verwijderen via Plugins ruimt alles op: de opties en transients van de toolkit e
 
 ## Wijzigingen
 
+### Nog niet uitgebracht
+
+- Formuliermonitor: de melding noemt het onderwerp van de mislukte mail niet meer, want daar staat vaak een klantnaam of ordernummer in. In plaats daarvan staat er het domein van de ontvanger (`Ontvanger: @gmail.com`), niet het volledige adres. Site, tijdstip, aantal vandaag en de melding van de server blijven. Ook `mm_monitor_log` bewaart het onderwerp niet meer; oudere regels verliezen het bij de eerstvolgende fout.
+- Anti-spam: text domain `mediamora` vervangen door `mediamora-toolkit`, gelijk aan de kop van de plugin.
+
 ### 1.15.0
 
 - Nieuwe module Instagram-feed (`instagram`), **standaard uit**. Toont de laatste Instagram-posts met `[mm_instagram]`, uit een JSON-feed van Behold die de site twee keer per dag zelf ophaalt, met de foto's op de eigen server. Zo tellen bij Behold alleen de ophaalacties als views en laden bezoekers niets extern. Instellingen onder Instellingen > Instagram-feed (feed-URL, aantal posts, status, Nu ophalen). Zie "Instagram-feed". Eerst ingezet op Traditierijk (footer).
