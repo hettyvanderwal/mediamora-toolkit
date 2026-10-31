@@ -20,7 +20,8 @@ define( 'MM_PREVIEW_DAYS', 180 );
  */
 function mm_preview_key() {
 	if ( defined( 'MM_PREVIEW_KEY' ) && MM_PREVIEW_KEY ) {
-		return MM_PREVIEW_KEY;
+		// Als string: hash_equals() geeft een fout op een getal in wp-config.
+		return (string) MM_PREVIEW_KEY;
 	}
 	$key = get_option( 'mm_preview_key' );
 	if ( ! $key && function_exists( 'wp_generate_password' ) ) {
