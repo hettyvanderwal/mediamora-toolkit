@@ -1,25 +1,47 @@
 # Mediamora Toolkit
 
-De vaste Mediamora-onderdelen in één WordPress-plugin. Elk onderdeel is een module die per site aan of uit staat onder **Instellingen > Mediamora Toolkit**.
+De vaste Mediamora-onderdelen in één WordPress-plugin. Elk onderdeel is een module die per site aan of uit staat onder **Instellingen > Mediamora Toolkit**, verdeeld over tabbladen per functie.
 
-| Module | Standaard | Vervangt |
-|---|---|---|
-| Alt-teksten | aan | mu-plugin `mediamora-alt-teksten.php` |
-| Hero-preload | aan | mu-plugin `mediamora-hero-preload.php` |
-| Preview-link | aan | mu-plugin `mm-preview.php` |
-| Anti-spam | aan | plugin `mediamora-anti-spam-elementor` |
-| Formuliermonitor | uit | plugin `mediamora-formuliermonitor` |
-| AI-bots | uit | mu-plugin `mediamora-ai-bots.php` |
-| REST-gebruikers afschermen | uit | mu-plugin `mediamora-rest-users.php` |
-| Herroepingsrecht bij afrekenen | uit, alleen met WooCommerce | code in `functions.php` (`mm_withdrawal_text`, `mm_consent_text`) |
-| Mobiel menu: vroege tik | aan | testcode in `functions.php` (script `mm-popup-vroege-tik`) |
-| jQuery-wachtrem | aan | testcode in `functions.php` (`jQuery.holdReady` achter `jquery-core`) |
-| QUIC.cloud en kritieke CSS | uit | testcode in `functions.php` (REST-uitzondering, `mm_ccss_zonder_noscript`) |
-| Schema op alle pagina's | aan, doet niets zonder Rank Math | nieuw |
-| Afbeeldingen: ruimte en voorrang | aan, doet niets zonder Elementor | testcode in `functions.php` (`mm_ig_elementor_img_attrs`) |
-| Elementor: oude versies tegenhouden | aan, doet niets zonder Elementor | nieuw |
-| Verweesde meta opruimen | aan | nieuw |
-| Instagram-feed | uit, per site aanzetten | nieuw |
+| Module | Tabblad | Standaard | Vervangt |
+|---|---|---|---|
+| Alt-teksten | Vindbaarheid | aan | mu-plugin `mediamora-alt-teksten.php` |
+| Hero-preload | Snelheid | aan | mu-plugin `mediamora-hero-preload.php` |
+| Preview-link | Bouw | aan | mu-plugin `mm-preview.php` |
+| Anti-spam | Beveiliging | aan | plugin `mediamora-anti-spam-elementor` |
+| Formuliermonitor | Mediamora | uit, alleen met Onderhoudsklant | plugin `mediamora-formuliermonitor` |
+| AI-bots | Vindbaarheid | uit | mu-plugin `mediamora-ai-bots.php` |
+| REST-gebruikers afschermen | Beveiliging | uit | mu-plugin `mediamora-rest-users.php` |
+| Herroepingsrecht bij afrekenen | Webshop | uit, alleen met WooCommerce | code in `functions.php` (`mm_withdrawal_text`, `mm_consent_text`) |
+| Mobiel menu: vroege tik | Snelheid | aan | testcode in `functions.php` (script `mm-popup-vroege-tik`) |
+| jQuery-wachtrem | Snelheid | aan | testcode in `functions.php` (`jQuery.holdReady` achter `jquery-core`) |
+| QUIC.cloud en kritieke CSS | Snelheid | uit | testcode in `functions.php` (REST-uitzondering, `mm_ccss_zonder_noscript`) |
+| Schema op alle pagina's | Vindbaarheid | aan, doet niets zonder Rank Math | nieuw |
+| Afbeeldingen: ruimte en voorrang | Snelheid | aan, doet niets zonder Elementor | testcode in `functions.php` (`mm_ig_elementor_img_attrs`) |
+| Elementor: oude versies tegenhouden | Beveiliging | aan, doet niets zonder Elementor | nieuw |
+| Verweesde meta opruimen | Mediamora | aan, alleen met Onderhoudsklant | nieuw |
+| Instagram-feed | Koppelingen | uit, per site aanzetten | nieuw |
+
+## Tabbladen en Onderhoudsklant
+
+Het instellingenscherm heeft een tabblad per functie: Snelheid, Beveiliging, Vindbaarheid, Webshop, Koppelingen, Bouw en Mediamora. Welk tabblad een module heeft, staat bij die module in `mm_toolkit_modules()` (`tabblad`); de tabbladen zelf in `mm_toolkit_tabbladen()` in `includes/modules.php`. Het actieve tabblad staat in de URL (`?tab=snelheid`), zodat je na opslaan of herladen op hetzelfde tabblad blijft. Zonder of met een onbekende `tab` opent het eerste tabblad.
+
+Het formulier bevat alleen de modules van het tabblad dat open staat, en opslaan verandert alleen die. De keuzes van de andere tabbladen blijven staan zoals ze waren, ook als er nog niets voor was opgeslagen. Optienamen, opgeslagen waarden en de constanten `MM_TOOLKIT_MODULE_<SLEUTEL>` zijn niet veranderd: het is alleen een andere indeling.
+
+Het tabblad Mediamora is er alleen voor ingelogde gebruikers met een e-mailadres op `@mediamora.nl`. Andere beheerders zien het tabblad niet, ook niet in de melding over losse versies bovenaan het beheer, en `?tab=mediamora` opent voor hen gewoon het eerste tabblad. Opslaan wordt ook op de server geweigerd (`Geen toegang.`, 403), net als de knop Nu tellen van Verweesde meta opruimen en de link Testmelding sturen van de Formuliermonitor. Het domein is aan te passen met een filter, bijvoorbeeld in een mu-plugin:
+
+```php
+add_filter( 'mm_toolkit_mediamora_domein', function () {
+	return 'mediamora.nl';
+} );
+```
+
+Alleen het domein zelf telt, geen subdomeinen; hoofdletters maken niet uit. Dit houdt beheerders van de klant weg van het tabblad, maar is geen slot: een beheerder kan zelf een gebruiker met een adres op `@mediamora.nl` aanmaken.
+
+Bovenaan het tabblad Mediamora staat de schakelaar **Onderhoudsklant** (optie `mm_toolkit_onderhoudsklant`, `1` of `0`, autoload). Modules met `onderhoud` op `true` laden alleen als die aan staat, wat hun eigen schakelaar of constante ook zegt; de eigen keuze blijft bewaard en geldt weer zodra Onderhoudsklant aan gaat. Nu zijn dat de Formuliermonitor en Verweesde meta opruimen. Ze hebben het label Onderhoud en bij Onderhoudsklant uit de status "Inactief: Onderhoudsklant staat uit". Een module die later op het tabblad Mediamora komt zonder `onderhoud`, valt niet onder de schakelaar. Gaat Onderhoudsklant uit, dan haalt het zelfherstel op de volgende beheerpagina de events van Verweesde meta opruimen weg, net als bij de eigen schakelaar.
+
+- Bestaande sites krijgen de schakelaar bij de update eenmalig aan als de Formuliermonitor daar uitdrukkelijk aan stond: een opgeslagen keuze aan in `mm_toolkit_modules`, of vastgezet met `MM_TOOLKIT_MODULE_FORMULIERMONITOR` (of de oude naam `MM_TOOLKIT_FORMULIERMONITOR`) op `true`. Anders gaat hij uit. Een vastgezette waarde gaat voor de opgeslagen keuze, net als bij het laden: constante `false` en opgeslagen aan geeft dus uit. Een standaardwaarde telt niet mee, ook niet die van de Formuliermonitor zelf.
+- Verweesde meta opruimen telt niet mee: die staat standaard aan, dus ook op sites zonder onderhoudspakket. Op een site die uitkomt op Onderhoudsklant uit, stopt die module na de update en haalt het zelfherstel zijn events weg. Zijn opgeslagen keuze, of het ontbreken daarvan, blijft bewaard en geldt weer zodra Onderhoudsklant aan gaat. Zet Onderhoudsklant dus na de update aan op elke onderhoudsklant zonder Formuliermonitor.
+- Nieuwe sites krijgen bij het activeren Onderhoudsklant uit, behalve als er al een losse versie van een onderhoudsmodule draait, zoals de losse Formuliermonitor.
 
 ## Overstappen
 
@@ -80,8 +102,8 @@ Sinds 22 oktober 2026 draait in MainWP (Maintenance-extensie) elke dinsdag rond 
 - Wat alleen geteld wordt: regels in `wp_term_relationships` waarvan de `object_id` niet in `wp_posts` staat, behalve taxonomie `link_category` (die hoort bij `wp_links`). Een regel waarvan ook de term_taxonomy weg is, telt mee.
 - Hoe: de module loopt de tabel op `meta_id` door in vensters van 50.000 id's. Per venster haalt een `LEFT JOIN` hooguit 5.000 verweesde id's op, die daarna met `DELETE ... WHERE meta_id IN (...)` weggaan (met de koppeling nog eens in de `WHERE`). Na elke `DELETE` 0,2 seconde pauze. Een ronde heeft 15 seconden; is die op, dan gaat een vervolgronde (`mm_meta_opruimen_vervolg`) zes minuten later verder bij het venster waar hij was. Die vervolgronde staat al bij het begin van elke ronde klaar, zodat ook een ronde die PHP halverwege afkapt wordt afgemaakt. Een slot (`mm_meta_opruimen_slot`, vervalt na vijf minuten) voorkomt twee rondes tegelijk. De ronde loopt tot de hoogste `meta_id` bij de start.
 - Nooit `OPTIMIZE TABLE`: dat zet een lock op de tabel. De vrijgekomen ruimte wordt weer gebruikt en de dump in de back-up wordt meteen kleiner.
-- Uitkomst: in de optie `mm_meta_opruimen_laatste`: `status` (`bezig`, `klaar` of `fout`), `compleet`, `start` en `eind`, `rondes` (in hoeveel delen), `fout`, per tabel het aantal verwijderde regels en de bytes (lengte van `meta_key` plus `meta_value`, dus een schatting zonder indexen) en `termen`. Onder Instellingen > Mediamora Toolkit staat een korte regel bij de module en een overzicht onder de tabel, met de knop **Nu tellen**. Die telt in dezelfde vensters wat een ronde zou weghalen (hooguit 20 seconden, anders staat er "onvolledig") en bewaart dat in `mm_meta_opruimen_telling`. Hij verwijdert niets.
-- Uitzetten (schakelaar, `MM_TOOLKIT_MODULE_META_OPRUIMEN` of deactiveren) haalt de events weg en breekt een lopende ronde af; de uitkomst van de laatste ronde blijft staan. Gaat de module weer aan, dan plant hij de eerstvolgende donderdag weer in.
+- Uitkomst: in de optie `mm_meta_opruimen_laatste`: `status` (`bezig`, `klaar` of `fout`), `compleet`, `start` en `eind`, `rondes` (in hoeveel delen), `fout`, per tabel het aantal verwijderde regels en de bytes (lengte van `meta_key` plus `meta_value`, dus een schatting zonder indexen) en `termen`. Onder Instellingen > Mediamora Toolkit, tabblad Mediamora, staat een korte regel bij de module en een overzicht onder de tabel, met de knop **Nu tellen**. Die telt in dezelfde vensters wat een ronde zou weghalen (hooguit 20 seconden, anders staat er "onvolledig") en bewaart dat in `mm_meta_opruimen_telling`. Hij verwijdert niets.
+- Uitzetten (schakelaar, Onderhoudsklant uit, `MM_TOOLKIT_MODULE_META_OPRUIMEN` of deactiveren) haalt de events weg en breekt een lopende ronde af; de uitkomst van de laatste ronde blijft staan. Gaat de module weer aan, dan plant hij de eerstvolgende donderdag weer in.
 
 ## Instagram-feed
 
@@ -115,9 +137,18 @@ Deactiveren haalt alleen de cron-events (ook die van Verweesde meta opruimen, de
 
 Een module uitvinken ruimt alleen op wat zonder de module blijft doorlopen: de cron-events en, bij Preview-link, de sleutel `mm_preview_key` (alle links vervallen). Gedeelde gegevens blijven staan zolang de losse versie van die module nog op de site staat, actief of niet.
 
-Verwijderen via Plugins ruimt alles op: de opties en transients van de toolkit en de modules, de cron-events, de alt-tekstkenmerken (`_mm_alt_*`, de alt-teksten zelf blijven staan), de productmeta van Herroepingsrecht (`_mm_withdrawal_type` en het oude vinkje `_mm_withdrawal_waiver_applies`; de teksten `_mm_withdrawal_waiver` en `_mm_service_consent` op bestellingen blijven altijd staan, dat is het bewijs van de instemming), de opties van Verweesde meta opruimen, de opties en de fotomap `uploads/mediamora-instagram` van de Instagram-feed, de `.htaccess`-blokken en de logmap van de anti-spam met de inzendingen erin. Kan de logmap niet worden weggehaald, dan blijft de optie `mediamora_antispam_log_dir` staan, zodat te vinden is waar hij staat. Staat de losse versie van een module nog op de site, als plugin of mu-plugin en actief of niet, dan blijft alles van die module staan, want de losse versie gebruikt dezelfde gegevens. Dat werkt ook met `wp plugin uninstall --deactivate`, waarbij de toolkit in hetzelfde verzoek nog geladen is.
+Verwijderen via Plugins ruimt alles op: de opties en transients van de toolkit en de modules (ook `mm_toolkit_onderhoudsklant`), de cron-events, de alt-tekstkenmerken (`_mm_alt_*`, de alt-teksten zelf blijven staan), de productmeta van Herroepingsrecht (`_mm_withdrawal_type` en het oude vinkje `_mm_withdrawal_waiver_applies`; de teksten `_mm_withdrawal_waiver` en `_mm_service_consent` op bestellingen blijven altijd staan, dat is het bewijs van de instemming), de opties van Verweesde meta opruimen, de opties en de fotomap `uploads/mediamora-instagram` van de Instagram-feed, de `.htaccess`-blokken en de logmap van de anti-spam met de inzendingen erin. Kan de logmap niet worden weggehaald, dan blijft de optie `mediamora_antispam_log_dir` staan, zodat te vinden is waar hij staat. Staat de losse versie van een module nog op de site, als plugin of mu-plugin en actief of niet, dan blijft alles van die module staan, want de losse versie gebruikt dezelfde gegevens. Dat werkt ook met `wp plugin uninstall --deactivate`, waarbij de toolkit in hetzelfde verzoek nog geladen is.
 
 ## Wijzigingen
+
+### 1.17.0
+
+- Het instellingenscherm is verdeeld in tabbladen per functie: Snelheid, Beveiliging, Vindbaarheid, Webshop, Koppelingen, Bouw en Mediamora. Het actieve tabblad staat in de URL (`?tab=`). Opslaan verandert alleen de modules van het tabblad dat open staat. Optienamen, opgeslagen waarden en constanten zijn ongewijzigd. Zie "Tabbladen en Onderhoudsklant".
+- Afbeeldingen: ruimte en voorrang staat onder Snelheid, Elementor: oude versies tegenhouden onder Beveiliging.
+- Nieuw tabblad Mediamora met de Formuliermonitor en Verweesde meta opruimen, alleen zichtbaar en op te slaan voor gebruikers met een e-mailadres op `@mediamora.nl` (filter `mm_toolkit_mediamora_domein`). Nu tellen en Testmelding sturen zijn ook alleen voor hen.
+- Nieuwe schakelaar Onderhoudsklant (`mm_toolkit_onderhoudsklant`) bovenaan het tabblad Mediamora. Uit zet de modules met de nieuwe markering `onderhoud` stil, ongeacht hun eigen schakelaar of constante. Bestaande sites krijgen hem bij de update alleen aan als de Formuliermonitor uitdrukkelijk aan stond (opgeslagen keuze of constante, geen standaardwaarde), anders uit; nieuwe sites uit. Verweesde meta opruimen telt daarbij niet mee en stopt dus op sites die uitkomen op uit; de opgeslagen keuze blijft bewaard.
+- Modules hebben twee nieuwe sleutels in `mm_toolkit_modules()`: `tabblad` en `onderhoud`. `mm_toolkit_status()` geeft per module ook `pakket` (false als de module door Onderhoudsklant uit staat).
+- `uninstall.php` ruimt `mm_toolkit_onderhoudsklant` op.
 
 ### 1.16.0
 

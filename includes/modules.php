@@ -27,7 +27,30 @@ if ( ! defined( 'ABSPATH' ) ) {
  *                  doet dan niets. Na after_setup_theme telt
  *                  mm_toolkit_status() de testcode als losse versie, zodat
  *                  het instellingenscherm en de melding hem tonen.
+ * tabblad:         sleutel uit mm_toolkit_tabbladen(), het tabblad waarop
+ *                  de module in het instellingenscherm staat. Alleen de
+ *                  indeling; aan de opgeslagen keuzes verandert niets.
+ * onderhoud:       hoort bij het onderhoudspakket. Staat de schakelaar
+ *                  Onderhoudsklant uit, dan laadt de module niet, ongeacht
+ *                  zijn eigen schakelaar of constante.
  * ---------------------------------------------------------------------- */
+
+/**
+ * De tabbladen van het instellingenscherm, in deze volgorde. Een intern
+ * tabblad is alleen te zien en op te slaan voor Mediamora zelf, zie
+ * mm_toolkit_mediamora_gebruiker().
+ */
+function mm_toolkit_tabbladen() {
+	return array(
+		'snelheid'     => array( 'naam' => 'Snelheid', 'intern' => false ),
+		'beveiliging'  => array( 'naam' => 'Beveiliging', 'intern' => false ),
+		'vindbaarheid' => array( 'naam' => 'Vindbaarheid', 'intern' => false ),
+		'webshop'      => array( 'naam' => 'Webshop', 'intern' => false ),
+		'koppelingen'  => array( 'naam' => 'Koppelingen', 'intern' => false ),
+		'bouw'         => array( 'naam' => 'Bouw', 'intern' => false ),
+		'mediamora'    => array( 'naam' => 'Mediamora', 'intern' => true ),
+	);
+}
 
 function mm_toolkit_modules() {
 	return array(
@@ -42,6 +65,8 @@ function mm_toolkit_modules() {
 			'scherm'          => '',
 			'vereist'         => '',
 			'thema_merkteken' => '',
+			'tabblad'         => 'vindbaarheid',
+			'onderhoud'       => false,
 		),
 		'hero_preload'      => array(
 			'naam'            => 'Hero-preload',
@@ -54,6 +79,8 @@ function mm_toolkit_modules() {
 			'scherm'          => '',
 			'vereist'         => '',
 			'thema_merkteken' => '',
+			'tabblad'         => 'snelheid',
+			'onderhoud'       => false,
 		),
 		'preview_link'      => array(
 			'naam'            => 'Preview-link',
@@ -66,6 +93,8 @@ function mm_toolkit_modules() {
 			'scherm'          => '',
 			'vereist'         => '',
 			'thema_merkteken' => '',
+			'tabblad'         => 'bouw',
+			'onderhoud'       => false,
 		),
 		'anti_spam'         => array(
 			'naam'            => 'Anti-spam',
@@ -78,6 +107,8 @@ function mm_toolkit_modules() {
 			'scherm'          => 'options-general.php?page=mediamora-antispam',
 			'vereist'         => '',
 			'thema_merkteken' => '',
+			'tabblad'         => 'beveiliging',
+			'onderhoud'       => false,
 		),
 		'formuliermonitor'  => array(
 			'naam'            => 'Formuliermonitor',
@@ -90,6 +121,8 @@ function mm_toolkit_modules() {
 			'scherm'          => '',
 			'vereist'         => '',
 			'thema_merkteken' => '',
+			'tabblad'         => 'mediamora',
+			'onderhoud'       => true,
 		),
 		'ai_bots'           => array(
 			'naam'            => 'AI-bots',
@@ -102,6 +135,8 @@ function mm_toolkit_modules() {
 			'scherm'          => 'options-general.php?page=mm-aibots',
 			'vereist'         => '',
 			'thema_merkteken' => '',
+			'tabblad'         => 'vindbaarheid',
+			'onderhoud'       => false,
 		),
 		'rest_users'        => array(
 			'naam'            => 'REST-gebruikers afschermen',
@@ -114,6 +149,8 @@ function mm_toolkit_modules() {
 			'scherm'          => '',
 			'vereist'         => '',
 			'thema_merkteken' => '',
+			'tabblad'         => 'beveiliging',
+			'onderhoud'       => false,
 		),
 		// Geen merkteken voor de oude functions.php-code (mm_withdrawal_text,
 		// mm_consent_text): die laadt pas na de plugins. De module kijkt daar
@@ -129,6 +166,8 @@ function mm_toolkit_modules() {
 			'scherm'          => 'options-general.php?page=mm-herroeping',
 			'vereist'         => 'woocommerce',
 			'thema_merkteken' => '',
+			'tabblad'         => 'webshop',
+			'onderhoud'       => false,
 		),
 		// De drie modules hieronder draaiden eerst als test in functions.php,
 		// als closures en dus zonder merkteken. Ze herkennen die testcode zelf.
@@ -143,6 +182,8 @@ function mm_toolkit_modules() {
 			'scherm'          => '',
 			'vereist'         => '',
 			'thema_merkteken' => '',
+			'tabblad'         => 'snelheid',
+			'onderhoud'       => false,
 		),
 		'jquery_wacht'      => array(
 			'naam'            => 'jQuery-wachtrem',
@@ -155,6 +196,8 @@ function mm_toolkit_modules() {
 			'scherm'          => '',
 			'vereist'         => '',
 			'thema_merkteken' => '',
+			'tabblad'         => 'snelheid',
+			'onderhoud'       => false,
 		),
 		'quic_cloud'        => array(
 			'naam'            => 'QUIC.cloud en kritieke CSS',
@@ -167,6 +210,8 @@ function mm_toolkit_modules() {
 			'scherm'          => '',
 			'vereist'         => '',
 			'thema_merkteken' => '',
+			'tabblad'         => 'snelheid',
+			'onderhoud'       => false,
 		),
 		'schema_basis'      => array(
 			'naam'            => 'Schema op alle pagina\'s',
@@ -179,6 +224,8 @@ function mm_toolkit_modules() {
 			'scherm'          => '',
 			'vereist'         => '',
 			'thema_merkteken' => '',
+			'tabblad'         => 'vindbaarheid',
+			'onderhoud'       => false,
 		),
 		'afbeelding_ruimte' => array(
 			'naam'            => 'Afbeeldingen: ruimte en voorrang',
@@ -191,6 +238,8 @@ function mm_toolkit_modules() {
 			'scherm'          => '',
 			'vereist'         => '',
 			'thema_merkteken' => 'mm_ig_elementor_img_attrs',
+			'tabblad'         => 'snelheid',
+			'onderhoud'       => false,
 		),
 		'elementor_versie'  => array(
 			'naam'            => 'Elementor: oude versies tegenhouden',
@@ -203,6 +252,8 @@ function mm_toolkit_modules() {
 			'scherm'          => '',
 			'vereist'         => '',
 			'thema_merkteken' => '',
+			'tabblad'         => 'beveiliging',
+			'onderhoud'       => false,
 		),
 		'meta_opruimen'     => array(
 			'naam'            => 'Verweesde meta opruimen',
@@ -215,6 +266,8 @@ function mm_toolkit_modules() {
 			'scherm'          => '',
 			'vereist'         => '',
 			'thema_merkteken' => '',
+			'tabblad'         => 'mediamora',
+			'onderhoud'       => true,
 		),
 		'instagram'         => array(
 			'naam'            => 'Instagram-feed',
@@ -227,6 +280,8 @@ function mm_toolkit_modules() {
 			'scherm'          => 'options-general.php?page=mm-instagram',
 			'vereist'         => '',
 			'thema_merkteken' => '',
+			'tabblad'         => 'koppelingen',
+			'onderhoud'       => false,
 		),
 	);
 }

@@ -403,14 +403,15 @@ function mm_meta_opruimen_tel() {
 add_action( 'admin_post_mm_meta_opruimen_tel', 'mm_meta_opruimen_tel_knop' );
 
 function mm_meta_opruimen_tel_knop() {
-	if ( ! current_user_can( 'manage_options' ) ) {
-		wp_die( 'Geen toegang.' );
+	// De knop staat op het tabblad Mediamora, dus alleen voor Mediamora.
+	if ( ! current_user_can( 'manage_options' ) || ! mm_toolkit_mediamora_gebruiker() ) {
+		wp_die( 'Geen toegang.', '', array( 'response' => 403 ) );
 	}
 	check_admin_referer( 'mm_meta_opruimen_tel' );
 
 	mm_meta_opruimen_tel();
 
-	wp_safe_redirect( admin_url( 'options-general.php?page=' . MM_TOOLKIT_SLUG . '&mm_meta_geteld=1#mm-meta-opruimen' ) );
+	wp_safe_redirect( add_query_arg( 'mm_meta_geteld', '1', mm_toolkit_scherm_url( 'mediamora' ) ) . '#mm-meta-opruimen' );
 	exit;
 }
 

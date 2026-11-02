@@ -229,7 +229,7 @@ function mm_monitor_schrijf_log( $regel ) {
 /**
  * Testknop: stuurt een testmelding om te controleren of die bij Mediamora
  * aankomt. De link staat bij de Formuliermonitor onder Instellingen >
- * Mediamora Toolkit en draagt een nonce, zodat een link van buitenaf geen
+ * Mediamora Toolkit, tabblad Mediamora, en draagt een nonce, zodat een link van buitenaf geen
  * mail kan laten versturen namens een ingelogde beheerder.
  */
 function mm_monitor_test_url() {
@@ -240,7 +240,8 @@ add_action( 'admin_init', 'mm_monitor_test' );
 
 function mm_monitor_test() {
 
-	if ( empty( $_GET['mm_monitor_test'] ) || ! current_user_can( 'manage_options' ) ) {
+	// De link staat op het tabblad Mediamora, dus alleen voor Mediamora.
+	if ( empty( $_GET['mm_monitor_test'] ) || ! current_user_can( 'manage_options' ) || ! mm_toolkit_mediamora_gebruiker() ) {
 		return;
 	}
 

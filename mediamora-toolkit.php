@@ -3,7 +3,7 @@
  * Plugin Name:       Mediamora Toolkit
  * Plugin URI:        https://github.com/hettyvanderwal/mediamora-toolkit
  * Description:       De vaste Mediamora-onderdelen in één plugin, per onderdeel aan en uit te zetten onder Instellingen > Mediamora Toolkit.
- * Version:           1.16.0
+ * Version:           1.17.0
  * Requires at least: 6.0
  * Requires PHP:      7.4
  * Update URI:        https://github.com/hettyvanderwal/mediamora-toolkit
@@ -22,7 +22,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  * updates telt alleen de kop, zie mm_toolkit_huidige_versie(); deze
  * constante is er voor de rest, zoals de mailheader van de Formuliermonitor.
  */
-const MM_TOOLKIT_VERSIE = '1.16.0';
+const MM_TOOLKIT_VERSIE = '1.17.0';
 const MM_TOOLKIT_REPO   = 'hettyvanderwal/mediamora-toolkit';
 const MM_TOOLKIT_SLUG   = 'mediamora-toolkit';
 const MM_TOOLKIT_OPTIE  = 'mm_toolkit_modules';
@@ -115,26 +115,30 @@ function mm_toolkit_vereiste_actief( $module ) {
 
 /**
  * Bepaalt per module wat er gebeurt: aan, uit, of geblokkeerd omdat
- * de losse versie er nog staat of de vereiste plugin uit staat.
+ * de losse versie er nog staat, de vereiste plugin uit staat of de site
+ * geen onderhoudsklant is.
  */
 function mm_toolkit_status() {
 	static $status = null;
 	static $thema  = false;
 	if ( null === $status ) {
-		$status = array();
-		$keuzes = mm_toolkit_keuzes();
+		$status    = array();
+		$keuzes    = mm_toolkit_keuzes();
+		$onderhoud = mm_toolkit_onderhoudsklant();
 		foreach ( mm_toolkit_modules() as $sleutel => $module ) {
 			$vast   = mm_toolkit_vastgezet( $sleutel );
 			$gewild = null === $vast ? $keuzes[ $sleutel ] : $vast;
 			$los    = mm_toolkit_losse_versie( $module );
 			$kan    = mm_toolkit_vereiste_actief( $module );
+			$pakket = ! $module['onderhoud'] || $onderhoud;
 			$status[ $sleutel ] = array(
 				'gewild'  => $gewild,
 				'vast'    => null !== $vast,
 				'los'     => $los,
 				'vereist' => $kan,
+				'pakket'  => $pakket,
 				'bestand' => file_exists( MM_TOOLKIT_MAP . '/modules/' . $module['bestand'] ),
-				'laden'   => $gewild && $kan && '' === $los && file_exists( MM_TOOLKIT_MAP . '/modules/' . $module['bestand'] ),
+				'laden'   => $gewild && $kan && $pakket && '' === $los && file_exists( MM_TOOLKIT_MAP . '/modules/' . $module['bestand'] ),
 			);
 		}
 	}
@@ -223,6 +227,96 @@ function mm_toolkit_oude_standaarden() {
 
 mm_toolkit_oude_standaarden();
 
+
+/* -------------------------------------------------------------------------
+ * Tabblad Mediamora en Onderhoudsklant
+ *
+ * Het tabblad Mediamora is alleen voor Mediamora zelf: andere beheerders
+ * zien het niet en kunnen er niets opslaan. Bovenaan staat de schakelaar
+ * Onderhoudsklant. Staat die uit, dan laden de modules met 'onderhoud' niet,
+ * wat hun eigen schakelaar of constante ook zegt. De schakelaar staat in een
+ * eigen optie; de keuzes per module blijven zoals ze waren.
+ * ---------------------------------------------------------------------- */
+
+const MM_TOOLKIT_ONDERHOUD_OPTIE = 'mm_toolkit_onderhoudsklant';
+
+/**
+ * Is de ingelogde gebruiker van Mediamora? Kijkt naar het domein van het
+ * e-mailadres, standaard mediamora.nl, aan te passen met het filter
+ * mm_toolkit_mediamora_domein. Geen subdomeinen.
+ *
+ * Let op: een beheerder kan zelf een gebruiker met zo'n adres aanmaken. Dit
+ * houdt beheerders van de klant weg van het tabblad, het is geen slot.
+ */
+function mm_toolkit_mediamora_gebruiker() {
+	if ( ! is_user_logged_in() ) {
+		return false;
+	}
+	$domein = strtolower( ltrim( trim( (string) apply_filters( 'mm_toolkit_mediamora_domein', 'mediamora.nl' ) ), '@' ) );
+	$adres  = strtolower( (string) wp_get_current_user()->user_email );
+	$at     = strrpos( $adres, '@' );
+	return '' !== $domein && false !== $at && substr( $adres, $at + 1 ) === $domein;
+}
+
+/**
+ * De tabbladen die de ingelogde gebruiker te zien krijgt.
+ */
+function mm_toolkit_zichtbare_tabbladen() {
+	$mediamora = mm_toolkit_mediamora_gebruiker();
+	return array_filter(
+		mm_toolkit_tabbladen(),
+		function ( $tabblad ) use ( $mediamora ) {
+			return ! $tabblad['intern'] || $mediamora;
+		}
+	);
+}
+
+/**
+ * Is deze site een onderhoudsklant? Zonder opgeslagen keuze: nee.
+ */
+function mm_toolkit_onderhoudsklant() {
+	return (bool) get_option( MM_TOOLKIT_ONDERHOUD_OPTIE, false );
+}
+
+/**
+ * De schakelaar Onderhoudsklant kwam in 1.17.0. Een bestaande site krijgt
+ * hem eenmalig aan als de Formuliermonitor daar uitdrukkelijk aan stond: een
+ * opgeslagen keuze aan, of vastgezet met de constante. Anders gaat hij uit.
+ *
+ * Een standaardwaarde telt niet mee, ook niet die van de Formuliermonitor
+ * zelf: alleen een bewuste keuze zegt dat een site onderhoudsklant is. Om
+ * dezelfde reden telt Verweesde meta opruimen niet mee; die staat standaard
+ * aan en stond dus ook aan op sites zonder onderhoudspakket. Op een site die
+ * uitkomt op uit, stopt die module daardoor. Zijn opgeslagen keuze blijft
+ * bewaard en geldt weer zodra Onderhoudsklant aan gaat.
+ *
+ * Gekeken wordt naar wat er gekozen was, niet naar wat er laadde: een
+ * Formuliermonitor die wacht op het verdwijnen van zijn losse versie telt
+ * dus ook als aan. Vastgezet via wp-config gaat voor de opgeslagen keuze,
+ * net als bij het laden, ook met de oude naam MM_TOOLKIT_FORMULIERMONITOR.
+ *
+ * Een nieuwe site heeft nog geen keuzes; die krijgt de schakelaar bij het
+ * activeren.
+ */
+function mm_toolkit_onderhoudsklant_vastleggen() {
+
+	$opgeslagen = get_option( MM_TOOLKIT_OPTIE, false );
+	if ( false !== get_option( MM_TOOLKIT_ONDERHOUD_OPTIE, false ) || ! is_array( $opgeslagen ) ) {
+		return;
+	}
+
+	$vast = mm_toolkit_vastgezet( 'formuliermonitor' );
+	if ( null !== $vast ) {
+		$aan = $vast;
+	} else {
+		$aan = array_key_exists( 'formuliermonitor', $opgeslagen ) && (bool) $opgeslagen['formuliermonitor'];
+	}
+
+	add_option( MM_TOOLKIT_ONDERHOUD_OPTIE, $aan ? 1 : 0, '', true );
+}
+
+mm_toolkit_onderhoudsklant_vastleggen();
+
 /**
  * De keuzes worden op elke pagina gelezen, dus horen ze bij de opties die
  * WordPress in één keer laadt. Tot en met 1.15.2 stond autoload uit, en
@@ -294,11 +388,17 @@ function mm_toolkit_activeren() {
 	if ( false !== get_option( MM_TOOLKIT_OPTIE, false ) ) {
 		return;
 	}
-	$keuzes = array();
+	$keuzes    = array();
+	$onderhoud = false;
 	foreach ( mm_toolkit_modules() as $sleutel => $module ) {
-		$keuzes[ $sleutel ] = $module['standaard'] || '' !== mm_toolkit_losse_versie( $module );
+		$los                = '' !== mm_toolkit_losse_versie( $module );
+		$keuzes[ $sleutel ] = $module['standaard'] || $los;
+		// Onderhoudsklant staat op een nieuwe site uit, behalve als er al een
+		// losse onderhoudsmodule draait, zoals de losse Formuliermonitor.
+		$onderhoud = $onderhoud || ( $module['onderhoud'] && $los );
 	}
 	add_option( MM_TOOLKIT_OPTIE, $keuzes, '', true );
+	add_option( MM_TOOLKIT_ONDERHOUD_OPTIE, $onderhoud ? 1 : 0, '', true );
 }
 
 register_deactivation_hook( __FILE__, 'mm_toolkit_deactiveren' );
@@ -387,6 +487,14 @@ function mm_toolkit_opslaan() {
 	}
 	check_admin_referer( 'mm_toolkit_opslaan' );
 
+	// Het formulier bevat alleen de modules van één tabblad. Een tabblad dat
+	// deze gebruiker niet te zien krijgt, zoals Mediamora, kan hij ook niet
+	// opslaan.
+	$tab = isset( $_POST['mm_tab'] ) ? sanitize_key( wp_unslash( $_POST['mm_tab'] ) ) : '';
+	if ( ! array_key_exists( $tab, mm_toolkit_zichtbare_tabbladen() ) ) {
+		wp_die( 'Geen toegang.', '', array( 'response' => 403 ) );
+	}
+
 	$oud        = mm_toolkit_keuzes();
 	$nieuw      = array();
 	$opslaan    = array();
@@ -399,8 +507,9 @@ function mm_toolkit_opslaan() {
 		// de browser niet mee. Dan blijft staan wat er al was; stond er nog
 		// niets, dan blijft dat zo en geldt de standaard. Hetzelfde voor een
 		// module waarvan de vereiste plugin even uit staat, zodat hij weer
-		// aan is zodra die plugin terugkomt.
-		if ( null !== mm_toolkit_vastgezet( $sleutel ) || ! mm_toolkit_vereiste_actief( $module ) ) {
+		// aan is zodra die plugin terugkomt, en voor de modules van de andere
+		// tabbladen, die niet in het formulier stonden.
+		if ( $tab !== $module['tabblad'] || null !== mm_toolkit_vastgezet( $sleutel ) || ! mm_toolkit_vereiste_actief( $module ) ) {
 			$nieuw[ $sleutel ] = $oud[ $sleutel ];
 			if ( array_key_exists( $sleutel, $opgeslagen ) ) {
 				$opslaan[ $sleutel ] = (bool) $opgeslagen[ $sleutel ];
@@ -412,6 +521,12 @@ function mm_toolkit_opslaan() {
 	}
 
 	update_option( MM_TOOLKIT_OPTIE, $opslaan, true );
+
+	// Gaat Onderhoudsklant uit, dan haalt het zelfherstel op de volgende
+	// beheerpagina de events van Verweesde meta opruimen weg.
+	if ( 'mediamora' === $tab ) {
+		update_option( MM_TOOLKIT_ONDERHOUD_OPTIE, empty( $_POST['mm_onderhoudsklant'] ) ? 0 : 1, true );
+	}
 
 	// Opruimen bij uitzetten. De sleutel en de cron-events delen de modules
 	// met hun losse versie; staat die er nog, dan blijven ze staan. De
@@ -448,8 +563,16 @@ function mm_toolkit_opslaan() {
 	$aibots_aan = ( null === $vast ? $nieuw['ai_bots'] : $vast ) && '' === $aibots['los'] && $aibots['bestand'];
 	mm_toolkit_aibots_cache_bijwerken( mm_toolkit_aibots_cache_gewenst( $aibots_aan ) );
 
-	wp_safe_redirect( add_query_arg( 'opgeslagen', '1', admin_url( 'options-general.php?page=' . MM_TOOLKIT_SLUG ) ) );
+	wp_safe_redirect( add_query_arg( 'opgeslagen', '1', mm_toolkit_scherm_url( $tab ) ) );
 	exit;
+}
+
+/**
+ * Adres van het instellingenscherm, eventueel op een tabblad.
+ */
+function mm_toolkit_scherm_url( $tab = '' ) {
+	$url = admin_url( 'options-general.php?page=' . MM_TOOLKIT_SLUG );
+	return '' === $tab ? $url : add_query_arg( 'tab', $tab, $url );
 }
 
 function mm_toolkit_scherm() {
@@ -461,24 +584,52 @@ function mm_toolkit_scherm() {
 	$status  = mm_toolkit_status();
 	$modules = mm_toolkit_modules();
 
+	// Het actieve tabblad staat in de URL. Onbekend, of een tabblad dat deze
+	// gebruiker niet mag zien: het eerste tabblad, zonder melding.
+	$tabbladen = mm_toolkit_zichtbare_tabbladen();
+	$tab       = isset( $_GET['tab'] ) ? sanitize_key( wp_unslash( $_GET['tab'] ) ) : '';
+	if ( ! array_key_exists( $tab, $tabbladen ) ) {
+		$tab = (string) key( $tabbladen );
+	}
+
 	echo '<div class="wrap"><h1>Mediamora Toolkit <span style="font-size:13px;font-weight:400;color:#646970;">versie ' . esc_html( mm_toolkit_huidige_versie() ) . '</span></h1>';
 
 	if ( ! empty( $_GET['opgeslagen'] ) ) {
 		echo '<div class="notice notice-success is-dismissible"><p>Opgeslagen.</p></div>';
 	}
 
+	echo '<nav class="nav-tab-wrapper" style="max-width:900px;">';
+	foreach ( $tabbladen as $sleutel => $tabblad ) {
+		echo '<a href="' . esc_url( mm_toolkit_scherm_url( $sleutel ) ) . '" class="nav-tab' . ( $sleutel === $tab ? ' nav-tab-active' : '' ) . '">' . esc_html( $tabblad['naam'] ) . '</a>';
+	}
+	echo '</nav>';
+
 	echo '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '">';
 	echo '<input type="hidden" name="action" value="mm_toolkit_opslaan">';
+	echo '<input type="hidden" name="mm_tab" value="' . esc_attr( $tab ) . '">';
 	wp_nonce_field( 'mm_toolkit_opslaan' );
+
+	if ( 'mediamora' === $tab ) {
+		echo '<table class="form-table" role="presentation" style="max-width:900px;"><tr><th scope="row">Onderhoudsklant</th><td>';
+		echo '<label><input type="checkbox" name="mm_onderhoudsklant" value="1"' . checked( mm_toolkit_onderhoudsklant(), true, false ) . '> Deze site heeft een onderhoudspakket</label>';
+		echo '<p class="description">Staat dit uit, dan zijn de modules met het label Onderhoud inactief, ongeacht hun eigen schakelaar.</p>';
+		echo '</td></tr></table>';
+	}
 
 	echo '<table class="widefat striped" style="max-width:900px;margin-top:16px;"><thead><tr><th style="width:40px;">Aan</th><th>Module</th><th style="width:260px;">Status</th></tr></thead><tbody>';
 
 	foreach ( $modules as $sleutel => $module ) {
 
+		if ( $tab !== $module['tabblad'] ) {
+			continue;
+		}
+
 		$s = $status[ $sleutel ];
 
 		if ( ! $s['bestand'] ) {
 			$tekst = '<span style="color:#b32d2e;">Modulebestand ontbreekt</span>';
+		} elseif ( ! $s['pakket'] ) {
+			$tekst = 'Inactief: Onderhoudsklant staat uit';
 		} elseif ( ! $s['vereist'] && $s['gewild'] ) {
 			$tekst = '<span style="color:#b32d2e;">Staat uit: WooCommerce is niet actief</span>';
 		} elseif ( ! $s['vereist'] ) {
@@ -520,7 +671,8 @@ function mm_toolkit_scherm() {
 
 		echo '<tr>';
 		echo '<td><input type="checkbox" name="mm_module[' . esc_attr( $sleutel ) . ']" value="1"' . checked( $s['gewild'], true, false ) . disabled( $s['vast'] || ! $s['vereist'], true, false ) . '></td>';
-		echo '<td><strong>' . esc_html( $module['naam'] ) . '</strong>' . $link . '<br><span style="color:#646970;">' . esc_html( $module['uitleg'] ) . '</span></td>';
+		$label = $module['onderhoud'] ? ' <span style="font-size:11px;padding:1px 6px;border-radius:3px;background:#f0f0f1;color:#50575e;">Onderhoud</span>' : '';
+		echo '<td><strong>' . esc_html( $module['naam'] ) . '</strong>' . $label . $link . '<br><span style="color:#646970;">' . esc_html( $module['uitleg'] ) . '</span></td>';
 		echo '<td>' . $tekst . '</td>';
 		echo '</tr>';
 	}
@@ -530,7 +682,7 @@ function mm_toolkit_scherm() {
 	echo '</form>';
 
 	// Eigen formulier met de knop Nu tellen, dus na het formulier hierboven.
-	if ( $status['meta_opruimen']['laden'] && function_exists( 'mm_meta_opruimen_overzicht' ) ) {
+	if ( $tab === $modules['meta_opruimen']['tabblad'] && $status['meta_opruimen']['laden'] && function_exists( 'mm_meta_opruimen_overzicht' ) ) {
 		mm_meta_opruimen_overzicht();
 	}
 
@@ -549,7 +701,13 @@ function mm_toolkit_melding() {
 	}
 	$geblokkeerd = array();
 	$modules     = mm_toolkit_modules();
+	$tabbladen   = mm_toolkit_zichtbare_tabbladen();
 	foreach ( mm_toolkit_status() as $sleutel => $s ) {
+		// Modules van een tabblad dat deze gebruiker niet ziet, en
+		// onderhoudsmodules buiten het pakket, blijven buiten de melding.
+		if ( ! array_key_exists( $modules[ $sleutel ]['tabblad'], $tabbladen ) || ! $s['pakket'] ) {
+			continue;
+		}
 		if ( $s['gewild'] && $s['los'] ) {
 			$geblokkeerd[] = $modules[ $sleutel ]['naam'] . ' (' . $s['los'] . ')';
 		}
