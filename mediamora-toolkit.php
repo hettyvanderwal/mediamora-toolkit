@@ -3,7 +3,7 @@
  * Plugin Name:       Mediamora Toolkit
  * Plugin URI:        https://github.com/hettyvanderwal/mediamora-toolkit
  * Description:       De vaste Mediamora-onderdelen in één plugin, per onderdeel aan en uit te zetten onder Instellingen > Mediamora Toolkit.
- * Version:           1.17.0
+ * Version:           1.18.0
  * Requires at least: 6.0
  * Requires PHP:      7.4
  * Update URI:        https://github.com/hettyvanderwal/mediamora-toolkit
@@ -22,7 +22,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  * updates telt alleen de kop, zie mm_toolkit_huidige_versie(); deze
  * constante is er voor de rest, zoals de mailheader van de Formuliermonitor.
  */
-const MM_TOOLKIT_VERSIE = '1.17.0';
+const MM_TOOLKIT_VERSIE = '1.18.0';
 const MM_TOOLKIT_REPO   = 'hettyvanderwal/mediamora-toolkit';
 const MM_TOOLKIT_SLUG   = 'mediamora-toolkit';
 const MM_TOOLKIT_OPTIE  = 'mm_toolkit_modules';
@@ -240,22 +240,19 @@ mm_toolkit_oude_standaarden();
 
 const MM_TOOLKIT_ONDERHOUD_OPTIE = 'mm_toolkit_onderhoudsklant';
 
+// Mail bij het verwijderen van een tijdelijk account, 1 of 0. Alleen van de
+// toolkit; de losse versie kent deze instelling niet.
+const MM_TOOLKIT_TIJDELIJK_MAIL_OPTIE = 'mm_tijdelijke_accounts_mail';
+
 /**
  * Is de ingelogde gebruiker van Mediamora? Kijkt naar het domein van het
- * e-mailadres, standaard mediamora.nl, aan te passen met het filter
- * mm_toolkit_mediamora_domein. Geen subdomeinen.
+ * e-mailadres, zie mm_toolkit_mediamora_adres().
  *
  * Let op: een beheerder kan zelf een gebruiker met zo'n adres aanmaken. Dit
  * houdt beheerders van de klant weg van het tabblad, het is geen slot.
  */
 function mm_toolkit_mediamora_gebruiker() {
-	if ( ! is_user_logged_in() ) {
-		return false;
-	}
-	$domein = strtolower( ltrim( trim( (string) apply_filters( 'mm_toolkit_mediamora_domein', 'mediamora.nl' ) ), '@' ) );
-	$adres  = strtolower( (string) wp_get_current_user()->user_email );
-	$at     = strrpos( $adres, '@' );
-	return '' !== $domein && false !== $at && substr( $adres, $at + 1 ) === $domein;
+	return is_user_logged_in() && mm_toolkit_mediamora_adres( wp_get_current_user()->user_email );
 }
 
 /**
@@ -417,6 +414,11 @@ function mm_toolkit_deactiveren() {
 	wp_clear_scheduled_hook( 'mediamora_antispam_prune_logs' );
 	mm_toolkit_meta_opruimen_stoppen();
 	wp_unschedule_hook( 'mm_instagram_ophalen' );
+	// Tijdelijke accounts: het event hoort ook bij de losse versie, en die
+	// draait zonder de toolkit gewoon door.
+	if ( ! mm_toolkit_los_bestand_aanwezig( mm_toolkit_modules()['tijdelijke_accounts'] ) ) {
+		wp_unschedule_hook( 'mm_tijdelijke_accounts_opruimen' );
+	}
 }
 
 /**
@@ -457,6 +459,11 @@ function mm_toolkit_meta_opruimen_herstel() {
 	if ( ! $status['ai_bots']['laden'] && '' === $status['ai_bots']['los'] && wp_next_scheduled( 'mm_aibots_opschonen' )
 		&& ! mm_toolkit_los_bestand_aanwezig( mm_toolkit_modules()['ai_bots'] ) ) {
 		wp_unschedule_hook( 'mm_aibots_opschonen' );
+	}
+	// Tijdelijke accounts uit: niet meer opruimen. Niet als de losse versie er
+	// nog staat, die gebruikt hetzelfde event.
+	if ( ! $status['tijdelijke_accounts']['laden'] && '' === $status['tijdelijke_accounts']['los'] && wp_next_scheduled( 'mm_tijdelijke_accounts_opruimen' ) ) {
+		wp_unschedule_hook( 'mm_tijdelijke_accounts_opruimen' );
 	}
 }
 
@@ -526,6 +533,12 @@ function mm_toolkit_opslaan() {
 	// beheerpagina de events van Verweesde meta opruimen weg.
 	if ( 'mediamora' === $tab ) {
 		update_option( MM_TOOLKIT_ONDERHOUD_OPTIE, empty( $_POST['mm_onderhoudsklant'] ) ? 0 : 1, true );
+	}
+
+	// Het vinkje staat er alleen als de module laadt. Zonder het verborgen veld
+	// blijft de instelling dus staan, en niet op uit.
+	if ( 'mediamora' === $tab && ! empty( $_POST['mm_tijdelijk_mail_getoond'] ) ) {
+		update_option( MM_TOOLKIT_TIJDELIJK_MAIL_OPTIE, empty( $_POST['mm_tijdelijk_mail'] ) ? 0 : 1, false );
 	}
 
 	// Opruimen bij uitzetten. De sleutel en de cron-events delen de modules
@@ -655,6 +668,9 @@ function mm_toolkit_scherm() {
 		if ( 'meta_opruimen' === $sleutel && $s['laden'] && function_exists( 'mm_meta_opruimen_status_regel' ) ) {
 			$tekst .= '<br><span style="color:#646970;">' . mm_meta_opruimen_status_regel() . '</span> <a href="#mm-meta-opruimen">Overzicht</a>';
 		}
+		if ( 'tijdelijke_accounts' === $sleutel && $s['laden'] ) {
+			$tekst .= '<br><a href="#mm-tijdelijke-accounts">Overzicht</a>';
+		}
 		if ( 'instagram' === $sleutel && $s['laden'] && function_exists( 'mm_instagram_status_regel' ) ) {
 			$tekst .= '<br><span style="color:#646970;">' . mm_instagram_status_regel() . '</span>';
 		}
@@ -662,6 +678,11 @@ function mm_toolkit_scherm() {
 			foreach ( mm_herroeping_meldingen() as $melding ) {
 				$tekst .= '<br><span style="color:#b32d2e;">' . esc_html( $melding ) . '</span>';
 			}
+		}
+
+		$instelling = '';
+		if ( 'tijdelijke_accounts' === $sleutel && $s['laden'] && function_exists( 'mm_tijdelijk_mail_aan' ) ) {
+			$instelling = '<br><input type="hidden" name="mm_tijdelijk_mail_getoond" value="1"><label><input type="checkbox" name="mm_tijdelijk_mail" value="1"' . checked( mm_tijdelijk_mail_aan(), true, false ) . '> Mail naar Mediamora bij het verwijderen van een account</label>';
 		}
 
 		$link = ( $module['scherm'] && $s['laden'] ) ? ' <a href="' . esc_url( admin_url( $module['scherm'] ) ) . '">Instellingen</a>' : '';
@@ -672,7 +693,7 @@ function mm_toolkit_scherm() {
 		echo '<tr>';
 		echo '<td><input type="checkbox" name="mm_module[' . esc_attr( $sleutel ) . ']" value="1"' . checked( $s['gewild'], true, false ) . disabled( $s['vast'] || ! $s['vereist'], true, false ) . '></td>';
 		$label = $module['onderhoud'] ? ' <span style="font-size:11px;padding:1px 6px;border-radius:3px;background:#f0f0f1;color:#50575e;">Onderhoud</span>' : '';
-		echo '<td><strong>' . esc_html( $module['naam'] ) . '</strong>' . $label . $link . '<br><span style="color:#646970;">' . esc_html( $module['uitleg'] ) . '</span></td>';
+		echo '<td><strong>' . esc_html( $module['naam'] ) . '</strong>' . $label . $link . '<br><span style="color:#646970;">' . esc_html( $module['uitleg'] ) . '</span>' . $instelling . '</td>';
 		echo '<td>' . $tekst . '</td>';
 		echo '</tr>';
 	}
@@ -684,6 +705,10 @@ function mm_toolkit_scherm() {
 	// Eigen formulier met de knop Nu tellen, dus na het formulier hierboven.
 	if ( $tab === $modules['meta_opruimen']['tabblad'] && $status['meta_opruimen']['laden'] && function_exists( 'mm_meta_opruimen_overzicht' ) ) {
 		mm_meta_opruimen_overzicht();
+	}
+
+	if ( $tab === $modules['tijdelijke_accounts']['tabblad'] && $status['tijdelijke_accounts']['laden'] && function_exists( 'mm_tijdelijk_overzicht' ) ) {
+		mm_tijdelijk_overzicht();
 	}
 
 	echo '</div>';
@@ -706,6 +731,12 @@ function mm_toolkit_melding() {
 		// Modules van een tabblad dat deze gebruiker niet ziet, en
 		// onderhoudsmodules buiten het pakket, blijven buiten de melding.
 		if ( ! array_key_exists( $modules[ $sleutel ]['tabblad'], $tabbladen ) || ! $s['pakket'] ) {
+			continue;
+		}
+		// De losse Tijdelijke accounts delen meta en cronhook met de module, dus
+		// daar is niets om op te wachten: het bestand kan gewoon weg.
+		if ( 'tijdelijke_accounts' === $sleutel && $s['gewild'] && $s['los'] ) {
+			echo '<div class="notice notice-warning"><p><strong>Mediamora Toolkit:</strong> <code>wp-content/mu-plugins/' . esc_html( $modules[ $sleutel ]['losse_mu'] ) . '</code> kan weg. De module Tijdelijke accounts gebruikt dezelfde gegevens en dezelfde cronhook en neemt het daarna naadloos over.</p></div>';
 			continue;
 		}
 		if ( $s['gewild'] && $s['los'] ) {

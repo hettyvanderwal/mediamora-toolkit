@@ -67,6 +67,7 @@ function mm_toolkit_uninstall_site( $los ) {
 
 	delete_option( 'mm_toolkit_modules' );
 	delete_option( 'mm_toolkit_onderhoudsklant' );
+	delete_option( 'mm_tijdelijke_accounts_mail' );
 	delete_transient( 'mm_toolkit_release' );
 	delete_option( 'mm_toolkit_release_laatst' );
 	delete_transient( 'mm_toolkit_preview_htaccess_fout' );
@@ -123,6 +124,13 @@ function mm_toolkit_uninstall_site( $los ) {
 		foreach ( (array) $namen as $naam ) {
 			delete_option( $naam );
 		}
+	}
+
+	// Alleen het event. De user meta blijft altijd staan: worden die weggehaald
+	// bij verwijderen en opnieuw installeren, dan worden de tijdelijke accounts
+	// stil vaste accounts, en dat is precies wat de module moet voorkomen.
+	if ( ! $los['tijdelijke_accounts'] ) {
+		wp_unschedule_hook( 'mm_tijdelijke_accounts_opruimen' );
 	}
 
 	// Verweesde meta: geen losse versie, dus altijd opruimen.

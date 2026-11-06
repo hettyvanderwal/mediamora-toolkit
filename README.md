@@ -20,6 +20,7 @@ De vaste Mediamora-onderdelen in één WordPress-plugin. Elk onderdeel is een mo
 | Elementor: oude versies tegenhouden | Beveiliging | aan, doet niets zonder Elementor | nieuw |
 | Verweesde meta opruimen | Mediamora | aan, alleen met Onderhoudsklant | nieuw |
 | Instagram-feed | Koppelingen | uit, per site aanzetten | nieuw |
+| Tijdelijke accounts | Mediamora | aan, ook zonder Onderhoudsklant | mu-plugin `mediamora-tijdelijke-accounts.php` |
 
 ## Tabbladen en Onderhoudsklant
 
@@ -37,7 +38,7 @@ add_filter( 'mm_toolkit_mediamora_domein', function () {
 
 Alleen het domein zelf telt, geen subdomeinen; hoofdletters maken niet uit. Dit houdt beheerders van de klant weg van het tabblad, maar is geen slot: een beheerder kan zelf een gebruiker met een adres op `@mediamora.nl` aanmaken.
 
-Bovenaan het tabblad Mediamora staat de schakelaar **Onderhoudsklant** (optie `mm_toolkit_onderhoudsklant`, `1` of `0`, autoload). Modules met `onderhoud` op `true` laden alleen als die aan staat, wat hun eigen schakelaar of constante ook zegt; de eigen keuze blijft bewaard en geldt weer zodra Onderhoudsklant aan gaat. Nu zijn dat de Formuliermonitor en Verweesde meta opruimen. Ze hebben het label Onderhoud en bij Onderhoudsklant uit de status "Inactief: Onderhoudsklant staat uit". Een module die later op het tabblad Mediamora komt zonder `onderhoud`, valt niet onder de schakelaar. Gaat Onderhoudsklant uit, dan haalt het zelfherstel op de volgende beheerpagina de events van Verweesde meta opruimen weg, net als bij de eigen schakelaar.
+Bovenaan het tabblad Mediamora staat de schakelaar **Onderhoudsklant** (optie `mm_toolkit_onderhoudsklant`, `1` of `0`, autoload). Modules met `onderhoud` op `true` laden alleen als die aan staat, wat hun eigen schakelaar of constante ook zegt; de eigen keuze blijft bewaard en geldt weer zodra Onderhoudsklant aan gaat. Nu zijn dat de Formuliermonitor en Verweesde meta opruimen. Ze hebben het label Onderhoud en bij Onderhoudsklant uit de status "Inactief: Onderhoudsklant staat uit". Een module op het tabblad Mediamora zonder `onderhoud` valt niet onder de schakelaar, zoals Tijdelijke accounts. Gaat Onderhoudsklant uit, dan haalt het zelfherstel op de volgende beheerpagina de events van Verweesde meta opruimen weg, net als bij de eigen schakelaar.
 
 - Bestaande sites krijgen de schakelaar bij de update eenmalig aan als de Formuliermonitor daar uitdrukkelijk aan stond: een opgeslagen keuze aan in `mm_toolkit_modules`, of vastgezet met `MM_TOOLKIT_MODULE_FORMULIERMONITOR` (of de oude naam `MM_TOOLKIT_FORMULIERMONITOR`) op `true`. Anders gaat hij uit. Een vastgezette waarde gaat voor de opgeslagen keuze, net als bij het laden: constante `false` en opgeslagen aan geeft dus uit. Een standaardwaarde telt niet mee, ook niet die van de Formuliermonitor zelf.
 - Verweesde meta opruimen telt niet mee: die staat standaard aan, dus ook op sites zonder onderhoudspakket. Op een site die uitkomt op Onderhoudsklant uit, stopt die module na de update en haalt het zelfherstel zijn events weg. Zijn opgeslagen keuze, of het ontbreken daarvan, blijft bewaard en geldt weer zodra Onderhoudsklant aan gaat. Zet Onderhoudsklant dus na de update aan op elke onderhoudsklant zonder Formuliermonitor.
@@ -105,6 +106,22 @@ Sinds 22 oktober 2026 draait in MainWP (Maintenance-extensie) elke dinsdag rond 
 - Uitkomst: in de optie `mm_meta_opruimen_laatste`: `status` (`bezig`, `klaar` of `fout`), `compleet`, `start` en `eind`, `rondes` (in hoeveel delen), `fout`, per tabel het aantal verwijderde regels en de bytes (lengte van `meta_key` plus `meta_value`, dus een schatting zonder indexen) en `termen`. Onder Instellingen > Mediamora Toolkit, tabblad Mediamora, staat een korte regel bij de module en een overzicht onder de tabel, met de knop **Nu tellen**. Die telt in dezelfde vensters wat een ronde zou weghalen (hooguit 20 seconden, anders staat er "onvolledig") en bewaart dat in `mm_meta_opruimen_telling`. Hij verwijdert niets.
 - Uitzetten (schakelaar, Onderhoudsklant uit, `MM_TOOLKIT_MODULE_META_OPRUIMEN` of deactiveren) haalt de events weg en breekt een lopende ronde af; de uitkomst van de laatste ronde blijft staan. Gaat de module weer aan, dan plant hij de eerstvolgende donderdag weer in.
 
+## Tijdelijke accounts
+
+Accounts van externe partijen, bijvoorbeeld een marketeer die een pixel plaatst, verlopen automatisch, zodat er geen beheerdersaccounts blijven rondslingeren. De module staat op het tabblad Mediamora en standaard aan, maar valt niet onder Onderhoudsklant: hij is ook voor klanten zonder onderhoud.
+
+- Gegevens: user meta `mm_verloopt_op` (timestamp) en `mm_overdragen_aan` (user-ID), gelijk aan de losse mu-plugin.
+- Blokkeren: vanaf de verloopdatum geeft `determine_current_user` 0 (cookie, applicatiewachtwoord en REST) en geven `wp_authenticate_user` en `authenticate` de fout "Dit account is verlopen." `authenticate` is nodig omdat een applicatiewachtwoord niet langs `wp_authenticate_user` komt en XML-RPC de gebruiker daarna zelf zet; dat gat zit nog wel in de losse mu-plugin.
+- Opruimen: dagelijkse cron `mm_tijdelijke_accounts_opruimen`. Die vernietigt de sessies en verwijdert het account met `wp_delete_user`, met de content naar `mm_overdragen_aan`. Zonder geldige erfgenaam (leeg, niet bestaand of het account zelf) blijft het account geblokkeerd staan, net als een account dat naar een net verwijderd account wijst. Op een multisite haalt `wp_delete_user` het account alleen van deze site af.
+- Mail: per ronde één mail met de verwijderde accounts, hun erfgenaam en de beheerders die er daarna nog zijn (iedereen met `manage_options`, dus ook eigen rollen). Zo is te zien of er onderweg een beheerder is bijgekomen. De mail gaat naar de beheerders met een adres op `@mediamora.nl`; is die er niet, dan naar `hetty@mediamora.nl`. Standaard aan, uit te zetten bij de module op het tabblad Mediamora (`mm_tijdelijke_accounts_mail`).
+- Velden: **Verloopt op** en **Content overdragen aan** op het profiel, het bewerkscherm en Nieuwe gebruiker, alleen zichtbaar en op te slaan voor `@mediamora.nl`-gebruikers met `manage_options`, met een nonce per account. Een beheerder van de klant kan een account opslaan zonder dat de datum verandert. De datum verloopt om 23:59:59 in de tijdzone van de site; leeg maken haalt de datum en de erfgenaam weg en geeft een geblokkeerd account weer toegang. In de keuzelijst staan alleen gebruikers met `edit_posts`, zodat op een webshop of academie niet alle klanten erin komen. Een eerder gekozen gebruiker blijft staan.
+- Accounts met een adres op `@mediamora.nl` krijgen geen verloopdatum. Het opslaan wordt geweigerd, ook als het adres in hetzelfde formulier naar zo'n adres verandert. Dit geldt bij het opslaan in het scherm; meta die op een andere manier is gezet, telt gewoon.
+- Multisite: Nieuwe gebruiker loopt daar buiten `edit_user()` om, dus de velden staan daar alleen op het bewerkscherm.
+- Overzicht: op het tabblad Mediamora, met naam, rol, verloopdatum en erfgenaam. Een verlopen account staat er als geblokkeerd bij, en een ontbrekende erfgenaam in het rood.
+- Uitzetten (schakelaar, `MM_TOOLKIT_MODULE_TIJDELIJKE_ACCOUNTS` of deactiveren) haalt het cron-event weg. Let op: zolang de module uit staat, wordt er ook niemand geblokkeerd. De gegevens blijven staan en gelden weer zodra de module aan gaat.
+
+Overstappen: staat `wp-content/mu-plugins/mediamora-tijdelijke-accounts.php` nog op de site, dan laadt de module niet en krijgen `@mediamora.nl`-gebruikers de melding dat het bestand weg kan (als de module aan staat). De mu-plugin blijft dan gewoon werken. Er draait dus nooit iets dubbel. Is het bestand weg, dan neemt de module het bij het volgende verzoek over met dezelfde meta en hetzelfde cron-event. Zelfherstel, deactiveren en verwijderen laten dat event staan zolang het bestand er is. De velden en het overzicht komen pas nadat het bestand weg is.
+
 ## Instagram-feed
 
 Laat de laatste Instagram-posts van de klant zien met de shortcode `[mm_instagram]`, bijvoorbeeld in een Shortcode-widget in de footer. De gegevens komen uit een JSON-feed van [Behold](https://behold.so). De klant koppelt haar Instagram-account zelf via de koppellink van Behold (account moet zakelijk of creator zijn); in de module komt alleen de feed-URL.
@@ -127,19 +144,27 @@ In `wp-config.php`, bijvoorbeeld op een academie:
 define( 'MM_TOOLKIT_MODULE_ALT_TEKSTEN', false );
 ```
 
-Beschikbaar: `MM_TOOLKIT_MODULE_ALT_TEKSTEN`, `MM_TOOLKIT_MODULE_HERO_PRELOAD`, `MM_TOOLKIT_MODULE_PREVIEW_LINK`, `MM_TOOLKIT_MODULE_ANTI_SPAM`, `MM_TOOLKIT_MODULE_FORMULIERMONITOR`, `MM_TOOLKIT_MODULE_AI_BOTS`, `MM_TOOLKIT_MODULE_REST_USERS`, `MM_TOOLKIT_MODULE_WITHDRAWAL_WAIVER`, `MM_TOOLKIT_MODULE_POPUP_TIK`, `MM_TOOLKIT_MODULE_JQUERY_WACHT`, `MM_TOOLKIT_MODULE_QUIC_CLOUD`, `MM_TOOLKIT_MODULE_SCHEMA_BASIS`, `MM_TOOLKIT_MODULE_AFBEELDING_RUIMTE`, `MM_TOOLKIT_MODULE_ELEMENTOR_VERSIE`, `MM_TOOLKIT_MODULE_META_OPRUIMEN`, `MM_TOOLKIT_MODULE_INSTAGRAM`.
+Beschikbaar: `MM_TOOLKIT_MODULE_ALT_TEKSTEN`, `MM_TOOLKIT_MODULE_HERO_PRELOAD`, `MM_TOOLKIT_MODULE_PREVIEW_LINK`, `MM_TOOLKIT_MODULE_ANTI_SPAM`, `MM_TOOLKIT_MODULE_FORMULIERMONITOR`, `MM_TOOLKIT_MODULE_AI_BOTS`, `MM_TOOLKIT_MODULE_REST_USERS`, `MM_TOOLKIT_MODULE_WITHDRAWAL_WAIVER`, `MM_TOOLKIT_MODULE_POPUP_TIK`, `MM_TOOLKIT_MODULE_JQUERY_WACHT`, `MM_TOOLKIT_MODULE_QUIC_CLOUD`, `MM_TOOLKIT_MODULE_SCHEMA_BASIS`, `MM_TOOLKIT_MODULE_AFBEELDING_RUIMTE`, `MM_TOOLKIT_MODULE_ELEMENTOR_VERSIE`, `MM_TOOLKIT_MODULE_META_OPRUIMEN`, `MM_TOOLKIT_MODULE_INSTAGRAM`, `MM_TOOLKIT_MODULE_TIJDELIJKE_ACCOUNTS`.
 
 De oude namen zonder `MODULE_` (zoals `MM_TOOLKIT_ALT_TEKSTEN`) werken nog voor de eerste zeven modules, zodat bestaande regels in `wp-config.php` niet aangepast hoeven te worden. Staan beide er, dan wint de nieuwe naam. Een vastgezette module houdt bij het opslaan van het instellingenscherm de keuze die er al stond.
 
 ## Deactiveren en verwijderen
 
-Deactiveren haalt alleen de cron-events (ook die van Verweesde meta opruimen, de Instagram-feed en de dagelijkse opschoning van de anti-spamlogs) en de blokken van de toolkit uit `.htaccess` weg. Instellingen en logs blijven staan.
+Deactiveren haalt alleen de cron-events (ook die van Verweesde meta opruimen, de Instagram-feed, Tijdelijke accounts en de dagelijkse opschoning van de anti-spamlogs) en de blokken van de toolkit uit `.htaccess` weg. Instellingen en logs blijven staan.
 
 Een module uitvinken ruimt alleen op wat zonder de module blijft doorlopen: de cron-events en, bij Preview-link, de sleutel `mm_preview_key` (alle links vervallen). Gedeelde gegevens blijven staan zolang de losse versie van die module nog op de site staat, actief of niet.
 
-Verwijderen via Plugins ruimt alles op: de opties en transients van de toolkit en de modules (ook `mm_toolkit_onderhoudsklant`), de cron-events, de alt-tekstkenmerken (`_mm_alt_*`, de alt-teksten zelf blijven staan), de productmeta van Herroepingsrecht (`_mm_withdrawal_type` en het oude vinkje `_mm_withdrawal_waiver_applies`; de teksten `_mm_withdrawal_waiver` en `_mm_service_consent` op bestellingen blijven altijd staan, dat is het bewijs van de instemming), de opties van Verweesde meta opruimen, de opties en de fotomap `uploads/mediamora-instagram` van de Instagram-feed, de `.htaccess`-blokken en de logmap van de anti-spam met de inzendingen erin. Kan de logmap niet worden weggehaald, dan blijft de optie `mediamora_antispam_log_dir` staan, zodat te vinden is waar hij staat. Staat de losse versie van een module nog op de site, als plugin of mu-plugin en actief of niet, dan blijft alles van die module staan, want de losse versie gebruikt dezelfde gegevens. Dat werkt ook met `wp plugin uninstall --deactivate`, waarbij de toolkit in hetzelfde verzoek nog geladen is.
+Verwijderen via Plugins ruimt alles op: de opties en transients van de toolkit en de modules (ook `mm_toolkit_onderhoudsklant`), de cron-events, de alt-tekstkenmerken (`_mm_alt_*`, de alt-teksten zelf blijven staan), de productmeta van Herroepingsrecht (`_mm_withdrawal_type` en het oude vinkje `_mm_withdrawal_waiver_applies`; de teksten `_mm_withdrawal_waiver` en `_mm_service_consent` op bestellingen blijven altijd staan, dat is het bewijs van de instemming), de opties van Verweesde meta opruimen, de opties en de fotomap `uploads/mediamora-instagram` van de Instagram-feed, de mailinstelling van Tijdelijke accounts, de `.htaccess`-blokken en de logmap van de anti-spam met de inzendingen erin. Kan de logmap niet worden weggehaald, dan blijft de optie `mediamora_antispam_log_dir` staan, zodat te vinden is waar hij staat. Staat de losse versie van een module nog op de site, als plugin of mu-plugin en actief of niet, dan blijft alles van die module staan, want de losse versie gebruikt dezelfde gegevens. Dat werkt ook met `wp plugin uninstall --deactivate`, waarbij de toolkit in hetzelfde verzoek nog geladen is.
+
+De user meta `mm_verloopt_op` en `mm_overdragen_aan` blijven altijd staan. Worden ze weggehaald en wordt de toolkit daarna opnieuw geïnstalleerd, bijvoorbeeld om een zip te vervangen, dan worden tijdelijke accounts stil vaste accounts.
 
 ## Wijzigingen
+
+### 1.18.0
+
+- Nieuwe module Tijdelijke accounts op het tabblad Mediamora, standaard aan en niet onder Onderhoudsklant. Accounts met een verloopdatum (`mm_verloopt_op`) worden overal geweigerd en dagelijks verwijderd, met overdracht van de content aan `mm_overdragen_aan`. Met een mail aan Mediamora, velden op het profiel en bij Nieuwe gebruiker en een overzicht op het tabblad. Vervangt de mu-plugin `mediamora-tijdelijke-accounts.php`, met dezelfde meta en cronhook; zolang dat bestand er staat laadt de module niet. Zie "Tijdelijke accounts".
+- Blokkeert anders dan de mu-plugin ook XML-RPC met een applicatiewachtwoord.
+- `mm_toolkit_mediamora_adres()` beoordeelt een los adres, voor plekken waar niemand is ingelogd zoals de cron.
 
 ### 1.17.0
 
@@ -302,7 +327,7 @@ Fixes uit de tweede codereview.
 
 ## Release maken
 
-Eerst de testgevallen draaien (`php tests/anti-spam-links.php`) en `php -l` op alle bestanden.
+Eerst de testgevallen draaien (`php tests/anti-spam-links.php`, `php tests/tijdelijke-accounts.php` en `php tests/tijdelijke-accounts-toolkit.php`) en `php -l` op alle bestanden.
 
 1. Versie ophogen op twee plekken in `mediamora-toolkit.php`: `Version:` in de kop en `MM_TOOLKIT_VERSIE`. Of een update wordt aangeboden hangt alleen af van `Version:` in de kop; de constante wordt gelijk gehouden voor de rest, zoals de mailheader van de Formuliermonitor.
 2. Bestanden uploaden naar de repo.

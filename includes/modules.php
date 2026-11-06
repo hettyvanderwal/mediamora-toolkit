@@ -52,6 +52,21 @@ function mm_toolkit_tabbladen() {
 	);
 }
 
+/**
+ * Is dit een e-mailadres van Mediamora? Kijkt naar het domein, standaard
+ * mediamora.nl, aan te passen met het filter mm_toolkit_mediamora_domein.
+ * Geen subdomeinen; hoofdletters maken niet uit.
+ *
+ * @param string $adres
+ * @return bool
+ */
+function mm_toolkit_mediamora_adres( $adres ) {
+	$domein = strtolower( ltrim( trim( (string) apply_filters( 'mm_toolkit_mediamora_domein', 'mediamora.nl' ) ), '@' ) );
+	$adres  = strtolower( (string) $adres );
+	$at     = strrpos( $adres, '@' );
+	return '' !== $domein && false !== $at && substr( $adres, $at + 1 ) === $domein;
+}
+
 function mm_toolkit_modules() {
 	return array(
 		'alt_teksten'       => array(
@@ -281,6 +296,23 @@ function mm_toolkit_modules() {
 			'vereist'         => '',
 			'thema_merkteken' => '',
 			'tabblad'         => 'koppelingen',
+			'onderhoud'       => false,
+		),
+		// Op het tabblad Mediamora, maar bewust niet onder Onderhoudsklant: ook
+		// voor klanten zonder onderhoud. De losse versie bestaat uit closures,
+		// dus zonder merkteken; het bestand zelf is het teken.
+		'tijdelijke_accounts' => array(
+			'naam'            => 'Tijdelijke accounts',
+			'uitleg'          => 'Accounts van externe partijen verlopen automatisch, zodat er geen beheerdersaccounts blijven rondslingeren. Bij een gebruiker zijn een verloopdatum en een erfgenaam voor de content in te stellen. Vanaf de verloopdatum wordt het account overal geweigerd; de dagelijkse cron verwijdert het en draagt de content over. Zonder geldige erfgenaam blijft het account geblokkeerd staan. Niet voor accounts van Mediamora.',
+			'bestand'         => 'tijdelijke-accounts.php',
+			'standaard'       => true,
+			'losse_mu'        => 'mediamora-tijdelijke-accounts.php',
+			'losse_plugin'    => '',
+			'merkteken'       => array(),
+			'scherm'          => '',
+			'vereist'         => '',
+			'thema_merkteken' => '',
+			'tabblad'         => 'mediamora',
 			'onderhoud'       => false,
 		),
 	);
