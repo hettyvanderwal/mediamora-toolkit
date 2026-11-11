@@ -63,6 +63,7 @@ $keuzes = array(
 	'schema_basis'      => false,
 	'afbeelding_ruimte' => false,
 	'elementor_versie'  => false,
+	'afbeeldingstitels' => false,
 );
 if ( in_array( $scenario, array( 'uit', 'uit_met_mu' ), true ) ) {
 	$keuzes['tijdelijke_accounts'] = false;

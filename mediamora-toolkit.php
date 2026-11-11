@@ -3,7 +3,7 @@
  * Plugin Name:       Mediamora Toolkit
  * Plugin URI:        https://github.com/hettyvanderwal/mediamora-toolkit
  * Description:       De vaste Mediamora-onderdelen in één plugin, per onderdeel aan en uit te zetten onder Instellingen > Mediamora Toolkit.
- * Version:           1.18.0
+ * Version:           1.19.0
  * Requires at least: 6.0
  * Requires PHP:      7.4
  * Update URI:        https://github.com/hettyvanderwal/mediamora-toolkit
@@ -22,7 +22,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  * updates telt alleen de kop, zie mm_toolkit_huidige_versie(); deze
  * constante is er voor de rest, zoals de mailheader van de Formuliermonitor.
  */
-const MM_TOOLKIT_VERSIE = '1.18.0';
+const MM_TOOLKIT_VERSIE = '1.19.0';
 const MM_TOOLKIT_REPO   = 'hettyvanderwal/mediamora-toolkit';
 const MM_TOOLKIT_SLUG   = 'mediamora-toolkit';
 const MM_TOOLKIT_OPTIE  = 'mm_toolkit_modules';
@@ -419,6 +419,13 @@ function mm_toolkit_deactiveren() {
 	if ( ! mm_toolkit_los_bestand_aanwezig( mm_toolkit_modules()['tijdelijke_accounts'] ) ) {
 		wp_unschedule_hook( 'mm_tijdelijke_accounts_opruimen' );
 	}
+	// Afbeeldingstitels: zonder de toolkit komt de title terug, dus de caches
+	// leeg als de module aan stond. Zonder stand legt het zelfherstel na
+	// opnieuw activeren de wisseling weer vast.
+	if ( (int) get_option( MM_TOOLKIT_AFBEELDINGSTITELS_OPTIE, 0 ) ) {
+		mm_toolkit_afbeeldingstitels_cache_legen();
+	}
+	delete_option( MM_TOOLKIT_AFBEELDINGSTITELS_OPTIE );
 }
 
 /**
@@ -885,6 +892,52 @@ function mm_toolkit_aibots_cache_herstel() {
 		return;
 	}
 	mm_toolkit_aibots_cache_bijwerken( mm_toolkit_aibots_cache_gewenst() );
+}
+
+
+/* -------------------------------------------------------------------------
+ * Afbeeldingstitels verbergen: caches legen
+ *
+ * Elementor bewaart de HTML van widgets in de post meta
+ * _elementor_element_cache, en LiteSpeed de hele pagina. Na aan- of uitzetten
+ * van de module blijft daar anders de oude HTML uit komen, met of zonder
+ * title. Daarom gaan bij elke wisseling beide caches leeg.
+ *
+ * Zelfherstel en geen haak in het opslaan: zo vangt het ook een define in
+ * wp-config.php, deactiveren en de update naar de eerste versie met deze
+ * module, die hem meteen aanzet. Kost op elk verzoek één autoload-optie. Staat
+ * hier en niet in de module, want een module die uit staat laadt niet.
+ * ---------------------------------------------------------------------- */
+
+const MM_TOOLKIT_AFBEELDINGSTITELS_OPTIE = 'mm_toolkit_afbeeldingstitels_stand';
+
+add_action( 'init', 'mm_toolkit_afbeeldingstitels_herstel', 20 );
+
+function mm_toolkit_afbeeldingstitels_herstel() {
+	$aan   = mm_toolkit_status()['afbeeldingstitels']['laden'] ? 1 : 0;
+	$stand = get_option( MM_TOOLKIT_AFBEELDINGSTITELS_OPTIE, false );
+	if ( false !== $stand && (int) $stand === $aan ) {
+		return;
+	}
+	update_option( MM_TOOLKIT_AFBEELDINGSTITELS_OPTIE, $aan, true );
+	// Nog nooit aan geweest: dan staat er ook geen HTML zonder title in de cache.
+	if ( false === $stand && ! $aan ) {
+		return;
+	}
+	mm_toolkit_afbeeldingstitels_cache_legen();
+}
+
+/**
+ * De element cache van Elementor voor alle documenten weg, net als
+ * Elementor zelf doet bij Bestanden en data wissen, en daarna de hele
+ * LiteSpeed-cache. De CSS-bestanden van Elementor blijven staan: daar staat
+ * geen title in.
+ */
+function mm_toolkit_afbeeldingstitels_cache_legen() {
+	delete_post_meta_by_key( '_elementor_element_cache' );
+	if ( defined( 'LSCWP_V' ) ) {
+		do_action( 'litespeed_purge_all' );
+	}
 }
 
 

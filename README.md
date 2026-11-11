@@ -21,6 +21,7 @@ De vaste Mediamora-onderdelen in één WordPress-plugin. Elk onderdeel is een mo
 | Verweesde meta opruimen | Mediamora | aan, alleen met Onderhoudsklant | nieuw |
 | Instagram-feed | Koppelingen | uit, per site aanzetten | nieuw |
 | Tijdelijke accounts | Mediamora | aan, ook zonder Onderhoudsklant | mu-plugin `mediamora-tijdelijke-accounts.php` |
+| Afbeeldingstitels verbergen | Vindbaarheid | aan, doet niets zonder Elementor | tijdelijke code in `functions.php` (`mm_verberg_afbeeldingstitel`) |
 
 ## Tabbladen en Onderhoudsklant
 
@@ -122,6 +123,16 @@ Accounts van externe partijen, bijvoorbeeld een marketeer die een pixel plaatst,
 
 Overstappen: staat `wp-content/mu-plugins/mediamora-tijdelijke-accounts.php` nog op de site, dan laadt de module niet en krijgen `@mediamora.nl`-gebruikers de melding dat het bestand weg kan (als de module aan staat). De mu-plugin blijft dan gewoon werken. Er draait dus nooit iets dubbel. Is het bestand weg, dan neemt de module het bij het volgende verzoek over met dezelfde meta en hetzelfde cron-event. Zelfherstel, deactiveren en verwijderen laten dat event staan zolang het bestand er is. De velden en het overzicht komen pas nadat het bestand weg is.
 
+## Afbeeldingstitels verbergen
+
+Met een eigen uitsnede (image_size custom, zoals 1000x1333 of 1000x1000) bouwt Elementor de `<img>` zelf op in `Group_Control_Image_Size::get_attachment_image_html()` (`includes/controls/groups/image-size.php`) en zet er `title="<titel uit de mediabibliotheek>"` op. Bezoekers zien bij hover dan de bestandsnaam als tooltip. Met een gewone maat (thumbnail, large, full) gaat het via `wp_get_attachment_image()`, en die zet geen title.
+
+- Hoe: een filter op `elementor/image_size/get_attachment_image_html` dat alleen het title-attribuut uit de `<img>`-tags haalt, met `preg_replace( '/(<img\b[^>]*?)\s+title="[^"]*"/i', '$1', $html )`. Alt, class, loading, width en height, data-attributen en de rest blijven staan; `data-title` ook, want voor `title` moet witruimte staan. Een title op een link om de afbeelding heen blijft ook staan.
+- Welke widgets: alles wat via die functie loopt. In Elementor (4.4.0 nagekeken): Afbeelding, Afbeeldingsvak, Testimonial en de afbeelding over een Video. In Elementor Pro (4.3.3): Call to action, Flip box, Sitelogo, Portfolio, Hotspot, Uitgelichte afbeelding (een afgeleide van Afbeelding) en de skins Klassiek en Kaarten van Berichten en Archief-berichten.
+- Niet gedekt, en ook niet nodig: Afbeeldingscarrousel, Testimonial-carrousel, Reviews en Media-carrousel zetten zelf geen title. De enige andere plek in Elementor met een title op een `<img>` is de miniatuur van een video-embed (`Embed::get_embed_thumbnail_html()`), alleen in de statische weergave van de Video-widget. Die title is de titel van de video (van YouTube of Vimeo), geen bestandsnaam, en gaat niet langs dit filter.
+- De functienaam `mm_verberg_afbeeldingstitel` staat vast en zit in een `function_exists`-check. Op drentz.nl staat een tijdelijke versie met dezelfde naam en check in `functions.php` van het child theme. Die laadt na de plugins en slaat zichzelf dus over zolang de module aan staat; er draait nooit iets dubbel. Daarom geen `merkteken` of `thema_merkteken`: de module zou anders zijn eigen functie als losse versie zien.
+- Caches: Elementor bewaart de HTML van widgets in de post meta `_elementor_element_cache`, en LiteSpeed de hele pagina. Bij elke wisseling van de module (schakelaar, `MM_TOOLKIT_MODULE_AFBEELDINGSTITELS`, deactiveren en de update naar 1.19.0, die hem meteen aanzet) gaat `_elementor_element_cache` voor alle documenten weg met `delete_post_meta_by_key()`, en daarna de hele LiteSpeed-cache met `do_action( 'litespeed_purge_all' )` als LiteSpeed Cache actief is. De CSS-bestanden van Elementor blijven staan. Dat gebeurt via zelfherstel op `init` (`mm_toolkit_afbeeldingstitels_herstel()`): de optie `mm_toolkit_afbeeldingstitels_stand` (`1` of `0`, autoload) onthoudt of de module laadde, en bij een verschil worden de caches geleegd. Een site die de module nog nooit aan had, hoeft bij uit niets te legen.
+
 ## Instagram-feed
 
 Laat de laatste Instagram-posts van de klant zien met de shortcode `[mm_instagram]`, bijvoorbeeld in een Shortcode-widget in de footer. De gegevens komen uit een JSON-feed van [Behold](https://behold.so). De klant koppelt haar Instagram-account zelf via de koppellink van Behold (account moet zakelijk of creator zijn); in de module komt alleen de feed-URL.
@@ -144,21 +155,27 @@ In `wp-config.php`, bijvoorbeeld op een academie:
 define( 'MM_TOOLKIT_MODULE_ALT_TEKSTEN', false );
 ```
 
-Beschikbaar: `MM_TOOLKIT_MODULE_ALT_TEKSTEN`, `MM_TOOLKIT_MODULE_HERO_PRELOAD`, `MM_TOOLKIT_MODULE_PREVIEW_LINK`, `MM_TOOLKIT_MODULE_ANTI_SPAM`, `MM_TOOLKIT_MODULE_FORMULIERMONITOR`, `MM_TOOLKIT_MODULE_AI_BOTS`, `MM_TOOLKIT_MODULE_REST_USERS`, `MM_TOOLKIT_MODULE_WITHDRAWAL_WAIVER`, `MM_TOOLKIT_MODULE_POPUP_TIK`, `MM_TOOLKIT_MODULE_JQUERY_WACHT`, `MM_TOOLKIT_MODULE_QUIC_CLOUD`, `MM_TOOLKIT_MODULE_SCHEMA_BASIS`, `MM_TOOLKIT_MODULE_AFBEELDING_RUIMTE`, `MM_TOOLKIT_MODULE_ELEMENTOR_VERSIE`, `MM_TOOLKIT_MODULE_META_OPRUIMEN`, `MM_TOOLKIT_MODULE_INSTAGRAM`, `MM_TOOLKIT_MODULE_TIJDELIJKE_ACCOUNTS`.
+Beschikbaar: `MM_TOOLKIT_MODULE_ALT_TEKSTEN`, `MM_TOOLKIT_MODULE_HERO_PRELOAD`, `MM_TOOLKIT_MODULE_PREVIEW_LINK`, `MM_TOOLKIT_MODULE_ANTI_SPAM`, `MM_TOOLKIT_MODULE_FORMULIERMONITOR`, `MM_TOOLKIT_MODULE_AI_BOTS`, `MM_TOOLKIT_MODULE_REST_USERS`, `MM_TOOLKIT_MODULE_WITHDRAWAL_WAIVER`, `MM_TOOLKIT_MODULE_POPUP_TIK`, `MM_TOOLKIT_MODULE_JQUERY_WACHT`, `MM_TOOLKIT_MODULE_QUIC_CLOUD`, `MM_TOOLKIT_MODULE_SCHEMA_BASIS`, `MM_TOOLKIT_MODULE_AFBEELDING_RUIMTE`, `MM_TOOLKIT_MODULE_ELEMENTOR_VERSIE`, `MM_TOOLKIT_MODULE_META_OPRUIMEN`, `MM_TOOLKIT_MODULE_INSTAGRAM`, `MM_TOOLKIT_MODULE_TIJDELIJKE_ACCOUNTS`, `MM_TOOLKIT_MODULE_AFBEELDINGSTITELS`.
 
 De oude namen zonder `MODULE_` (zoals `MM_TOOLKIT_ALT_TEKSTEN`) werken nog voor de eerste zeven modules, zodat bestaande regels in `wp-config.php` niet aangepast hoeven te worden. Staan beide er, dan wint de nieuwe naam. Een vastgezette module houdt bij het opslaan van het instellingenscherm de keuze die er al stond.
 
 ## Deactiveren en verwijderen
 
-Deactiveren haalt alleen de cron-events (ook die van Verweesde meta opruimen, de Instagram-feed, Tijdelijke accounts en de dagelijkse opschoning van de anti-spamlogs) en de blokken van de toolkit uit `.htaccess` weg. Instellingen en logs blijven staan.
+Deactiveren haalt alleen de cron-events (ook die van Verweesde meta opruimen, de Instagram-feed, Tijdelijke accounts en de dagelijkse opschoning van de anti-spamlogs) en de blokken van de toolkit uit `.htaccess` weg, en leegt de element cache van Elementor en de LiteSpeed-cache als Afbeeldingstitels verbergen aan stond. Instellingen en logs blijven staan.
 
-Een module uitvinken ruimt alleen op wat zonder de module blijft doorlopen: de cron-events en, bij Preview-link, de sleutel `mm_preview_key` (alle links vervallen). Gedeelde gegevens blijven staan zolang de losse versie van die module nog op de site staat, actief of niet.
+Een module uitvinken ruimt alleen op wat zonder de module blijft doorlopen: de cron-events, bij Preview-link de sleutel `mm_preview_key` (alle links vervallen) en bij Afbeeldingstitels verbergen de caches. Gedeelde gegevens blijven staan zolang de losse versie van die module nog op de site staat, actief of niet.
 
-Verwijderen via Plugins ruimt alles op: de opties en transients van de toolkit en de modules (ook `mm_toolkit_onderhoudsklant`), de cron-events, de alt-tekstkenmerken (`_mm_alt_*`, de alt-teksten zelf blijven staan), de productmeta van Herroepingsrecht (`_mm_withdrawal_type` en het oude vinkje `_mm_withdrawal_waiver_applies`; de teksten `_mm_withdrawal_waiver` en `_mm_service_consent` op bestellingen blijven altijd staan, dat is het bewijs van de instemming), de opties van Verweesde meta opruimen, de opties en de fotomap `uploads/mediamora-instagram` van de Instagram-feed, de mailinstelling van Tijdelijke accounts, de `.htaccess`-blokken en de logmap van de anti-spam met de inzendingen erin. Kan de logmap niet worden weggehaald, dan blijft de optie `mediamora_antispam_log_dir` staan, zodat te vinden is waar hij staat. Staat de losse versie van een module nog op de site, als plugin of mu-plugin en actief of niet, dan blijft alles van die module staan, want de losse versie gebruikt dezelfde gegevens. Dat werkt ook met `wp plugin uninstall --deactivate`, waarbij de toolkit in hetzelfde verzoek nog geladen is.
+Verwijderen via Plugins ruimt alles op: de opties en transients van de toolkit en de modules (ook `mm_toolkit_onderhoudsklant`), de cron-events, de alt-tekstkenmerken (`_mm_alt_*`, de alt-teksten zelf blijven staan), de productmeta van Herroepingsrecht (`_mm_withdrawal_type` en het oude vinkje `_mm_withdrawal_waiver_applies`; de teksten `_mm_withdrawal_waiver` en `_mm_service_consent` op bestellingen blijven altijd staan, dat is het bewijs van de instemming), de opties van Verweesde meta opruimen, de opties en de fotomap `uploads/mediamora-instagram` van de Instagram-feed, de mailinstelling van Tijdelijke accounts, de stand van Afbeeldingstitels verbergen, de `.htaccess`-blokken en de logmap van de anti-spam met de inzendingen erin. Kan de logmap niet worden weggehaald, dan blijft de optie `mediamora_antispam_log_dir` staan, zodat te vinden is waar hij staat. Staat de losse versie van een module nog op de site, als plugin of mu-plugin en actief of niet, dan blijft alles van die module staan, want de losse versie gebruikt dezelfde gegevens. Dat werkt ook met `wp plugin uninstall --deactivate`, waarbij de toolkit in hetzelfde verzoek nog geladen is.
 
 De user meta `mm_verloopt_op` en `mm_overdragen_aan` blijven altijd staan. Worden ze weggehaald en wordt de toolkit daarna opnieuw geïnstalleerd, bijvoorbeeld om een zip te vervangen, dan worden tijdelijke accounts stil vaste accounts.
 
 ## Wijzigingen
+
+### 1.19.0
+
+- Nieuwe module Afbeeldingstitels verbergen (`afbeeldingstitels`) op het tabblad Vindbaarheid, standaard aan. Haalt het title-attribuut weg dat Elementor met een eigen uitsnede op de `<img>` zet, zodat bezoekers bij hover geen bestandsnaam meer zien. Alleen de title gaat eraf, alt en de rest blijven staan. Werkt voor alle widgets die via `Group_Control_Image_Size::get_attachment_image_html()` lopen. Zie "Afbeeldingstitels verbergen".
+- Bij aan- en uitzetten van die module, ook via de constante, deactiveren en deze update, worden `_elementor_element_cache` en de LiteSpeed-cache geleegd. Op elke site met de module aan gebeurt dat dus één keer na de update naar 1.19.0.
+- Testgevallen in `tests/afbeeldingstitels.php` en `tests/afbeeldingstitels-toolkit.php`.
 
 ### 1.18.0
 

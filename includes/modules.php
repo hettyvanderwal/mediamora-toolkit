@@ -315,6 +315,23 @@ function mm_toolkit_modules() {
 			'tabblad'         => 'mediamora',
 			'onderhoud'       => false,
 		),
+		// Geen merkteken voor de tijdelijke code op drentz.nl: die staat in
+		// functions.php, laadt na de plugins en slaat zichzelf over zodra deze
+		// module mm_verberg_afbeeldingstitel heeft gedefinieerd.
+		'afbeeldingstitels' => array(
+			'naam'            => 'Afbeeldingstitels verbergen',
+			'uitleg'          => 'Met een eigen uitsnede (bijvoorbeeld 1000x1333) zet Elementor de titel uit de mediabibliotheek als title op de afbeelding, en bezoekers zien bij hover dan de bestandsnaam. Deze module haalt alleen dat title-attribuut weg; de alt-tekst en de rest blijven staan. Geldt voor de afbeeldingswidget en de andere widgets die de afbeelding op dezelfde manier opbouwen, zoals Afbeeldingsvak, Call to action en Flip box. Bij aan- of uitzetten worden de element cache van Elementor en de LiteSpeed-cache geleegd. Doet niets zonder Elementor.',
+			'bestand'         => 'afbeeldingstitels.php',
+			'standaard'       => true,
+			'losse_mu'        => '',
+			'losse_plugin'    => '',
+			'merkteken'       => array(),
+			'scherm'          => '',
+			'vereist'         => '',
+			'thema_merkteken' => '',
+			'tabblad'         => 'vindbaarheid',
+			'onderhoud'       => false,
+		),
 	);
 }
 
