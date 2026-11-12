@@ -22,6 +22,7 @@ De vaste Mediamora-onderdelen in één WordPress-plugin. Elk onderdeel is een mo
 | Instagram-feed | Koppelingen | uit, per site aanzetten | nieuw |
 | Tijdelijke accounts | Mediamora | aan, ook zonder Onderhoudsklant | mu-plugin `mediamora-tijdelijke-accounts.php` |
 | Afbeeldingstitels verbergen | Vindbaarheid | aan, doet niets zonder Elementor | tijdelijke code in `functions.php` (`mm_verberg_afbeeldingstitel`) |
+| Persoon in schema | Vindbaarheid | uit, per site aanzetten en invullen | losse code in `functions.php` (Person-node in `rank_math/json_ld`) |
 
 ## Tabbladen en Onderhoudsklant
 
@@ -133,6 +134,29 @@ Met een eigen uitsnede (image_size custom, zoals 1000x1333 of 1000x1000) bouwt E
 - De functienaam `mm_verberg_afbeeldingstitel` staat vast en zit in een `function_exists`-check. Op drentz.nl staat een tijdelijke versie met dezelfde naam en check in `functions.php` van het child theme. Die laadt na de plugins en slaat zichzelf dus over zolang de module aan staat; er draait nooit iets dubbel. Daarom geen `merkteken` of `thema_merkteken`: de module zou anders zijn eigen functie als losse versie zien.
 - Caches: Elementor bewaart de HTML van widgets in de post meta `_elementor_element_cache`, en LiteSpeed de hele pagina. Bij elke wisseling van de module (schakelaar, `MM_TOOLKIT_MODULE_AFBEELDINGSTITELS`, deactiveren en de update naar 1.19.0, die hem meteen aanzet) gaat `_elementor_element_cache` voor alle documenten weg met `delete_post_meta_by_key()`, en daarna de hele LiteSpeed-cache met `do_action( 'litespeed_purge_all' )` als LiteSpeed Cache actief is. De CSS-bestanden van Elementor blijven staan. Dat gebeurt via zelfherstel op `init` (`mm_toolkit_afbeeldingstitels_herstel()`): de optie `mm_toolkit_afbeeldingstitels_stand` (`1` of `0`, autoload) onthoudt of de module laadde, en bij een verschil worden de caches geleegd. Een site die de module nog nooit aan had, hoeft bij uit niets te legen.
 
+## Persoon in schema
+
+Voor praktijken die op één persoon draaien (therapeuten, coaches). De module zet de persoon als Person in het schema van Rank Math en koppelt die aan de Organization. De gegevens staan op het tabblad Vindbaarheid onder de moduletabel, zodra de module aan staat, met een eigen formulier (`manage_options`, nonce `mm_schema_persoon_opslaan`). Ze komen in de optie `mm_schema_persoon` (autoload).
+
+| Veld | In het schema | |
+|---|---|---|
+| Naam | `name` | verplicht; zonder naam komt er niets in het schema |
+| Functie | `jobTitle` | |
+| Omschrijving van de persoon | `description` | |
+| Pagina over de persoon | `url` | bijvoorbeeld de Over-pagina |
+| Opleiding of instituut, naam + URL | `alumniOf` (`EducationalOrganization`) | de URL telt alleen met een naam |
+| Lid van, naam + URL | `memberOf` (`Organization`) | beroepsvereniging of netwerk; de URL telt alleen met een naam |
+| Profielen, één URL per regel | `sameAs` | alleen http(s), dubbele regels vallen weg |
+| Foto uit de mediabibliotheek | `image` | de URL van het origineel |
+| Rol bij de praktijk | `founder` of `employee` op de Organization | standaard founder |
+| Omschrijving van de praktijk | `description` op de Organization | vervangt dan wat Rank Math daar zet |
+
+- Uitvoer: een Person-node met `@id` `home_url( '/#persoon' )` en `worksFor` naar het `@id` van de Organization, en op de Organization `founder` (of `employee`) naar `#persoon`. Lege velden blijven weg.
+- Waar: in het filter `rank_math/json_ld`, dus overal waar Rank Math de algemene graph zet, ook op de pagina's die Schema op alle pagina's erbij haalt. Het filter wordt pas op `plugins_loaded` gezet en alleen als `RANK_MATH_VERSION` bestaat.
+- De Organization wordt gevonden op `@id` `home_url( '/#organization' )`, en anders als de `publisher` van Rank Math zolang die geen Person is. Staat er geen Organization in de graph, of is de site in Rank Math een persoon (`knowledgegraph_type` `person` in `rank-math-options-titles`), dan doet de module niets.
+- Niets dubbel: staat er al een node met `@id` `#persoon` in de graph, of heeft de Organization al een `founder` of `employee`, dan doet de module niets. Dat vangt ook losse code met een eigen `@id` (zoals `#naam`). Het filter draait daarom op prioriteit 9999, na Rank Math en na de meeste losse code. Wat de module bij de laatste weergave zag, staat in de optie `mm_schema_persoon_bezet` (`1` of `0`, autoload, alleen geschreven als het verandert); de statuskolom meldt dan "Doet niets: ... waarschijnlijk losse code". Door de paginacache kan die melding een weergave achterlopen.
+- Overstappen van losse code: gegevens invullen, module aanzetten, de losse code uit `functions.php` halen, cache legen. Zolang de losse code er staat, blijft die gewoon werken en doet de module niets. Let op: het `@id` van de persoon wordt `#persoon`, ook als de losse code een ander `@id` had.
+
 ## Instagram-feed
 
 Laat de laatste Instagram-posts van de klant zien met de shortcode `[mm_instagram]`, bijvoorbeeld in een Shortcode-widget in de footer. De gegevens komen uit een JSON-feed van [Behold](https://behold.so). De klant koppelt haar Instagram-account zelf via de koppellink van Behold (account moet zakelijk of creator zijn); in de module komt alleen de feed-URL.
@@ -165,11 +189,16 @@ Deactiveren haalt alleen de cron-events (ook die van Verweesde meta opruimen, de
 
 Een module uitvinken ruimt alleen op wat zonder de module blijft doorlopen: de cron-events, bij Preview-link de sleutel `mm_preview_key` (alle links vervallen) en bij Afbeeldingstitels verbergen de caches. Gedeelde gegevens blijven staan zolang de losse versie van die module nog op de site staat, actief of niet.
 
-Verwijderen via Plugins ruimt alles op: de opties en transients van de toolkit en de modules (ook `mm_toolkit_onderhoudsklant`), de cron-events, de alt-tekstkenmerken (`_mm_alt_*`, de alt-teksten zelf blijven staan), de productmeta van Herroepingsrecht (`_mm_withdrawal_type` en het oude vinkje `_mm_withdrawal_waiver_applies`; de teksten `_mm_withdrawal_waiver` en `_mm_service_consent` op bestellingen blijven altijd staan, dat is het bewijs van de instemming), de opties van Verweesde meta opruimen, de opties en de fotomap `uploads/mediamora-instagram` van de Instagram-feed, de mailinstelling van Tijdelijke accounts, de stand van Afbeeldingstitels verbergen, de `.htaccess`-blokken en de logmap van de anti-spam met de inzendingen erin. Kan de logmap niet worden weggehaald, dan blijft de optie `mediamora_antispam_log_dir` staan, zodat te vinden is waar hij staat. Staat de losse versie van een module nog op de site, als plugin of mu-plugin en actief of niet, dan blijft alles van die module staan, want de losse versie gebruikt dezelfde gegevens. Dat werkt ook met `wp plugin uninstall --deactivate`, waarbij de toolkit in hetzelfde verzoek nog geladen is.
+Verwijderen via Plugins ruimt alles op: de opties en transients van de toolkit en de modules (ook `mm_toolkit_onderhoudsklant`), de cron-events, de alt-tekstkenmerken (`_mm_alt_*`, de alt-teksten zelf blijven staan), de productmeta van Herroepingsrecht (`_mm_withdrawal_type` en het oude vinkje `_mm_withdrawal_waiver_applies`; de teksten `_mm_withdrawal_waiver` en `_mm_service_consent` op bestellingen blijven altijd staan, dat is het bewijs van de instemming), de opties van Verweesde meta opruimen, de opties en de fotomap `uploads/mediamora-instagram` van de Instagram-feed, de mailinstelling van Tijdelijke accounts, de stand van Afbeeldingstitels verbergen, de gegevens van Persoon in schema (`mm_schema_persoon`, `mm_schema_persoon_bezet`), de `.htaccess`-blokken en de logmap van de anti-spam met de inzendingen erin. Kan de logmap niet worden weggehaald, dan blijft de optie `mediamora_antispam_log_dir` staan, zodat te vinden is waar hij staat. Staat de losse versie van een module nog op de site, als plugin of mu-plugin en actief of niet, dan blijft alles van die module staan, want de losse versie gebruikt dezelfde gegevens. Dat werkt ook met `wp plugin uninstall --deactivate`, waarbij de toolkit in hetzelfde verzoek nog geladen is.
 
 De user meta `mm_verloopt_op` en `mm_overdragen_aan` blijven altijd staan. Worden ze weggehaald en wordt de toolkit daarna opnieuw geïnstalleerd, bijvoorbeeld om een zip te vervangen, dan worden tijdelijke accounts stil vaste accounts.
 
 ## Wijzigingen
+
+### 1.20.0
+
+- Nieuwe module Persoon in schema (`schema_persoon`) op het tabblad Vindbaarheid, standaard uit. Zet de therapeut of coach van een eenmanspraktijk als Person in het schema van Rank Math (`@id` `#persoon`), met `worksFor` naar de Organization en `founder` of `employee` op de Organization. Velden voor naam, functie, omschrijving, pagina, opleiding (`alumniOf`), lidmaatschap (`memberOf`), profielen (`sameAs`), foto en een omschrijving van de praktijk. Doet niets zonder Rank Math, zonder Organization, als de site in Rank Math een persoon is, of als er al een persoon in het schema staat. Vervangt losse code in `functions.php`. Zie "Persoon in schema".
+- Testgevallen in `tests/schema-persoon.php`.
 
 ### 1.19.0
 
@@ -344,7 +373,7 @@ Fixes uit de tweede codereview.
 
 ## Release maken
 
-Eerst de testgevallen draaien (`php tests/anti-spam-links.php`, `php tests/tijdelijke-accounts.php` en `php tests/tijdelijke-accounts-toolkit.php`) en `php -l` op alle bestanden.
+Eerst de testgevallen draaien (`php tests/anti-spam-links.php`, `php tests/tijdelijke-accounts.php`, `php tests/tijdelijke-accounts-toolkit.php`, `php tests/afbeeldingstitels.php`, `php tests/afbeeldingstitels-toolkit.php` en `php tests/schema-persoon.php`) en `php -l` op alle bestanden.
 
 1. Versie ophogen op twee plekken in `mediamora-toolkit.php`: `Version:` in de kop en `MM_TOOLKIT_VERSIE`. Of een update wordt aangeboden hangt alleen af van `Version:` in de kop; de constante wordt gelijk gehouden voor de rest, zoals de mailheader van de Formuliermonitor.
 2. Bestanden uploaden naar de repo.

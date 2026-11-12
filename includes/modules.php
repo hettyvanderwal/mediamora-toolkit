@@ -332,6 +332,23 @@ function mm_toolkit_modules() {
 			'tabblad'         => 'vindbaarheid',
 			'onderhoud'       => false,
 		),
+		// Geen merkteken voor de losse code in functions.php (artsenkompas.nl,
+		// prikkel-teksten.nl): die laadt na de plugins. De module ziet zelf in
+		// de graph of er al een persoon staat en doet dan niets.
+		'schema_persoon'    => array(
+			'naam'            => 'Persoon in schema',
+			'uitleg'          => 'Voor praktijken die op één persoon draaien: zet de therapeut of coach als Person in het schema van Rank Math, met functie, opleiding, lidmaatschap, profielen en foto, en koppelt die aan de organisatie (worksFor, en founder of employee op de organisatie). Op alle pagina\'s met de algemene graph, ook samen met Schema op alle pagina\'s. Doet niets zonder Rank Math, zonder Organization in de graph, als de site in Rank Math zelf een persoon is, of als er al een persoon in het schema staat. Gegevens hieronder in te vullen na het aanzetten.',
+			'bestand'         => 'schema-persoon.php',
+			'standaard'       => false,
+			'losse_mu'        => '',
+			'losse_plugin'    => '',
+			'merkteken'       => array(),
+			'scherm'          => '',
+			'vereist'         => '',
+			'thema_merkteken' => '',
+			'tabblad'         => 'vindbaarheid',
+			'onderhoud'       => false,
+		),
 	);
 }
 

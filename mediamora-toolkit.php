@@ -3,7 +3,7 @@
  * Plugin Name:       Mediamora Toolkit
  * Plugin URI:        https://github.com/hettyvanderwal/mediamora-toolkit
  * Description:       De vaste Mediamora-onderdelen in één plugin, per onderdeel aan en uit te zetten onder Instellingen > Mediamora Toolkit.
- * Version:           1.19.0
+ * Version:           1.20.0
  * Requires at least: 6.0
  * Requires PHP:      7.4
  * Update URI:        https://github.com/hettyvanderwal/mediamora-toolkit
@@ -22,7 +22,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  * updates telt alleen de kop, zie mm_toolkit_huidige_versie(); deze
  * constante is er voor de rest, zoals de mailheader van de Formuliermonitor.
  */
-const MM_TOOLKIT_VERSIE = '1.19.0';
+const MM_TOOLKIT_VERSIE = '1.20.0';
 const MM_TOOLKIT_REPO   = 'hettyvanderwal/mediamora-toolkit';
 const MM_TOOLKIT_SLUG   = 'mediamora-toolkit';
 const MM_TOOLKIT_OPTIE  = 'mm_toolkit_modules';
@@ -678,6 +678,9 @@ function mm_toolkit_scherm() {
 		if ( 'tijdelijke_accounts' === $sleutel && $s['laden'] ) {
 			$tekst .= '<br><a href="#mm-tijdelijke-accounts">Overzicht</a>';
 		}
+		if ( 'schema_persoon' === $sleutel && $s['laden'] && function_exists( 'mm_schema_persoon_status_regel' ) ) {
+			$tekst .= '<br><span style="color:#646970;">' . mm_schema_persoon_status_regel() . '</span>';
+		}
 		if ( 'instagram' === $sleutel && $s['laden'] && function_exists( 'mm_instagram_status_regel' ) ) {
 			$tekst .= '<br><span style="color:#646970;">' . mm_instagram_status_regel() . '</span>';
 		}
@@ -716,6 +719,10 @@ function mm_toolkit_scherm() {
 
 	if ( $tab === $modules['tijdelijke_accounts']['tabblad'] && $status['tijdelijke_accounts']['laden'] && function_exists( 'mm_tijdelijk_overzicht' ) ) {
 		mm_tijdelijk_overzicht();
+	}
+
+	if ( $tab === $modules['schema_persoon']['tabblad'] && $status['schema_persoon']['laden'] && function_exists( 'mm_schema_persoon_formulier' ) ) {
+		mm_schema_persoon_formulier();
 	}
 
 	echo '</div>';
