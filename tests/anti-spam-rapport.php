@@ -42,6 +42,8 @@ function add_filter() {}
 
 $GLOBALS['opties'] = array( 'mediamora_antispam_log_dir' => LOGMAP );
 $GLOBALS['mails']  = array();
+$GLOBALS['events'] = array(); // hook => tijdstip van het geplande cron-event
+$GLOBALS['mail_lukt'] = true;
 
 if ( 'aanzetten' === $deel ) {
 	$GLOBALS['opties']['mediamora_antispam_settings'] = array(
@@ -61,7 +63,17 @@ function wp_parse_args( $args, $standaard ) {
 	return array_merge( $standaard, (array) $args );
 }
 function wp_mail( $aan, $onderwerp, $tekst ) {
+	if ( ! $GLOBALS['mail_lukt'] ) {
+		return false;
+	}
 	$GLOBALS['mails'][] = array( 'onderwerp' => $onderwerp, 'tekst' => $tekst );
+	return true;
+}
+function wp_next_scheduled( $hook ) {
+	return $GLOBALS['events'][ $hook ] ?? false;
+}
+function wp_schedule_single_event( $tijd, $hook ) {
+	$GLOBALS['events'][ $hook ] = $tijd;
 	return true;
 }
 function home_url() {
@@ -173,11 +185,19 @@ $soorten = array(
 		'bestand' => mediamora_antispam_log_file(),
 		'optie'   => 'mediamora_antispam_last_report',
 		'stuur'   => 'mediamora_antispam_maybe_send_report',
+		'hook'    => 'mediamora_antispam_report',
+		'log'     => function () {
+			mediamora_antispam_log( 'test', 'bericht', 'textarea', 'nieuw' );
+		},
 	),
 	'vangnet' => array(
 		'bestand' => mediamora_antispam_nearmiss_file(),
 		'optie'   => 'mediamora_antispam_last_nearmiss_alert',
 		'stuur'   => 'mediamora_antispam_maybe_send_nearmiss_alert',
+		'hook'    => 'mediamora_antispam_nearmiss_alert',
+		'log'     => function () {
+			mediamora_antispam_nearmiss_log( 'bericht', 'textarea', 'nieuw', array( 'test' ), 'doorgelaten' );
+		},
 	),
 );
 
@@ -186,6 +206,8 @@ foreach ( $soorten as $soort => $s ) {
 	$bestand = $s['bestand'];
 	$optie   = $s['optie'];
 	$stuur   = $s['stuur'];
+	$hook    = $s['hook'];
+	$logt    = $s['log'];
 
 	// 1. Allereerste mail (optie leeg): alleen de laatste 24 uur, zoals eerst.
 	$GLOBALS['mails'] = array();
@@ -256,6 +278,51 @@ foreach ( $soorten as $soort => $s ) {
 	schrijf_log( $bestand, array( regel( $nu - 35 * DAG, 'te_oud' ), regel( $nu - 10 * DAG, 'r7' ) ) );
 	$stuur();
 	$test( "$soort: niets van buiten de bewaartermijn", array( 'r7' ) === labels_in_mail() );
+
+	// 7. Inplannen. Een regel vlak na een mail: het event komt op het eind
+	// van de periode, niet pas bij de volgende weigering.
+	$GLOBALS['events'] = array();
+	$nu                = time();
+	$GLOBALS['opties'][ $optie ] = $nu - 3600;
+	$logt();
+	$test( "$soort: regel binnen de periode ingepland op het eind van de periode", ( $GLOBALS['events'][ $hook ] ?? 0 ) === $nu - 3600 + DAG );
+	$logt();
+	$test( "$soort: tweede regel plant niets extra", ( $GLOBALS['events'][ $hook ] ?? 0 ) === $nu - 3600 + DAG );
+	$GLOBALS['events'] = array();
+	$GLOBALS['opties'][ $optie ] = $nu - 2 * DAG;
+	$logt();
+	$test( "$soort: regel na de periode meteen ingepland", ( $GLOBALS['events'][ $hook ] ?? PHP_INT_MAX ) <= time() );
+
+	// 8. Event dat te vroeg draait: plant zich opnieuw in op het eind van
+	// de periode en mailt niets.
+	$GLOBALS['events'] = array();
+	$GLOBALS['mails']  = array();
+	$GLOBALS['opties'][ $optie ] = $nu - 3600;
+	$stuur();
+	$test( "$soort: te vroeg, geen mail", array() === $GLOBALS['mails'] );
+	$test( "$soort: te vroeg, opnieuw ingepland op het eind van de periode", ( $GLOBALS['events'][ $hook ] ?? 0 ) === $nu - 3600 + DAG );
+
+	// 9. Mislukte mail: het tijdstip blijft staan, er komt een nieuwe poging
+	// over een periode, en die neemt dezelfde regels mee plus wat erbij kwam.
+	$GLOBALS['events']   = array();
+	$GLOBALS['mails']    = array();
+	$GLOBALS['mail_lukt'] = false;
+	$nu                  = time();
+	$vorige              = $nu - 2 * DAG;
+	$GLOBALS['opties'][ $optie ] = $vorige;
+	schrijf_log( $bestand, array( regel( $nu - DAG - 60, 'm1' ), regel( $nu - 600, 'm2' ) ) );
+	$stuur();
+	$test( "$soort, mislukte mail: tijdstip vorige mail blijft staan", get_option( $optie ) === $vorige );
+	$test( "$soort, mislukte mail: nieuwe poging over een periode", ( $GLOBALS['events'][ $hook ] ?? 0 ) >= $nu + DAG && $GLOBALS['events'][ $hook ] <= time() + DAG );
+	$test( "$soort, mislukte mail: regels blijven in het log", array( 'm1', 'm2' ) === labels_in_bestand( $bestand ) );
+	$GLOBALS['mail_lukt'] = true;
+	$GLOBALS['events']    = array();
+	verschuif( $bestand, DAG );
+	$nu = time();
+	file_put_contents( $bestand, regel( $nu - 60, 'm3' ) . "\n", FILE_APPEND );
+	$stuur();
+	$test( "$soort, nieuwe poging: dezelfde regels plus de nieuwe, niets dubbel", array( 'm1', 'm2', 'm3' ) === labels_in_mail() && 1 === count( $GLOBALS['mails'] ) );
+	$test( "$soort, nieuwe poging gelukt: tijdstip bijgewerkt", get_option( $optie ) >= $nu );
 }
 
 // Opslaan terwijl beide al aan staan: de tijdstippen blijven staan.

@@ -1327,13 +1327,18 @@ function mediamora_antispam_nearmiss_log( $field_id, $field_type, $value, $reaso
 // De rapportmail en de vangnet-mail gaan via WP-cron, zodat een bezoeker
 // bij het versturen van een formulier niet wacht op het herschrijven van
 // het logbestand en op wp_mail(). De functies zelf controleren de periode
-// nog een keer, dus een event dat toch te vroeg draait doet niets.
+// nog een keer: draait een event toch te vroeg (bijvoorbeeld omdat de mail
+// intussen uit en weer aan is gezet), dan plannen ze zich opnieuw in op het
+// eind van de periode en doen verder niets.
 add_action( 'mediamora_antispam_report', 'mediamora_antispam_maybe_send_report' );
 add_action( 'mediamora_antispam_nearmiss_alert', 'mediamora_antispam_maybe_send_nearmiss_alert' );
 
 /**
- * Plant een eenmalig cron-event in voor een van de mails, maar alleen als
- * de periode sinds de vorige mail om is en er nog geen event klaarstaat.
+ * Plant een eenmalig cron-event in voor een van de mails, als er nog geen
+ * klaarstaat. Is de periode sinds de vorige mail om, dan meteen; anders op
+ * het eind van die periode. Zo wordt een logregel van vlak na een mail ook
+ * gemaild als er daarna niets meer bij komt, en niet pas bij de volgende
+ * weigering (of nooit, als de bewaartermijn hem eerder opruimt).
  *
  * @param string $hook
  * @param string $last_option Optie met het tijdstip van de vorige run.
@@ -1341,15 +1346,34 @@ add_action( 'mediamora_antispam_nearmiss_alert', 'mediamora_antispam_maybe_send_
  */
 function mediamora_antispam_plan_mail( $hook, $last_option, $interval ) {
 
-	if ( ( time() - (int) get_option( $last_option, 0 ) ) < $interval ) {
+	if ( wp_next_scheduled( $hook ) ) {
 		return;
 	}
+
+	$eind_periode = (int) get_option( $last_option, 0 ) + $interval;
+
+	wp_schedule_single_event( max( time(), $eind_periode ), $hook );
+}
+
+/**
+ * Plant een nieuwe poging in na een mislukte mail. Het tijdstip van de
+ * vorige mail blijft dan staan, dus de volgende poging neemt dezelfde regels
+ * weer mee. Bewust pas over een volle periode en niet meteen: bij een
+ * blijvend kapotte mailinstelling komt er zo hooguit één mislukte poging (en
+ * één Formuliermonitor-melding) per periode bij, in plaats van één bij elke
+ * paginaweergave die WP-cron laat draaien.
+ *
+ * @param string $hook
+ * @param int    $nu
+ * @param int    $interval
+ */
+function mediamora_antispam_plan_retry( $hook, $nu, $interval ) {
 
 	if ( wp_next_scheduled( $hook ) ) {
 		return;
 	}
 
-	wp_schedule_single_event( time(), $hook );
+	wp_schedule_single_event( $nu + $interval, $hook );
 }
 
 /**
@@ -1604,6 +1628,7 @@ function mediamora_antispam_maybe_send_report() {
 	$last_run = (int) get_option( 'mediamora_antispam_last_report', 0 );
 
 	if ( ( $nu - $last_run ) < $s['email_interval'] ) {
+		mediamora_antispam_plan_mail( 'mediamora_antispam_report', 'mediamora_antispam_last_report', $s['email_interval'] );
 		return;
 	}
 
@@ -1652,9 +1677,8 @@ function mediamora_antispam_maybe_send_report() {
 
 	// Ook als de rapportmail uit staat of er niets te melden is: wat er nu
 	// in het log staat, hoeft later niet alsnog gemaild te worden.
-	update_option( 'mediamora_antispam_last_report', $nu, false );
-
 	if ( ! $s['report_enabled'] || empty( $recent_for_email ) ) {
+		update_option( 'mediamora_antispam_last_report', $nu, false );
 		return;
 	}
 
@@ -1669,11 +1693,20 @@ function mediamora_antispam_maybe_send_report() {
 	$body .= implode( "\n", $recent_for_email );
 	$body .= "\n\nVolledige log (incl. de regels uit eerdere rapporten, binnen de bewaartermijn) staat in " . mediamora_antispam_log_path_label( $log_file ) . " op de server. Die mapnaam verschilt per site.";
 
-	wp_mail(
+	$verstuurd = wp_mail(
 		$s['alert_email'],
 		sprintf( '[%s] Anti-spam rapport: %d geweigerde inzending(en)', $site, $count ),
 		$body
 	);
+
+	// Het tijdstip pas opslaan als de mail echt weg is. Mislukt hij, dan
+	// blijft de vorige mail het begin en komen deze regels in de volgende
+	// poging opnieuw mee, in plaats van stil te verdwijnen.
+	if ( $verstuurd ) {
+		update_option( 'mediamora_antispam_last_report', $nu, false );
+	} else {
+		mediamora_antispam_plan_retry( 'mediamora_antispam_report', $nu, $s['email_interval'] );
+	}
 }
 
 /**
@@ -1694,6 +1727,7 @@ function mediamora_antispam_maybe_send_nearmiss_alert() {
 	$last_run = (int) get_option( 'mediamora_antispam_last_nearmiss_alert', 0 );
 
 	if ( ( $nu - $last_run ) < $s['nearmiss_email_interval'] ) {
+		mediamora_antispam_plan_mail( 'mediamora_antispam_nearmiss_alert', 'mediamora_antispam_last_nearmiss_alert', $s['nearmiss_email_interval'] );
 		return;
 	}
 
@@ -1734,9 +1768,8 @@ function mediamora_antispam_maybe_send_nearmiss_alert() {
 		LOCK_EX
 	);
 
-	update_option( 'mediamora_antispam_last_nearmiss_alert', $nu, false );
-
 	if ( empty( $recent ) ) {
+		update_option( 'mediamora_antispam_last_nearmiss_alert', $nu, false );
 		return;
 	}
 
@@ -1753,9 +1786,16 @@ function mediamora_antispam_maybe_send_nearmiss_alert() {
 	$body .= implode( "\n", $recent );
 	$body .= "\n\nDit vangnet draait onafhankelijk van de gewone rapportage, en blijft dus actief ook als je die op deze site hebt uitgezet.";
 
-	wp_mail(
+	$verstuurd = wp_mail(
 		$s['alert_email'],
 		sprintf( '[%s] Mogelijk gemiste spam: %d twijfelgeval(len)', $site, $count ),
 		$body
 	);
+
+	// Zie de rapportmail: pas opslaan als de mail weg is.
+	if ( $verstuurd ) {
+		update_option( 'mediamora_antispam_last_nearmiss_alert', $nu, false );
+	} else {
+		mediamora_antispam_plan_retry( 'mediamora_antispam_nearmiss_alert', $nu, $s['nearmiss_email_interval'] );
+	}
 }
