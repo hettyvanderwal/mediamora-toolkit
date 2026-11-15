@@ -195,6 +195,12 @@ De user meta `mm_verloopt_op` en `mm_overdragen_aan` blijven altijd staan. Worde
 
 ## Wijzigingen
 
+### 1.21.0
+
+- Anti-spam: de rapportmail en de vangnet-mail bevatten alle regels sinds de vorige mail (`mediamora_antispam_last_report` en `mediamora_antispam_last_nearmiss_alert`), niet meer alleen die van de laatste periode voor het verzenden. Een mail wordt pas ingepland bij een nieuwe logregel; zat er meer dan de periode tussen twee mails, dan kwamen de regels daartussen wel in het log maar nooit in een mail. De periode is nu alleen de minimale tijd tussen twee mails. Bij de allereerste mail blijft het de afgelopen periode, en regels van voor de bewaartermijn komen er nooit in. Een regel uit precies de seconde van het verzenden komt in de volgende mail, zodat geen regel dubbel of niet gemaild wordt.
+- Anti-spam: wordt de rapportmail of het vangnet weer aangezet, dan begint die bij dat moment en haalt de eerste mail niets in van de tijd dat hij uit stond.
+- Testgevallen in `tests/anti-spam-rapport.php`.
+
 ### 1.20.0
 
 - Nieuwe module Persoon in schema (`schema_persoon`) op het tabblad Vindbaarheid, standaard uit. Zet de therapeut of coach van een eenmanspraktijk als Person in het schema van Rank Math (`@id` `#persoon`), met `worksFor` naar de Organization en `founder` of `employee` op de Organization. Velden voor naam, functie, omschrijving, pagina, opleiding (`alumniOf`), lidmaatschap (`memberOf`), profielen (`sameAs`), foto en een omschrijving van de praktijk. Doet niets zonder Rank Math, zonder Organization, als de site in Rank Math een persoon is, of als er al een persoon in het schema staat. Vervangt losse code in `functions.php`. Zie "Persoon in schema".
@@ -373,7 +379,7 @@ Fixes uit de tweede codereview.
 
 ## Release maken
 
-Eerst de testgevallen draaien (`php tests/anti-spam-links.php`, `php tests/tijdelijke-accounts.php`, `php tests/tijdelijke-accounts-toolkit.php`, `php tests/afbeeldingstitels.php`, `php tests/afbeeldingstitels-toolkit.php` en `php tests/schema-persoon.php`) en `php -l` op alle bestanden.
+Eerst de testgevallen draaien (`php tests/anti-spam-links.php`, `php tests/anti-spam-rapport.php`, `php tests/tijdelijke-accounts.php`, `php tests/tijdelijke-accounts-toolkit.php`, `php tests/afbeeldingstitels.php`, `php tests/afbeeldingstitels-toolkit.php` en `php tests/schema-persoon.php`) en `php -l` op alle bestanden.
 
 1. Versie ophogen op twee plekken in `mediamora-toolkit.php`: `Version:` in de kop en `MM_TOOLKIT_VERSIE`. Of een update wordt aangeboden hangt alleen af van `Version:` in de kop; de constante wordt gelijk gehouden voor de rest, zoals de mailheader van de Formuliermonitor.
 2. Bestanden uploaden naar de repo.

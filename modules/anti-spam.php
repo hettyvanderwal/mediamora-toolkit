@@ -269,6 +269,17 @@ function mediamora_antispam_sanitize_and_save_settings( $post, &$errors = array(
 
 	update_option( 'mediamora_antispam_settings', $clean, false );
 
+	// Rapportmail of vangnet weer aangezet: die begint bij nu. Een mail bevat
+	// alles sinds de vorige run, en zonder dit zou de eerste mail na het
+	// aanzetten alles inhalen wat er in de tussentijd gelogd is. Voor het
+	// vangnet kan dat weken zijn, want dat draait niet als het uit staat.
+	if ( $clean['report_enabled'] && ! $current['report_enabled'] ) {
+		update_option( 'mediamora_antispam_last_report', time(), false );
+	}
+	if ( $clean['nearmiss_alert_enabled'] && ! $current['nearmiss_alert_enabled'] ) {
+		update_option( 'mediamora_antispam_last_nearmiss_alert', time(), false );
+	}
+
 	// Debug staat uit: dan hoort debug.txt er ook niet meer te liggen. Dat bestand
 	// legt elk veld van elke inzending vast, ook van berichten die gewoon zijn
 	// doorgelaten, en er wordt verder niets mee gedaan. Blijft het staan, dan bewaar
@@ -1552,6 +1563,34 @@ function mediamora_antispam_parse_line_timestamp( $line ) {
 }
 
 /**
+ * Vanaf welk moment logregels in de rapportmail of de vangnet-mail komen:
+ * het tijdstip van de vorige run. Daardoor komt alles sinds de vorige mail
+ * erin, hoe lang die ook geleden is; de periode is alleen de minimale tijd
+ * tussen twee mails. Is er nog nooit een mail geweest, dan de afgelopen
+ * periode. Nooit verder terug dan de bewaartermijn: wat daarvoor ligt,
+ * hoort al uit het log en dus ook niet meer in een mail.
+ *
+ * Het venster loopt van dit moment tot en met de seconde vóór $nu, en $nu
+ * wordt de volgende keer het nieuwe begin. Logtijden zijn op de seconde,
+ * dus een regel uit de seconde van het verzenden kan net voor of net na
+ * het inlezen geschreven zijn. Zo'n regel komt altijd in de volgende mail
+ * en nooit in deze. Met >= aan het begin en < aan het eind valt elke
+ * regel in precies één venster: niets dubbel, niets kwijt.
+ *
+ * @param int $last_run Tijdstip van de vorige run, 0 als die er nog niet was.
+ * @param int $nu
+ * @param int $interval
+ * @param int $log_max_age
+ * @return int Unix-tijd.
+ */
+function mediamora_antispam_mail_window_start( $last_run, $nu, $interval, $log_max_age ) {
+
+	$start = $last_run > 0 ? $last_run : $nu - $interval;
+
+	return max( $start, $nu - $log_max_age );
+}
+
+/**
  * Stuurt (indien ingeschakeld) maximaal 1x per ingestelde periode een
  * samenvattend rapport met ALLE geweigerde inzendingen sinds de vorige
  * mail, en ruimt tegelijk logregels op die ouder zijn dan de bewaartermijn.
@@ -1559,11 +1598,12 @@ function mediamora_antispam_parse_line_timestamp( $line ) {
  */
 function mediamora_antispam_maybe_send_report() {
 
-	$s = mediamora_antispam_settings();
+	$s  = mediamora_antispam_settings();
+	$nu = time();
 
 	$last_run = (int) get_option( 'mediamora_antispam_last_report', 0 );
 
-	if ( ( time() - $last_run ) < $s['email_interval'] ) {
+	if ( ( $nu - $last_run ) < $s['email_interval'] ) {
 		return;
 	}
 
@@ -1579,8 +1619,8 @@ function mediamora_antispam_maybe_send_report() {
 		return;
 	}
 
-	$cutoff_email     = time() - $s['email_interval'];
-	$cutoff_retention = time() - $s['log_max_age'];
+	$cutoff_email     = mediamora_antispam_mail_window_start( $last_run, $nu, $s['email_interval'], $s['log_max_age'] );
+	$cutoff_retention = $nu - $s['log_max_age'];
 
 	$recent_for_email   = array();
 	$kept_for_retention = array();
@@ -1597,7 +1637,7 @@ function mediamora_antispam_maybe_send_report() {
 			$kept_for_retention[] = $line;
 		}
 
-		if ( $timestamp >= $cutoff_email ) {
+		if ( $timestamp >= $cutoff_email && $timestamp < $nu ) {
 			$recent_for_email[] = $line;
 		}
 	}
@@ -1610,7 +1650,9 @@ function mediamora_antispam_maybe_send_report() {
 		LOCK_EX
 	);
 
-	update_option( 'mediamora_antispam_last_report', time(), false );
+	// Ook als de rapportmail uit staat of er niets te melden is: wat er nu
+	// in het log staat, hoeft later niet alsnog gemaild te worden.
+	update_option( 'mediamora_antispam_last_report', $nu, false );
 
 	if ( ! $s['report_enabled'] || empty( $recent_for_email ) ) {
 		return;
@@ -1625,7 +1667,7 @@ function mediamora_antispam_maybe_send_report() {
 	);
 	$body .= "Details:\n\n";
 	$body .= implode( "\n", $recent_for_email );
-	$body .= "\n\nVolledige log (incl. oudere, nog niet gerapporteerde regels binnen de bewaartermijn) staat in " . mediamora_antispam_log_path_label( $log_file ) . " op de server. Die mapnaam verschilt per site.";
+	$body .= "\n\nVolledige log (incl. de regels uit eerdere rapporten, binnen de bewaartermijn) staat in " . mediamora_antispam_log_path_label( $log_file ) . " op de server. Die mapnaam verschilt per site.";
 
 	wp_mail(
 		$s['alert_email'],
@@ -1648,9 +1690,10 @@ function mediamora_antispam_maybe_send_nearmiss_alert() {
 		return;
 	}
 
+	$nu       = time();
 	$last_run = (int) get_option( 'mediamora_antispam_last_nearmiss_alert', 0 );
 
-	if ( ( time() - $last_run ) < $s['nearmiss_email_interval'] ) {
+	if ( ( $nu - $last_run ) < $s['nearmiss_email_interval'] ) {
 		return;
 	}
 
@@ -1666,8 +1709,8 @@ function mediamora_antispam_maybe_send_nearmiss_alert() {
 		return;
 	}
 
-	$cutoff_email     = time() - $s['nearmiss_email_interval'];
-	$cutoff_retention = time() - $s['log_max_age'];
+	$cutoff_email     = mediamora_antispam_mail_window_start( $last_run, $nu, $s['nearmiss_email_interval'], $s['log_max_age'] );
+	$cutoff_retention = $nu - $s['log_max_age'];
 
 	$recent = array();
 	$kept   = array();
@@ -1680,7 +1723,7 @@ function mediamora_antispam_maybe_send_nearmiss_alert() {
 		if ( $timestamp >= $cutoff_retention ) {
 			$kept[] = $line;
 		}
-		if ( $timestamp >= $cutoff_email ) {
+		if ( $timestamp >= $cutoff_email && $timestamp < $nu ) {
 			$recent[] = $line;
 		}
 	}
@@ -1691,7 +1734,7 @@ function mediamora_antispam_maybe_send_nearmiss_alert() {
 		LOCK_EX
 	);
 
-	update_option( 'mediamora_antispam_last_nearmiss_alert', time(), false );
+	update_option( 'mediamora_antispam_last_nearmiss_alert', $nu, false );
 
 	if ( empty( $recent ) ) {
 		return;
