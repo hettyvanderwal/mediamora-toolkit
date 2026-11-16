@@ -206,6 +206,11 @@ De user meta `mm_verloopt_op` en `mm_overdragen_aan` blijven altijd staan. Worde
 
 ## Wijzigingen
 
+### 1.22.0
+
+- AI-bots: telt ook de bezoekers die via een AI-antwoord binnenkomen (verwijzer of `utm_source` van ChatGPT, Perplexity, Gemini, Copilot, Claude en andere), per bron en per landingspagina, bovenaan het AI-bots-scherm. Telt in de browser via `admin-ajax.php`, zodat gecachete pagina's meetellen; zonder cookies en zonder IP-adres. Zie "AI-bots: bezoekers vanuit AI-antwoorden". Testgevallen in `tests/ai-bots-bezoek.php`.
+- AI-bots: het opschonen na zes maanden kijkt naar de maand aan het eind van de optienaam, zodat ook de bezoekerslogs na zes maanden weggaan.
+
 ### 1.21.0
 
 - Anti-spam: de rapportmail en de vangnet-mail bevatten alle regels sinds de vorige mail (`mediamora_antispam_last_report` en `mediamora_antispam_last_nearmiss_alert`), niet meer alleen die van de laatste periode voor het verzenden. Een mail wordt pas ingepland bij een nieuwe logregel; zat er meer dan de periode tussen twee mails, dan kwamen de regels daartussen wel in het log maar nooit in een mail. De periode is nu alleen de minimale tijd tussen twee mails. Bij de allereerste mail blijft het de afgelopen periode, en regels van voor de bewaartermijn komen er nooit in. Een regel uit precies de seconde van het verzenden komt in de volgende mail, zodat geen regel dubbel of niet gemaild wordt.
@@ -213,8 +218,6 @@ De user meta `mm_verloopt_op` en `mm_overdragen_aan` blijven altijd staan. Worde
 - Anti-spam: een logregel binnen de periode na een mail plant de volgende mail in op het eind van die periode, in plaats van niets te doen. Eerst werd zo'n regel pas gemaild als er na afloop van de periode een nieuwe weigering kwam, en kwam die er niet, dan nooit. Draait het event toch te vroeg (bijvoorbeeld na uit- en weer aanzetten), dan plant het zich opnieuw in op het eind van de periode.
 - Anti-spam: het tijdstip van de vorige mail wordt pas opgeslagen als `wp_mail()` lukt. Eerst gebeurde dat vóór het versturen, dus bij een mislukte mail (bijvoorbeeld een SMTP-fout) gingen de regels erin verloren. Nu blijft het vorige tijdstip staan en komt er een nieuwe poging over een periode, met dezelfde regels plus wat er intussen bij kwam. Staat de mail uit of is er niets te melden, dan wordt het tijdstip zoals eerst wel bijgewerkt.
 - Testgevallen in `tests/anti-spam-rapport.php`.
-- AI-bots: telt ook de bezoekers die via een AI-antwoord binnenkomen (verwijzer of `utm_source` van ChatGPT, Perplexity, Gemini, Copilot, Claude en andere), per bron en per landingspagina, bovenaan het AI-bots-scherm. Telt in de browser via `admin-ajax.php`, zodat gecachete pagina's meetellen; zonder cookies en zonder IP-adres. Zie "AI-bots: bezoekers vanuit AI-antwoorden". Testgevallen in `tests/ai-bots-bezoek.php`.
-- AI-bots: het opschonen na zes maanden kijkt naar de maand aan het eind van de optienaam, zodat ook de bezoekerslogs na zes maanden weggaan.
 
 ### 1.20.0
 
@@ -394,7 +397,7 @@ Fixes uit de tweede codereview.
 
 ## Release maken
 
-Eerst de testgevallen draaien (`php tests/anti-spam-links.php`, `php tests/anti-spam-rapport.php`, `php tests/tijdelijke-accounts.php`, `php tests/tijdelijke-accounts-toolkit.php`, `php tests/afbeeldingstitels.php`, `php tests/afbeeldingstitels-toolkit.php` en `php tests/schema-persoon.php`) en `php -l` op alle bestanden.
+Eerst de testgevallen draaien (`php tests/anti-spam-links.php`, `php tests/anti-spam-rapport.php`, `php tests/tijdelijke-accounts.php`, `php tests/tijdelijke-accounts-toolkit.php`, `php tests/afbeeldingstitels.php`, `php tests/afbeeldingstitels-toolkit.php`, `php tests/schema-persoon.php` en `php tests/ai-bots-bezoek.php`) en `php -l` op alle bestanden.
 
 1. Versie ophogen op twee plekken in `mediamora-toolkit.php`: `Version:` in de kop en `MM_TOOLKIT_VERSIE`. Of een update wordt aangeboden hangt alleen af van `Version:` in de kop; de constante wordt gelijk gehouden voor de rest, zoals de mailheader van de Formuliermonitor.
 2. Bestanden uploaden naar de repo.
