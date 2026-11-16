@@ -17,6 +17,7 @@ De vaste Mediamora-onderdelen in één WordPress-plugin. Elk onderdeel is een mo
 | QUIC.cloud en kritieke CSS | Snelheid | uit | testcode in `functions.php` (REST-uitzondering, `mm_ccss_zonder_noscript`) |
 | Schema op alle pagina's | Vindbaarheid | aan, doet niets zonder Rank Math | nieuw |
 | Afbeeldingen: ruimte en voorrang | Snelheid | aan, doet niets zonder Elementor | testcode in `functions.php` (`mm_ig_elementor_img_attrs`) |
+| Lettertype voorladen | Snelheid | aan, doet niets zonder lokale Google Fonts in Elementor | nieuw |
 | Elementor: oude versies tegenhouden | Beveiliging | aan, doet niets zonder Elementor | nieuw |
 | Verweesde meta opruimen | Mediamora | aan, alleen met Onderhoudsklant | nieuw |
 | Instagram-feed | Koppelingen | uit, per site aanzetten | nieuw |
@@ -134,6 +135,23 @@ Met een eigen uitsnede (image_size custom, zoals 1000x1333 of 1000x1000) bouwt E
 - De functienaam `mm_verberg_afbeeldingstitel` staat vast en zit in een `function_exists`-check. Op drentz.nl staat een tijdelijke versie met dezelfde naam en check in `functions.php` van het child theme. Die laadt na de plugins en slaat zichzelf dus over zolang de module aan staat; er draait nooit iets dubbel. Daarom geen `merkteken` of `thema_merkteken`: de module zou anders zijn eigen functie als losse versie zien.
 - Caches: Elementor bewaart de HTML van widgets in de post meta `_elementor_element_cache`, en LiteSpeed de hele pagina. Bij elke wisseling van de module (schakelaar, `MM_TOOLKIT_MODULE_AFBEELDINGSTITELS`, deactiveren en de update naar 1.19.0, die hem meteen aanzet) gaat `_elementor_element_cache` voor alle documenten weg met `delete_post_meta_by_key()`, en daarna de hele LiteSpeed-cache met `do_action( 'litespeed_purge_all' )` als LiteSpeed Cache actief is. De CSS-bestanden van Elementor blijven staan. Dat gebeurt via zelfherstel op `init` (`mm_toolkit_afbeeldingstitels_herstel()`): de optie `mm_toolkit_afbeeldingstitels_stand` (`1` of `0`, autoload) onthoudt of de module laadde, en bij een verschil worden de caches geleegd. Een site die de module nog nooit aan had, hoeft bij uit niets te legen.
 
+## Lettertype voorladen
+
+Elementor zet Google Fonts lokaal neer (optie `elementor_local_google_fonts` = `1`) in `uploads/elementor/google-fonts/`, met `font-display: swap`. Op mobiel komt het tekstlettertype daardoor pas na de eerste weergave binnen, worden de alinea's opnieuw opgemaakt en verspringt de pagina (CLS). De module zet in `wp_head` (prioriteit 1, na Hero-preload) één regel:
+
+```html
+<link rel="preload" href="…/uploads/elementor/google-fonts/fonts/montserrat-49e242af.woff2" as="font" type="font/woff2" crossorigin>
+```
+
+- Welk lettertype: de typografie `text` uit de actieve kit (`elementor_active_kit` > `_elementor_page_settings` > `system_typography`), en als daar geen lettertype in staat `secondary`. Alleen een Google Font volgens `\Elementor\Fonts::get_font_type()`; bij een systeem- of eigen lettertype, met lokale fonts uit of met Google Fonts helemaal uit (`elementor_google_font` = `0`) gebeurt er niets.
+- Welk bestand: uit `uploads/elementor/google-fonts/css/<familie>.css` (kleine letters, zonder spaties: `montserrat.css`, `kleeone.css`) het `@font-face`-blok waarvan de `unicode-range` met `U+0000-00FF` begint (latin), met de stijl en het gewicht uit de kit. Leeg of `normal` is 400, `bold` 700; een bereik als `100 900` telt ook. Let op de stijl: Elementor zet de cursieve blokken vóór de rechte, en bij een variabel lettertype hebben alle gewichten van een stijl hetzelfde bestand. Op geertjedokter.nl is het rechte latin-bestand van Montserrat `montserrat-49e242af.woff2`, het cursieve `montserrat-76393105.woff2`.
+- Eén bestand: meer preloads concurreren met de CSS en de hero-preload. Op het tabblad Snelheid staat bij de module het vinkje "Ook het kopletterype voorladen" (optie `mm_font_preload_kop`, standaard uit); dan komt `primary` erbij, als dat een ander bestand is.
+- Cache: de url's staan in de transient `mm_font_preload` (een dag), met een sleutel uit het kit-ID, `post_modified_gmt` van de kit, het vinkje, `elementor_local_google_fonts` en de `filemtime` van de css-bestanden. Genereert Elementor de fonts opnieuw (andere hash in de bestandsnaam), dan schuift de preload vanzelf mee. Bij het opslaan van de kit en bij een andere actieve kit gaat de transient weg.
+- Het woff2-bestand moet op schijf staan, anders komt er geen preload (geen 404-preload). De controle gebeurt bij elk verzoek, ook als de url uit de cache komt.
+- Alleen op de voorkant: niet in wp-admin, bij REST, AJAX en feeds, en niet in de editor of het voorbeeld van Elementor.
+- Status: `mm_toolkit_status()['font_preload']` zoals bij de andere modules (`gewild`, `vast`, `los`, `laden`). In de statuskolom staat welk bestand wordt voorgeladen, of waarom niet.
+- LiteSpeed Cache laat de regel ongemoeid, ook met Guest Mode en `optm-guest_only` aan; na aanzetten de LiteSpeed-cache legen.
+
 ## Persoon in schema
 
 Voor praktijken die op één persoon draaien (therapeuten, coaches). De module zet de persoon als Person in het schema van Rank Math en koppelt die aan de Organization. De gegevens staan op het tabblad Vindbaarheid onder de moduletabel, zodra de module aan staat, met een eigen formulier (`manage_options`, nonce `mm_schema_persoon_opslaan`). Ze komen in de optie `mm_schema_persoon` (autoload).
@@ -205,6 +223,11 @@ Verwijderen via Plugins ruimt alles op: de opties en transients van de toolkit e
 De user meta `mm_verloopt_op` en `mm_overdragen_aan` blijven altijd staan. Worden ze weggehaald en wordt de toolkit daarna opnieuw geïnstalleerd, bijvoorbeeld om een zip te vervangen, dan worden tijdelijke accounts stil vaste accounts.
 
 ## Wijzigingen
+
+### 1.23.0
+
+- Nieuwe module Lettertype voorladen (`font_preload`) op het tabblad Snelheid, standaard aan. Zet één preload in de head voor het woff2-bestand (latin-subset) van het tekstlettertype uit de Elementor-kit, als Elementor de Google Fonts lokaal heeft staan. Voorkomt de layout shift die ontstaat als het lettertype met `font-display: swap` pas na de eerste weergave binnenkomt. Optioneel ook het kopletterype. Zie "Lettertype voorladen".
+- Testgevallen in `tests/font-preload.php`.
 
 ### 1.22.0
 
@@ -397,7 +420,7 @@ Fixes uit de tweede codereview.
 
 ## Release maken
 
-Eerst de testgevallen draaien (`php tests/anti-spam-links.php`, `php tests/anti-spam-rapport.php`, `php tests/tijdelijke-accounts.php`, `php tests/tijdelijke-accounts-toolkit.php`, `php tests/afbeeldingstitels.php`, `php tests/afbeeldingstitels-toolkit.php`, `php tests/schema-persoon.php` en `php tests/ai-bots-bezoek.php`) en `php -l` op alle bestanden.
+Eerst de testgevallen draaien (`php tests/anti-spam-links.php`, `php tests/anti-spam-rapport.php`, `php tests/tijdelijke-accounts.php`, `php tests/tijdelijke-accounts-toolkit.php`, `php tests/afbeeldingstitels.php`, `php tests/afbeeldingstitels-toolkit.php`, `php tests/schema-persoon.php`, `php tests/ai-bots-bezoek.php` en `php tests/font-preload.php`) en `php -l` op alle bestanden.
 
 1. Versie ophogen op twee plekken in `mediamora-toolkit.php`: `Version:` in de kop en `MM_TOOLKIT_VERSIE`. Of een update wordt aangeboden hangt alleen af van `Version:` in de kop; de constante wordt gelijk gehouden voor de rest, zoals de mailheader van de Formuliermonitor.
 2. Bestanden uploaden naar de repo.
