@@ -69,6 +69,8 @@ function mm_toolkit_uninstall_site( $los ) {
 	delete_option( 'mm_toolkit_onderhoudsklant' );
 	delete_option( 'mm_tijdelijke_accounts_mail' );
 	delete_option( 'mm_toolkit_afbeeldingstitels_stand' );
+	delete_option( 'mm_font_preload_kop' );
+	delete_transient( 'mm_font_preload' );
 
 	// Persoon in schema: geen losse versie in een bestand, dus altijd opruimen.
 	delete_option( 'mm_schema_persoon' );

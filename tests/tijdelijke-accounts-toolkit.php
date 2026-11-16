@@ -62,6 +62,7 @@ $keuzes = array(
 	'jquery_wacht'      => false,
 	'schema_basis'      => false,
 	'afbeelding_ruimte' => false,
+	'font_preload'      => false,
 	'elementor_versie'  => false,
 	'afbeeldingstitels' => false,
 );

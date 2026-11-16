@@ -3,7 +3,7 @@
  * Plugin Name:       Mediamora Toolkit
  * Plugin URI:        https://github.com/hettyvanderwal/mediamora-toolkit
  * Description:       De vaste Mediamora-onderdelen in één plugin, per onderdeel aan en uit te zetten onder Instellingen > Mediamora Toolkit.
- * Version:           1.22.0
+ * Version:           1.23.0
  * Requires at least: 6.0
  * Requires PHP:      7.4
  * Update URI:        https://github.com/hettyvanderwal/mediamora-toolkit
@@ -22,7 +22,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  * updates telt alleen de kop, zie mm_toolkit_huidige_versie(); deze
  * constante is er voor de rest, zoals de mailheader van de Formuliermonitor.
  */
-const MM_TOOLKIT_VERSIE = '1.22.0';
+const MM_TOOLKIT_VERSIE = '1.23.0';
 const MM_TOOLKIT_REPO   = 'hettyvanderwal/mediamora-toolkit';
 const MM_TOOLKIT_SLUG   = 'mediamora-toolkit';
 const MM_TOOLKIT_OPTIE  = 'mm_toolkit_modules';
@@ -548,6 +548,11 @@ function mm_toolkit_opslaan() {
 		update_option( MM_TOOLKIT_TIJDELIJK_MAIL_OPTIE, empty( $_POST['mm_tijdelijk_mail'] ) ? 0 : 1, false );
 	}
 
+	// Lettertype voorladen: idem, het vinkje voor het kopletterype.
+	if ( 'snelheid' === $tab && ! empty( $_POST['mm_font_preload_kop_getoond'] ) ) {
+		update_option( 'mm_font_preload_kop', empty( $_POST['mm_font_preload_kop'] ) ? 0 : 1, true );
+	}
+
 	// Opruimen bij uitzetten. De sleutel en de cron-events delen de modules
 	// met hun losse versie; staat die er nog, dan blijven ze staan. De
 	// opschoning van de anti-spamlogs is alleen van de toolkit.
@@ -681,6 +686,9 @@ function mm_toolkit_scherm() {
 		if ( 'schema_persoon' === $sleutel && $s['laden'] && function_exists( 'mm_schema_persoon_status_regel' ) ) {
 			$tekst .= '<br><span style="color:#646970;">' . mm_schema_persoon_status_regel() . '</span>';
 		}
+		if ( 'font_preload' === $sleutel && $s['laden'] && function_exists( 'mm_font_preload_status_regel' ) ) {
+			$tekst .= '<br><span style="color:#646970;">' . mm_font_preload_status_regel() . '</span>';
+		}
 		if ( 'instagram' === $sleutel && $s['laden'] && function_exists( 'mm_instagram_status_regel' ) ) {
 			$tekst .= '<br><span style="color:#646970;">' . mm_instagram_status_regel() . '</span>';
 		}
@@ -693,6 +701,9 @@ function mm_toolkit_scherm() {
 		$instelling = '';
 		if ( 'tijdelijke_accounts' === $sleutel && $s['laden'] && function_exists( 'mm_tijdelijk_mail_aan' ) ) {
 			$instelling = '<br><input type="hidden" name="mm_tijdelijk_mail_getoond" value="1"><label><input type="checkbox" name="mm_tijdelijk_mail" value="1"' . checked( mm_tijdelijk_mail_aan(), true, false ) . '> Mail naar Mediamora bij het verwijderen van een account</label>';
+		}
+		if ( 'font_preload' === $sleutel && $s['laden'] && function_exists( 'mm_font_preload_kop_aan' ) ) {
+			$instelling = '<br><input type="hidden" name="mm_font_preload_kop_getoond" value="1"><label><input type="checkbox" name="mm_font_preload_kop" value="1"' . checked( mm_font_preload_kop_aan(), true, false ) . '> Ook het kopletterype voorladen</label>';
 		}
 
 		$link = ( $module['scherm'] && $s['laden'] ) ? ' <a href="' . esc_url( admin_url( $module['scherm'] ) ) . '">Instellingen</a>' : '';
