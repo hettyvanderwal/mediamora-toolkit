@@ -165,12 +165,14 @@ add_action('mm_aibots_opschonen', 'mm_aibots_opschonen');
 
 function mm_aibots_opschonen() {
     global $wpdb;
-    $grens = 'mm_aibots_' . gmdate('Y-m', strtotime('-6 months'));
+    $grens = gmdate('Y-m', strtotime('-6 months'));
+    // Zowel de crawlerlogs (mm_aibots_JJJJ-MM) als de bezoekerslogs
+    // (mm_aibots_bezoek_JJJJ-MM): de maand aan het eind telt.
     $rijen = $wpdb->get_col(
         "SELECT option_name FROM {$wpdb->options} WHERE option_name LIKE 'mm\\_aibots\\_%'"
     );
     foreach ((array) $rijen as $naam) {
-        if (strcmp($naam, $grens) < 0) {
+        if (preg_match('/(\d{4}-\d{2})$/', $naam, $m) && strcmp($m[1], $grens) < 0) {
             delete_option($naam);
         }
     }
@@ -251,10 +253,16 @@ function mm_aibots_maanden() {
     $maanden = [];
     foreach ((array) $rijen as $naam) {
         $maand = substr($naam, strlen('mm_aibots_'));
+        if (strpos($maand, 'bezoek_') === 0) {
+            $maand = substr($maand, strlen('bezoek_'));
+        }
         if (preg_match('/^\d{4}-\d{2}$/', $maand)) {
             $maanden[] = $maand;
         }
     }
+
+    $maanden = array_values(array_unique($maanden));
+    rsort($maanden);
 
     return $maanden;
 }
@@ -277,7 +285,7 @@ function mm_aibots_pagina() {
     mm_aibots_cache_formulier();
 
     if (!$maanden) {
-        echo '<p>Er is nog niets gelogd. Zodra een bekende AI-crawler de site bezoekt, verschijnt hier een overzicht.</p></div>';
+        echo '<p>Er is nog niets gelogd. Zodra een bekende AI-crawler de site bezoekt, of een bezoeker via een AI-antwoord binnenkomt, verschijnt hier een overzicht.</p></div>';
 
         return;
     }
@@ -320,6 +328,8 @@ function mm_aibots_pagina() {
 
     $ai = array_diff_key($totalen, array_flip($referentie));
     $ijk = array_intersect_key($totalen, array_flip($referentie));
+
+    mm_aibots_bezoek_sectie($huidig);
 
     printf(
         '<p>%s bezoeken van AI-crawlers, verdeeld over %s bots.</p>',
@@ -447,4 +457,259 @@ function mm_aibots_tabel($titel, $totalen, $log) {
 
         echo '</tbody></table>';
     }
+}
+
+/* -------------------------------------------------------------------------
+ * Bezoekers vanuit AI-antwoorden
+ *
+ * De crawlers hierboven laten zien dat een AI de site leest. Dit deel telt
+ * de mensen die daarna echt doorklikken: bezoekers met een AI-dienst als
+ * verwijzer (chatgpt.com, perplexity.ai, ...) of met zo'n dienst in
+ * utm_source (ChatGPT zet utm_source=chatgpt.com achter zijn links).
+ *
+ * Tellen gebeurt in de browser: een echte bezoeker krijgt op LiteSpeed
+ * meestal een gecachete pagina zonder dat PHP draait. Een klein script in
+ * de pagina kijkt naar de verwijzer en de URL, en meldt alleen een bezoek
+ * als het om een AI-dienst gaat. Dat gaat via admin-ajax.php, omdat ASE
+ * de REST API voor bezoekers vaak dichtzet.
+ *
+ * Geen cookies, geen sessionStorage, geen IP-adres: alleen een teller per
+ * maand, per bron en per pagina. Een herlaadactie telt daardoor opnieuw.
+ * Google AI Overviews en AI Mode komen binnen als google.com en zijn zo
+ * niet van gewoon zoekverkeer te onderscheiden; die staan in het rapport
+ * Generatieve AI van Search Console.
+ * ---------------------------------------------------------------------- */
+
+/**
+ * Bekende AI-diensten. Per dienst de verwijzers (domein, subdomeinen tellen
+ * mee) en de woorden waaraan een utm_source herkend wordt. Een utm_source
+ * die gelijk is aan een van de domeinen telt ook.
+ */
+function mm_aibots_bronnen() {
+    return [
+        'ChatGPT'    => ['hosts' => ['chatgpt.com', 'chat.openai.com'], 'utm' => ['chatgpt', 'openai']],
+        'Perplexity' => ['hosts' => ['perplexity.ai'], 'utm' => ['perplexity']],
+        'Gemini'     => ['hosts' => ['gemini.google.com', 'bard.google.com'], 'utm' => ['gemini']],
+        'Copilot'    => ['hosts' => ['copilot.microsoft.com', 'copilot.cloud.microsoft', 'm365.cloud.microsoft'], 'utm' => ['copilot']],
+        'Claude'     => ['hosts' => ['claude.ai'], 'utm' => ['claude.ai', 'anthropic']],
+        'Mistral'    => ['hosts' => ['chat.mistral.ai'], 'utm' => ['mistral']],
+        'DeepSeek'   => ['hosts' => ['chat.deepseek.com'], 'utm' => ['deepseek']],
+        'Meta AI'    => ['hosts' => ['meta.ai'], 'utm' => ['meta.ai']],
+        'Grok'       => ['hosts' => ['grok.com'], 'utm' => ['grok']],
+        'You.com'    => ['hosts' => ['you.com'], 'utm' => ['you.com']],
+    ];
+}
+
+/**
+ * Zet een host of utm-waarde om naar kleine letters, zonder www. en
+ * zonder punt aan het eind.
+ */
+function mm_aibots_bron_normaal($waarde) {
+    $waarde = strtolower(trim((string) $waarde));
+    $waarde = preg_replace('/^www\./', '', $waarde);
+
+    return rtrim(mb_substr($waarde, 0, 100), '.');
+}
+
+/**
+ * Welke AI-dienst hoort bij deze verwijzer of utm_source? Lege tekst als
+ * het geen bekende dienst is. De verwijzer gaat voor.
+ *
+ * @param string $host Host van de verwijzer, zonder pad.
+ * @param string $utm  Waarde van utm_source.
+ * @return string
+ */
+function mm_aibots_bron($host, $utm) {
+    $host = mm_aibots_bron_normaal($host);
+    $utm  = mm_aibots_bron_normaal($utm);
+
+    if ($host !== '') {
+        foreach (mm_aibots_bronnen() as $naam => $bron) {
+            foreach ($bron['hosts'] as $domein) {
+                if ($host === $domein || substr($host, -strlen('.' . $domein)) === '.' . $domein) {
+                    return $naam;
+                }
+            }
+        }
+    }
+
+    if ($utm !== '') {
+        foreach (mm_aibots_bronnen() as $naam => $bron) {
+            if (in_array($utm, $bron['hosts'], true)) {
+                return $naam;
+            }
+            foreach ($bron['utm'] as $woord) {
+                if (strpos($utm, $woord) !== false) {
+                    return $naam;
+                }
+            }
+        }
+    }
+
+    return '';
+}
+
+/**
+ * Hoogt de teller op voor één bezoek. Zelfde opbouw als het crawlerlog:
+ * [bron => [pad => aantal]], met dezelfde padenlimiet.
+ */
+function mm_aibots_bezoek_tel($bron, $pad) {
+    $key = 'mm_aibots_bezoek_' . gmdate('Y-m');
+    $log = get_option($key, []);
+    if (!is_array($log)) {
+        $log = [];
+    }
+
+    if (!isset($log[$bron])) {
+        $log[$bron] = [];
+    }
+
+    if (isset($log[$bron][$pad])) {
+        $log[$bron][$pad]++;
+    } elseif (count($log[$bron]) < MM_AIBOTS_MAX_PADEN) {
+        $log[$bron][$pad] = 1;
+    } else {
+        $log[$bron]['(overig)'] = (int) ($log[$bron]['(overig)'] ?? 0) + 1;
+    }
+
+    update_option($key, $log, false);
+}
+
+/**
+ * Beoordeelt een melding uit de browser en telt hem als hij klopt.
+ *
+ * Een melding kan iedereen sturen, dus de server beslist: alleen een
+ * bekende bron, een pagina op deze site en geen crawler als user agent.
+ * Komt de melding met een Origin van een ander domein, dan telt hij niet.
+ *
+ * @param array  $data   De POST-velden h (host verwijzer), u (utm_source), p (pad).
+ * @param string $ua     User agent van de melding.
+ * @param string $origin Origin-header van de melding, of leeg.
+ * @return string De getelde bron, of leeg als er niets geteld is.
+ */
+function mm_aibots_bezoek_verwerk($data, $ua, $origin) {
+    $data = is_array($data) ? $data : [];
+
+    if ($origin !== '') {
+        $eigen = strtolower((string) wp_parse_url(home_url(), PHP_URL_HOST));
+        $van   = strtolower((string) wp_parse_url($origin, PHP_URL_HOST));
+        if ($van === '' || preg_replace('/^www\./', '', $van) !== preg_replace('/^www\./', '', $eigen)) {
+            return '';
+        }
+    }
+
+    foreach (mm_aibots_lijst() as $naam) {
+        if (stripos((string) $ua, $naam) !== false) {
+            return '';
+        }
+    }
+
+    $host = isset($data['h']) ? sanitize_text_field(wp_unslash((string) $data['h'])) : '';
+    $utm  = isset($data['u']) ? sanitize_text_field(wp_unslash((string) $data['u'])) : '';
+    $bron = mm_aibots_bron($host, $utm);
+    if ($bron === '') {
+        return '';
+    }
+
+    $pad = mm_aibots_pad(isset($data['p']) ? (string) $data['p'] : '/');
+    if (mm_aibots_is_bestand($pad)) {
+        return '';
+    }
+
+    mm_aibots_bezoek_tel($bron, $pad);
+
+    return $bron;
+}
+
+add_action('wp_ajax_nopriv_mm_aibezoek', 'mm_aibots_bezoek_ontvang');
+add_action('wp_ajax_mm_aibezoek', 'mm_aibots_bezoek_ontvang');
+
+function mm_aibots_bezoek_ontvang() {
+    mm_aibots_bezoek_verwerk(
+        $_POST,
+        isset($_SERVER['HTTP_USER_AGENT']) ? (string) $_SERVER['HTTP_USER_AGENT'] : '',
+        isset($_SERVER['HTTP_ORIGIN']) ? (string) $_SERVER['HTTP_ORIGIN'] : ''
+    );
+
+    // Het script kijkt niet naar het antwoord.
+    status_header(204);
+    exit;
+}
+
+/**
+ * Het script in de pagina. Doet niets tenzij verwijzer of utm_source bij
+ * een bekende AI-dienst hoort; de lijst komt uit mm_aibots_bronnen(), zodat
+ * er maar één plek is om een dienst toe te voegen.
+ *
+ * In de head en met data-no-optimize/data-no-defer, zodat LiteSpeed het
+ * niet uitstelt tot de eerste muisbeweging: wie meteen weer weggaat, telt
+ * dan ook.
+ */
+add_action('wp_head', 'mm_aibots_bezoek_script', 1);
+
+function mm_aibots_bezoek_script() {
+    if (is_admin() || is_user_logged_in() || is_feed() || is_robots()) {
+        return;
+    }
+
+    $hosts = [];
+    $utm   = [];
+    foreach (mm_aibots_bronnen() as $bron) {
+        $hosts = array_merge($hosts, $bron['hosts']);
+        $utm   = array_merge($utm, $bron['utm']);
+    }
+
+    $instellingen = wp_json_encode([
+        'a' => admin_url('admin-ajax.php'),
+        'h' => array_values(array_unique($hosts)),
+        'u' => array_values(array_unique($utm)),
+    ]);
+
+    $js = '(function(c){try{'
+        . 'var h="",r=document.referrer,u="";'
+        . 'if(r){h=new URL(r).hostname.toLowerCase().replace(/^www\./,"");}'
+        . 'if(h===location.hostname.toLowerCase().replace(/^www\./,"")){h="";}'
+        . 'u=(new URLSearchParams(location.search).get("utm_source")||"").toLowerCase();'
+        . 'function t(w,s){if(!w)return false;for(var i=0;i<c.h.length;i++){var d=c.h[i];if(w===d||(!s&&w.slice(-d.length-1)==="."+d))return true;}'
+        . 'if(s){for(var j=0;j<c.u.length;j++){if(w.indexOf(c.u[j])!==-1)return true;}}return false;}'
+        . 'if(!t(h,false)&&!t(u,true))return;'
+        . 'var d=new URLSearchParams();d.append("action","mm_aibezoek");d.append("h",h);d.append("u",u);d.append("p",location.pathname);'
+        . 'if(navigator.sendBeacon){navigator.sendBeacon(c.a,d);}else{fetch(c.a,{method:"POST",body:d,keepalive:true,credentials:"omit"});}'
+        . '}catch(e){}})(' . $instellingen . ');';
+
+    wp_print_inline_script_tag($js, [
+        'id'                => 'mm-aibezoek',
+        'data-no-optimize'  => '1',
+        'data-no-defer'     => '1',
+        'data-cfasync'      => 'false',
+    ]);
+}
+
+/**
+ * Het blok bovenaan het AI-bots-scherm.
+ */
+function mm_aibots_bezoek_sectie($maand) {
+    $log = get_option('mm_aibots_bezoek_' . $maand, []);
+    if (!is_array($log)) {
+        $log = [];
+    }
+
+    $totalen = [];
+    foreach ($log as $bron => $paden) {
+        $totalen[$bron] = array_sum((array) $paden);
+    }
+    arsort($totalen);
+
+    printf(
+        '<p>%s %s vanuit AI-antwoorden.</p>',
+        esc_html((string) array_sum($totalen)),
+        esc_html(array_sum($totalen) === 1 ? 'bezoeker' : 'bezoekers')
+    );
+
+    mm_aibots_tabel('Bezoekers vanuit AI-antwoorden', $totalen, $log);
+
+    echo '<p class="description" style="max-width:820px;margin-bottom:2em;">'
+        . 'Mensen die via een link in ChatGPT, Perplexity, Gemini, Copilot, Claude of een andere AI-dienst op de site komen, per landingspagina. '
+        . 'Herkend aan de verwijzer of aan utm_source. Zonder cookies en zonder IP-adres; herladen telt opnieuw, ingelogde gebruikers tellen niet. '
+        . 'Google AI Overviews en AI Mode zijn hier niet te zien: die komen binnen als gewoon Google-verkeer en staan in Search Console onder Generatieve AI.</p>';
 }

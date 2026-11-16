@@ -183,6 +183,17 @@ Beschikbaar: `MM_TOOLKIT_MODULE_ALT_TEKSTEN`, `MM_TOOLKIT_MODULE_HERO_PRELOAD`, 
 
 De oude namen zonder `MODULE_` (zoals `MM_TOOLKIT_ALT_TEKSTEN`) werken nog voor de eerste zeven modules, zodat bestaande regels in `wp-config.php` niet aangepast hoeven te worden. Staan beide er, dan wint de nieuwe naam. Een vastgezette module houdt bij het opslaan van het instellingenscherm de keuze die er al stond.
 
+## AI-bots: bezoekers vanuit AI-antwoorden
+
+Naast de crawlers telt de module de mensen die via een AI-antwoord op de site komen: bezoekers met een AI-dienst als verwijzer (`chatgpt.com`, `perplexity.ai`, `gemini.google.com`, `copilot.microsoft.com`, `claude.ai` en een paar andere) of met zo'n dienst in `utm_source` (ChatGPT zet `utm_source=chatgpt.com` achter zijn links). Ze staan bovenaan het AI-bots-scherm, per bron en per landingspagina, in dezelfde maandkeuze als de crawlers.
+
+- Tellen gebeurt in de browser, omdat een bezoeker op LiteSpeed meestal een gecachete pagina krijgt zonder dat PHP draait. Een klein inline script (`#mm-aibezoek`, in de head, met `data-no-optimize` en `data-no-defer` zodat LiteSpeed het niet uitstelt) doet alleen iets bij een bekende AI-bron, en meldt het bezoek dan met `sendBeacon` aan `admin-ajax.php?action=mm_aibezoek`. Geen REST API, want die staat met ASE vaak dicht voor bezoekers.
+- Geen cookies, geen sessionStorage en geen IP-adres. Opgeslagen wordt alleen een teller in `mm_aibots_bezoek_JJJJ-MM`: `[bron => [pad => aantal]]`, met dezelfde padenlimiet als de crawlers. Herladen telt daardoor opnieuw. Ingelogde gebruikers krijgen het script niet.
+- De server beslist wat telt: alleen een bekende bron, een pagina en geen crawler als user agent. Een melding met een Origin van een ander domein telt niet. Een melding namaken kan wel; dat geeft hooguit een te hoge teller.
+- Google AI Overviews en AI Mode komen binnen als gewoon `google.com`-verkeer en zijn hier niet te zien. Die staan in Search Console onder Generatieve AI; Copilot staat daarnaast in Bing Webmaster Tools onder AI Performance.
+- Een dienst toevoegen of aanpassen kan op één plek: `mm_aibots_bronnen()` in `modules/ai-bots.php`. Script en server lezen allebei die lijst.
+- Opschonen na zes maanden en verwijderen bij uninstall gaan mee met de crawlerlogs.
+
 ## Deactiveren en verwijderen
 
 Deactiveren haalt alleen de cron-events (ook die van Verweesde meta opruimen, de Instagram-feed, Tijdelijke accounts en de dagelijkse opschoning van de anti-spamlogs) en de blokken van de toolkit uit `.htaccess` weg, en leegt de element cache van Elementor en de LiteSpeed-cache als Afbeeldingstitels verbergen aan stond. Instellingen en logs blijven staan.
@@ -202,6 +213,8 @@ De user meta `mm_verloopt_op` en `mm_overdragen_aan` blijven altijd staan. Worde
 - Anti-spam: een logregel binnen de periode na een mail plant de volgende mail in op het eind van die periode, in plaats van niets te doen. Eerst werd zo'n regel pas gemaild als er na afloop van de periode een nieuwe weigering kwam, en kwam die er niet, dan nooit. Draait het event toch te vroeg (bijvoorbeeld na uit- en weer aanzetten), dan plant het zich opnieuw in op het eind van de periode.
 - Anti-spam: het tijdstip van de vorige mail wordt pas opgeslagen als `wp_mail()` lukt. Eerst gebeurde dat vóór het versturen, dus bij een mislukte mail (bijvoorbeeld een SMTP-fout) gingen de regels erin verloren. Nu blijft het vorige tijdstip staan en komt er een nieuwe poging over een periode, met dezelfde regels plus wat er intussen bij kwam. Staat de mail uit of is er niets te melden, dan wordt het tijdstip zoals eerst wel bijgewerkt.
 - Testgevallen in `tests/anti-spam-rapport.php`.
+- AI-bots: telt ook de bezoekers die via een AI-antwoord binnenkomen (verwijzer of `utm_source` van ChatGPT, Perplexity, Gemini, Copilot, Claude en andere), per bron en per landingspagina, bovenaan het AI-bots-scherm. Telt in de browser via `admin-ajax.php`, zodat gecachete pagina's meetellen; zonder cookies en zonder IP-adres. Zie "AI-bots: bezoekers vanuit AI-antwoorden". Testgevallen in `tests/ai-bots-bezoek.php`.
+- AI-bots: het opschonen na zes maanden kijkt naar de maand aan het eind van de optienaam, zodat ook de bezoekerslogs na zes maanden weggaan.
 
 ### 1.20.0
 

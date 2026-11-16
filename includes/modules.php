@@ -141,7 +141,7 @@ function mm_toolkit_modules() {
 		),
 		'ai_bots'           => array(
 			'naam'            => 'AI-bots',
-			'uitleg'          => 'Houdt per maand bij welke AI-crawlers de site bezoeken. Hoort bij de GEO-check.',
+			'uitleg'          => 'Houdt per maand bij welke AI-crawlers de site bezoeken en hoeveel bezoekers via een AI-antwoord binnenkomen. Hoort bij de GEO-check.',
 			'bestand'         => 'ai-bots.php',
 			'standaard'       => false,
 			'losse_mu'        => 'mediamora-ai-bots.php',
