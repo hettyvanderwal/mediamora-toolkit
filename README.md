@@ -17,7 +17,7 @@ De vaste Mediamora-onderdelen in één WordPress-plugin. Elk onderdeel is een mo
 | QUIC.cloud en kritieke CSS | Snelheid | uit | testcode in `functions.php` (REST-uitzondering, `mm_ccss_zonder_noscript`) |
 | Schema op alle pagina's | Vindbaarheid | aan, doet niets zonder Rank Math | nieuw |
 | Afbeeldingen: ruimte en voorrang | Snelheid | aan, doet niets zonder Elementor | testcode in `functions.php` (`mm_ig_elementor_img_attrs`) |
-| Lettertype voorladen | Snelheid | aan, doet niets zonder lokale Google Fonts in Elementor | nieuw |
+| Lettertype voorladen | Snelheid | uit, per site aanzetten bij layout shift door een webfont | nieuw |
 | Elementor: oude versies tegenhouden | Beveiliging | aan, doet niets zonder Elementor | nieuw |
 | Verweesde meta opruimen | Mediamora | aan, alleen met Onderhoudsklant | nieuw |
 | Instagram-feed | Koppelingen | uit, per site aanzetten | nieuw |
@@ -143,6 +143,8 @@ Elementor zet Google Fonts lokaal neer (optie `elementor_local_google_fonts` = `
 <link rel="preload" href="…/uploads/elementor/google-fonts/fonts/montserrat-49e242af.woff2" as="font" type="font/woff2" crossorigin>
 ```
 
+Staat standaard uit, ook op sites die de toolkit al hadden: een font-preload deelt de bandbreedte met de CSS en maakt de eerste weergave iets trager (zie de meting hieronder). Aanzetten als mobiele PageSpeed bij Layout shift-oorzaken een webfont uit `uploads/elementor/google-fonts/` aanwijst, en het verspringende element in het tekstlettertype van de kit staat; staat het in het kopletterype, dan ook het vinkje voor het kopletterype. Vóór en na meten en weer uitzetten als FCP of LCP meer verslechteren dan de CLS-winst waard is, vooral op pagina's met een hero-afbeelding als LCP (die concurreert met Hero-preload). Vastzetten kan met `MM_TOOLKIT_MODULE_FONT_PRELOAD`.
+
 - Welk lettertype: de typografie `text` uit de actieve kit (`elementor_active_kit` > `_elementor_page_settings` > `system_typography`), en als daar geen lettertype in staat `secondary`. Alleen een Google Font volgens `\Elementor\Fonts::get_font_type()`; bij een systeem- of eigen lettertype, met lokale fonts uit of met Google Fonts helemaal uit (`elementor_google_font` = `0`) gebeurt er niets.
 - Welk bestand: uit `uploads/elementor/google-fonts/css/<familie>.css` (kleine letters, zonder spaties: `montserrat.css`, `kleeone.css`) het `@font-face`-blok waarvan de `unicode-range` met `U+0000-00FF` begint (latin), met de stijl en het gewicht uit de kit. Leeg of `normal` is 400, `bold` 700; een bereik als `100 900` telt ook. Let op de stijl: Elementor zet de cursieve blokken vóór de rechte, en bij een variabel lettertype hebben alle gewichten van een stijl hetzelfde bestand. Op geertjedokter.nl is het rechte latin-bestand van Montserrat `montserrat-49e242af.woff2`, het cursieve `montserrat-76393105.woff2`.
 - Eén bestand: meer preloads concurreren met de CSS en de hero-preload. Op het tabblad Snelheid staat bij de module het vinkje "Ook het kopletterype voorladen" (optie `mm_font_preload_kop`, standaard uit); dan komt `primary` erbij, als dat een ander bestand is.
@@ -227,8 +229,8 @@ De user meta `mm_verloopt_op` en `mm_overdragen_aan` blijven altijd staan. Worde
 
 ### 1.23.0
 
-- Nieuwe module Lettertype voorladen (`font_preload`) op het tabblad Snelheid, standaard aan. Zet één preload in de head voor het woff2-bestand (latin-subset) van het tekstlettertype uit de Elementor-kit, als Elementor de Google Fonts lokaal heeft staan. Voorkomt de layout shift die ontstaat als het lettertype met `font-display: swap` pas na de eerste weergave binnenkomt. Optioneel ook het kopletterype. Zie "Lettertype voorladen".
-- Testgevallen in `tests/font-preload.php`.
+- Nieuwe module Lettertype voorladen (`font_preload`) op het tabblad Snelheid, standaard uit, ook na de update op bestaande sites. Zet één preload in de head voor het woff2-bestand (latin-subset) van het tekstlettertype uit de Elementor-kit, als Elementor de Google Fonts lokaal heeft staan. Voorkomt de layout shift die ontstaat als het lettertype met `font-display: swap` pas na de eerste weergave binnenkomt. Optioneel ook het kopletterype. Zie "Lettertype voorladen".
+- Testgevallen in `tests/font-preload.php` en `tests/font-preload-toolkit.php`.
 
 ### 1.22.0
 
@@ -421,7 +423,7 @@ Fixes uit de tweede codereview.
 
 ## Release maken
 
-Eerst de testgevallen draaien (`php tests/anti-spam-links.php`, `php tests/anti-spam-rapport.php`, `php tests/tijdelijke-accounts.php`, `php tests/tijdelijke-accounts-toolkit.php`, `php tests/afbeeldingstitels.php`, `php tests/afbeeldingstitels-toolkit.php`, `php tests/schema-persoon.php`, `php tests/ai-bots-bezoek.php` en `php tests/font-preload.php`) en `php -l` op alle bestanden.
+Eerst de testgevallen draaien (`php tests/anti-spam-links.php`, `php tests/anti-spam-rapport.php`, `php tests/tijdelijke-accounts.php`, `php tests/tijdelijke-accounts-toolkit.php`, `php tests/afbeeldingstitels.php`, `php tests/afbeeldingstitels-toolkit.php`, `php tests/schema-persoon.php`, `php tests/ai-bots-bezoek.php`, `php tests/font-preload.php` en `php tests/font-preload-toolkit.php`) en `php -l` op alle bestanden.
 
 1. Versie ophogen op twee plekken in `mediamora-toolkit.php`: `Version:` in de kop en `MM_TOOLKIT_VERSIE`. Of een update wordt aangeboden hangt alleen af van `Version:` in de kop; de constante wordt gelijk gehouden voor de rest, zoals de mailheader van de Formuliermonitor.
 2. Bestanden uploaden naar de repo.

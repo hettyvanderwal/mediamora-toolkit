@@ -258,9 +258,9 @@ function mm_toolkit_modules() {
 		),
 		'font_preload'      => array(
 			'naam'            => 'Lettertype voorladen',
-			'uitleg'          => 'Laadt het woff2-bestand van het tekstlettertype uit de Elementor-kit vooraf (alleen de latin-subset, in het gewicht en de stijl van de kit), zodat de alinea\'s op mobiel niet opnieuw worden opgemaakt als het lettertype binnenkomt. Dat scheelt layout shift (CLS). Eén bestand, om niet te concurreren met de CSS en de hero-preload. Alleen voor Google Fonts die Elementor lokaal heeft staan; doet niets bij een systeem- of eigen lettertype.',
+			'uitleg'          => 'Laadt het woff2-bestand van het tekstlettertype uit de Elementor-kit vooraf (alleen de latin-subset, in het gewicht en de stijl van de kit), zodat de alinea\'s op mobiel niet opnieuw worden opgemaakt als het lettertype binnenkomt. Dat scheelt layout shift (CLS). Eén bestand, om niet te concurreren met de CSS en de hero-preload. Alleen voor Google Fonts die Elementor lokaal heeft staan; doet niets bij een systeem- of eigen lettertype. Staat standaard uit, want een font-preload maakt de eerste weergave iets trager: alleen aanzetten als mobiele PageSpeed een layout shift door een webfont uit uploads/elementor/google-fonts/ laat zien, en vóór en na meten.',
 			'bestand'         => 'font-preload.php',
-			'standaard'       => true,
+			'standaard'       => false,
 			'losse_mu'        => '',
 			'losse_plugin'    => '',
 			'merkteken'       => array(),

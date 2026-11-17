@@ -24,6 +24,10 @@
  *
  * Doet niets zonder lokale Google Fonts, bij een systeem- of eigen lettertype,
  * of als het bestand niet op schijf staat.
+ *
+ * Staat standaard uit: de preload deelt de bandbreedte met de CSS en maakt de
+ * eerste weergave iets trager (op geertjedokter.nl +0,24 s FCP). Alleen
+ * aanzetten als mobiele PageSpeed een layout shift door een webfont laat zien.
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
