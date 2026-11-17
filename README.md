@@ -150,7 +150,8 @@ Elementor zet Google Fonts lokaal neer (optie `elementor_local_google_fonts` = `
 - Het woff2-bestand moet op schijf staan, anders komt er geen preload (geen 404-preload). De controle gebeurt bij elk verzoek, ook als de url uit de cache komt.
 - Alleen op de voorkant: niet in wp-admin, bij REST, AJAX en feeds, en niet in de editor of het voorbeeld van Elementor.
 - Status: `mm_toolkit_status()['font_preload']` zoals bij de andere modules (`gewild`, `vast`, `los`, `laden`). In de statuskolom staat welk bestand wordt voorgeladen, of waarom niet.
-- LiteSpeed Cache laat de regel ongemoeid, ook met Guest Mode en `optm-guest_only` aan; na aanzetten de LiteSpeed-cache legen.
+- LiteSpeed Cache laat de regel ongemoeid: nagekeken op geertjedokter.nl met LiteSpeed 7.9.3, HTML minify en `optm-guest_only` aan, bij een cache-miss en bij hits. Na aanzetten de LiteSpeed-cache legen.
+- Wat het oplevert (geertjedokter.nl, 17 nov 2026, Lighthouse 12.8.2 mobiel met echte throttling, mediaan van vier metingen, module om en om uit en aan): CLS van 0,136 naar 0,001, FCP en LCP van 2,64 naar 2,88 s, score van 73 naar 76. De preload deelt de bandbreedte met de CSS, dus de eerste weergave komt iets later; `fetchpriority="low"` op de preload maakte geen verschil. Daar zat de rem in `kleeone.css` van Elementor: 248 `@font-face`-blokken (Japanse subsets), 56 KB over de lijn en render-blocking.
 
 ## Persoon in schema
 
