@@ -351,7 +351,7 @@ function mm_toolkit_modules() {
 		// de graph of er al een persoon staat en doet dan niets.
 		'schema_persoon'    => array(
 			'naam'            => 'Persoon in schema',
-			'uitleg'          => 'Voor praktijken die op één persoon draaien: zet de therapeut of coach als Person in het schema van Rank Math, met functie, opleiding, lidmaatschap, profielen en foto, en koppelt die aan de organisatie (worksFor, en founder of employee op de organisatie). Op alle pagina\'s met de algemene graph, ook samen met Schema op alle pagina\'s. Doet niets zonder Rank Math, zonder Organization in de graph, als de site in Rank Math zelf een persoon is, of als er al een persoon in het schema staat. Gegevens hieronder in te vullen na het aanzetten.',
+			'uitleg'          => 'Zet de therapeut, coach of de mensen van het team als Person in het schema van Rank Math, met functie, titels, vakgebieden, registraties, opleidingen, lidmaatschappen, talen, profielen en foto, en koppelt ze aan de organisatie (worksFor, en founder of employee op de organisatie). Gekoppeld aan een WordPress-gebruiker wordt de persoon ook de auteur van diens blogberichten, in plaats van de losse auteur van Rank Math. Op alle pagina\'s met de algemene graph, ook samen met Schema op alle pagina\'s. Doet niets zonder Rank Math, zonder Organization in de graph, als de site in Rank Math zelf een persoon is, of als er al een persoon in het schema staat. Gegevens hieronder in te vullen na het aanzetten.',
 			'bestand'         => 'schema-persoon.php',
 			'standaard'       => false,
 			'losse_mu'        => '',

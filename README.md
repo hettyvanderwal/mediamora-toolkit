@@ -157,26 +157,48 @@ Staat standaard uit, ook op sites die de toolkit al hadden: een font-preload dee
 
 ## Persoon in schema
 
-Voor praktijken die op één persoon draaien (therapeuten, coaches). De module zet de persoon als Person in het schema van Rank Math en koppelt die aan de Organization. De gegevens staan op het tabblad Vindbaarheid onder de moduletabel, zodra de module aan staat, met een eigen formulier (`manage_options`, nonce `mm_schema_persoon_opslaan`). Ze komen in de optie `mm_schema_persoon` (autoload).
+Voor praktijken met één persoon (therapeuten, coaches) of een team (verloskundigen, fysiotherapie, accountants, opleidingsinstituten). De module zet elke persoon als Person in het schema van Rank Math en koppelt die aan de Organization. De gegevens staan op het tabblad Vindbaarheid onder de moduletabel, zodra de module aan staat, met een eigen formulier (`manage_options`, nonce `mm_schema_persoon_opslaan`). Ze komen in de optie `mm_schema_persoon` (autoload), als `personen` (de lijst) en `praktijk`.
+
+Per persoon een blok met deze velden. Met Persoon toevoegen komt er een blok bij; met Omhoog, Omlaag en Verwijderen bepaal je de lijst. Er verandert pas iets bij Gegevens opslaan.
 
 | Veld | In het schema | |
 |---|---|---|
-| Naam | `name` | verplicht; zonder naam komt er niets in het schema |
+| Naam | `name` | verplicht; blokken zonder naam vallen weg bij opslaan |
+| Titel vóór de naam | `honorificPrefix` | bijvoorbeeld dr. |
+| Titel na de naam | `honorificSuffix` | bijvoorbeeld RA, MSc, PhD |
 | Functie | `jobTitle` | |
 | Omschrijving van de persoon | `description` | |
 | Pagina over de persoon | `url` | bijvoorbeeld de Over-pagina |
-| Opleiding of instituut, naam + URL | `alumniOf` (`EducationalOrganization`) | de URL telt alleen met een naam |
-| Lid van, naam + URL | `memberOf` (`Organization`) | beroepsvereniging of netwerk; de URL telt alleen met een naam |
-| Profielen, één URL per regel | `sameAs` | alleen http(s), dubbele regels vallen weg |
+| Vakgebieden, één per regel | `knowsAbout` | altijd een lijst |
+| Registraties, één per regel: `Naam \| Erkend door \| URL` | `hasCredential` (`EducationalOccupationalCredential`, met `recognizedBy` als `Organization`) | BIG, KNGF, kwaliteitsregisters, NFG, RA; de URL is optioneel en telt alleen met Erkend door |
+| Opleidingen, één per regel: `Naam \| URL` | `alumniOf` (`EducationalOrganization`) | de URL is optioneel en telt alleen met een naam |
+| Lid van, één per regel: `Naam \| URL` | `memberOf` (`Organization`) | beroepsvereniging of netwerk |
+| Talen, één taalcode per regel | `knowsLanguage` | BCP 47 (`nl`, `en`, `nl-BE`); andere regels vallen weg; altijd een lijst |
+| Profielen, één URL per regel | `sameAs` | alleen http(s), dubbele regels vallen weg; altijd een lijst |
 | Foto uit de mediabibliotheek | `image` | de URL van het origineel |
 | Rol bij de praktijk | `founder` of `employee` op de Organization | standaard founder |
-| Omschrijving van de praktijk | `description` op de Organization | vervangt dan wat Rank Math daar zet |
+| WordPress-gebruiker | | optioneel, zie "Koppeling met de blogschrijver" |
 
-- Uitvoer: een Person-node met `@id` `home_url( '/#persoon' )` en `worksFor` naar het `@id` van de Organization, en op de Organization `founder` (of `employee`) naar `#persoon`. Lege velden blijven weg.
+Eén keer voor de hele praktijk: Omschrijving van de praktijk, als `description` op de Organization (vervangt dan wat Rank Math daar zet).
+
+- Uitvoer: per persoon een Person-node met `worksFor` naar het `@id` van de Organization. De eerste persoon in de lijst (met een naam) krijgt `@id` `home_url( '/#persoon' )`, de volgende `home_url( '/#persoon-<slug van de naam>' )`, met `-2`, `-3` erachter als twee personen dezelfde naam hebben. Een andere naam geeft dus een ander `@id`, behalve bij de eerste. Lege velden blijven weg.
+- Op de Organization: `founder` en `employee` naar de personen met die rol, als enkele verwijzing (`{"@id": ...}`) bij één persoon en als lijst bij meer. Bij herhaalbare velden met organisaties (`alumniOf`, `memberOf`, `hasCredential`) hetzelfde: één regel geeft een object, meer regels een lijst.
 - Waar: in het filter `rank_math/json_ld`, dus overal waar Rank Math de algemene graph zet, ook op de pagina's die Schema op alle pagina's erbij haalt. Het filter wordt pas op `plugins_loaded` gezet en alleen als `RANK_MATH_VERSION` bestaat.
 - De Organization wordt gevonden op `@id` `home_url( '/#organization' )`, en anders als de `publisher` van Rank Math zolang die geen Person is. Staat er geen Organization in de graph, of is de site in Rank Math een persoon (`knowledgegraph_type` `person` in `rank-math-options-titles`), dan doet de module niets.
-- Niets dubbel: staat er al een node met `@id` `#persoon` in de graph, of heeft de Organization al een `founder` of `employee`, dan doet de module niets. Dat vangt ook losse code met een eigen `@id` (zoals `#naam`). Het filter draait daarom op prioriteit 9999, na Rank Math en na de meeste losse code. Wat de module bij de laatste weergave zag, staat in de optie `mm_schema_persoon_bezet` (`1` of `0`, autoload, alleen geschreven als het verandert); de statuskolom meldt dan "Doet niets: ... waarschijnlijk losse code". Door de paginacache kan die melding een weergave achterlopen.
-- Overstappen van losse code: gegevens invullen, module aanzetten, de losse code uit `functions.php` halen, cache legen. Zolang de losse code er staat, blijft die gewoon werken en doet de module niets. Let op: het `@id` van de persoon wordt `#persoon`, ook als de losse code een ander `@id` had.
+- Niets dubbel: staat er al een node met een van de `@id`'s van de module in de graph, of heeft de Organization al een `founder` of `employee`, dan doet de module niets, ook geen auteurskoppeling. Dat vangt ook losse code met een eigen `@id` (zoals `#naam`). Het filter draait daarom op prioriteit 9999, na Rank Math en na de meeste losse code. Wat de module bij de laatste weergave zag, staat in de optie `mm_schema_persoon_bezet` (`1` of `0`, autoload, alleen geschreven als het verandert); de statuskolom meldt dan "Doet niets: ... waarschijnlijk losse code". Door de paginacache kan die melding een weergave achterlopen. Anders noemt de statuskolom de naam, of het aantal personen.
+- Overstappen van losse code: gegevens invullen, module aanzetten, de losse code uit `functions.php` halen, cache legen. Zolang de losse code er staat, blijft die gewoon werken en doet de module niets. Let op: het `@id` van de eerste persoon wordt `#persoon`, ook als de losse code een ander `@id` had.
+
+### Koppeling met de blogschrijver
+
+Rank Math zet op elk bericht en elke pagina een eigen Person voor de schrijver, onder de sleutel `ProfilePage` in `rank_math/json_ld`, met als `@id` de auteurs-URL (`get_author_posts_url()`, met de versleutelde slug van ASE Obfuscate Author Slugs als dat aan staat), of de pagina-URL met `#author` als de auteursarchieven in Rank Math uit staan. Het BlogPosting (of Article, NewsArticle) wijst daarmee als `author` naar die Person. Wijst niets ernaar, zoals op gewone pagina's, dan haalt Rank Math die Person later zelf weg (`remove_person_entity` op `rank_math/schema/validated_data`).
+
+Is een persoon gekoppeld aan een WordPress-gebruiker, dan zoekt de module in de graph op die `@id`'s, niet op de sleutel. De Person van Rank Math gaat eruit, en elke verwijzing naar dat `@id`, ook dieper in de graph, wordt een verwijzing naar het `@id` van de persoon (met de naam van de persoon als de verwijzing een `name` had). Er blijft dan één Person per persoon over. Het `#author`-`@id` telt alleen op een bericht of pagina van die gebruiker; bij een bericht van iemand anders blijft diens Person staan.
+
+Op het auteursarchief van de gebruiker is de Person van Rank Math de `mainEntityOfPage` van de ProfilePage. Daar gaat de Person er ook uit, en krijgt de ProfilePage `mainEntity` naar de persoon.
+
+### Omzetten van 1.20 t/m 1.23
+
+Tot 1.23 stond er in `mm_schema_persoon` één persoon met platte velden (`naam`, `opleiding_naam`, `opleiding_url`, `lid_naam`, `lid_url` en dergelijke). De module leest dat formaat nog steeds en zet het bij het lezen om: één persoon, waarbij opleiding en lidmaatschap de eerste regel van Opleidingen en Lid van worden (ook een losse URL zonder naam blijft bewaard). De uitvoer blijft daarmee letterlijk gelijk aan die van 1.23 zolang er niets nieuws is ingevuld; `tests/schema-persoon.php` vergelijkt dat met de uitvoer van 1.23.0. In het nieuwe formaat opgeslagen wordt pas bij Gegevens opslaan, zodat terug naar 1.23 tot dat moment zonder verlies kan. Na opslaan leest 1.23 de gegevens niet meer.
 
 ## Instagram-feed
 
@@ -226,6 +248,14 @@ Verwijderen via Plugins ruimt alles op: de opties en transients van de toolkit e
 De user meta `mm_verloopt_op` en `mm_overdragen_aan` blijven altijd staan. Worden ze weggehaald en wordt de toolkit daarna opnieuw geïnstalleerd, bijvoorbeeld om een zip te vervangen, dan worden tijdelijke accounts stil vaste accounts.
 
 ## Wijzigingen
+
+### 1.24.0
+
+- Persoon in schema: meerdere personen in plaats van één, elk met een rol (founder of employee). De eerste houdt `@id` `#persoon`, de volgende krijgen `#persoon-<naam>`. Op de Organization worden `founder` en `employee` een lijst bij meer personen.
+- Persoon in schema: per persoon een koppeling met een WordPress-gebruiker. Op berichten van die schrijver verdwijnt de losse auteur-Person van Rank Math en wijst de `author` naar de persoon, zodat iedereen maar één keer in het schema staat. Ook op het auteursarchief.
+- Persoon in schema: nieuwe velden voor titels vóór en na de naam (`honorificPrefix`, `honorificSuffix`), vakgebieden (`knowsAbout`), registraties (`hasCredential`) en talen (`knowsLanguage`); opleidingen en lidmaatschappen zijn herhaalbaar.
+- De gegevens van 1.20 t/m 1.23 worden automatisch omgezet; de uitvoer blijft gelijk zolang er niets nieuws is ingevuld. Zie "Persoon in schema".
+- Testgevallen in `tests/schema-persoon.php` uitgebreid.
 
 ### 1.23.0
 
