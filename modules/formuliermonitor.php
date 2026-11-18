@@ -12,13 +12,8 @@ const MM_MONITOR_OPTIE_TELLER = 'mm_monitor_teller';
 const MM_MONITOR_OPTIE_LOG    = 'mm_monitor_log';
 const MM_MONITOR_LOG_MAX      = 20;
 
-/**
- * Ontvanger van de meldingen.
- * Te overschrijven per site via wp-config.php.
- */
-if ( ! defined( 'MM_MONITOR_ONTVANGER' ) ) {
-	define( 'MM_MONITOR_ONTVANGER', 'hetty@mediamora.nl' );
-}
+// De ontvanger van de meldingen, MM_MONITOR_ONTVANGER, staat sinds 1.25.0 in
+// includes/ontvanger.php. Per site te overschrijven via wp-config.php.
 
 /**
  * Maximaal aantal meldingen per site per dag.

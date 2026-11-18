@@ -329,6 +329,23 @@ function mm_toolkit_modules() {
 			'tabblad'         => 'mediamora',
 			'onderhoud'       => false,
 		),
+		// Op het tabblad Mediamora, maar niet onder Onderhoudsklant: de module
+		// sluit juist een opgezegd pakket af, en moet dus ook draaien als die
+		// schakelaar intussen uit is gezet.
+		'einddatum'         => array(
+			'naam'            => 'Afsluiten op einddatum',
+			'uitleg'          => 'Voor een opgezegd onderhoudspakket. Op de ingestelde einddatum wist de site zelf de remote opslag, de back-upschema\'s en de koppeling met het Pro-account in WPvivid, haalt WPvivid Plugins Pro, WPvivid Backup Plugin, MainWP Child Reports en MainWP Child eraf, mailt Mediamora het resultaat en verwijdert daarna zichzelf. Draait via WP-cron, dus zonder dat er iemand hoeft in te loggen. Met de proefdraai is vooraf te zien wat er zou gebeuren.',
+			'bestand'         => 'einddatum.php',
+			'standaard'       => false,
+			'losse_mu'        => '',
+			'losse_plugin'    => '',
+			'merkteken'       => array(),
+			'scherm'          => '',
+			'vereist'         => '',
+			'thema_merkteken' => '',
+			'tabblad'         => 'mediamora',
+			'onderhoud'       => false,
+		),
 		// Geen merkteken voor de tijdelijke code op drentz.nl: die staat in
 		// functions.php, laadt na de plugins en slaat zichzelf over zodra deze
 		// module mm_verberg_afbeeldingstitel heeft gedefinieerd.

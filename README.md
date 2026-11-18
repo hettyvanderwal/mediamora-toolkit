@@ -24,6 +24,7 @@ De vaste Mediamora-onderdelen in één WordPress-plugin. Elk onderdeel is een mo
 | Tijdelijke accounts | Mediamora | aan, ook zonder Onderhoudsklant | mu-plugin `mediamora-tijdelijke-accounts.php` |
 | Afbeeldingstitels verbergen | Vindbaarheid | aan, doet niets zonder Elementor | tijdelijke code in `functions.php` (`mm_verberg_afbeeldingstitel`) |
 | Persoon in schema | Vindbaarheid | uit, per site aanzetten en invullen | losse code in `functions.php` (Person-node in `rank_math/json_ld`) |
+| Afsluiten op einddatum | Mediamora | uit, aanzetten bij een opgezegd onderhoudspakket, ook zonder Onderhoudsklant | nieuw |
 
 ## Tabbladen en Onderhoudsklant
 
@@ -237,17 +238,47 @@ Naast de crawlers telt de module de mensen die via een AI-antwoord op de site ko
 - Een dienst toevoegen of aanpassen kan op één plek: `mm_aibots_bronnen()` in `modules/ai-bots.php`. Script en server lezen allebei die lijst.
 - Opschonen na zes maanden en verwijderen bij uninstall gaan mee met de crawlerlogs.
 
+## Afsluiten op einddatum
+
+Voor een onderhoudsklant die opzegt. Op het tabblad Mediamora vul je één datum in, **Einddatum onderhoud**; op die datum haalt de site zelf de onderhoudsplugins eraf en daarna de toolkit. Er hoeft dan niemand meer in te loggen, dus het werkt ook als de klant het account van Mediamora al eerder heeft weggehaald. De module staat standaard uit en valt niet onder Onderhoudsklant: hij moet ook draaien als die schakelaar intussen uit staat.
+
+**Instellen.** Zet de module aan en vul de datum in onder de moduletabel (optie `mm_einddatum`, `JJJJ-MM-DD`). Leeg betekent niets gepland; leegmaken en opslaan annuleert en wist de voortgang. Een datum van vandaag of eerder wordt pas opgeslagen na een extra vinkje, zodat een tikfout niet meteen alles wist; daarna start de eerste ronde binnen een minuut (bij het eerstvolgende bezoek). Onder het veld staat welke plugins er op de site gevonden zijn en wat er in WPvivid gewist wordt. Alleen voor `@mediamora.nl`-gebruikers, net als de rest van het tabblad.
+
+**Proefdraai.** De knop loopt alles na zonder iets te wijzigen: datum en tijdzone, of de dagelijkse controle is ingepland, `DISABLE_WP_CRON`, de gevonden plugins met versie en stand, de remotes, schema's, Pro-koppeling en geplande taken van WPvivid, of het bestandssysteem `direct` is, en naar welk adres de mail gaat.
+
+**Uitvoeren.** Dagelijkse cron `mm_einddatum_controle` om 00:10 in de tijdzone van de site, alleen zolang er een datum staat. Vanaf de datum, met een transient-slot `mm_einddatum_slot` tegen een dubbele aanroep:
+
+1. WPvivid wissen, rechtstreeks in de opties, ook als WPvivid niet actief is: de remotes uit `wpvivid_upload_setting` (alles met een `type`; de S3-sleutels staan daarin), `remote_selected` in `wpvivid_user_history`, de schema's (`wpvivid_schedule_setting`, `wpvivid_schedule_addon_setting`, `wpvivid_incremental_schedules`), de koppeling met het Pro-account (`wpvivid_pro_user`, `wpvivid_connect_key`, `wpvivid_dashboard_info`) en de overzetsleutels (`wpvivid_api_token`, `wpvivid_saved_api_token`). Ook de kopieën van de remote-instellingen gaan eruit: WPvivid zet die per back-up in `wpvivid_backup_list` en in Pro in `wpvivid_new_remote_list` (onder `remote`), en per taak in `wpvivid_task_list` en `wpvivid_exporter_task_list` (onder `remote_options`). Omdat Pro eigen lijsten kan hebben, zoekt de module in alle opties met `wpvivid_` ervoor en in de tabel `wpvivid_options` naar `remote_options` en naar alles wat op een remote lijkt (een `type` met een sleutel, token of wachtwoord). De lijsten zelf blijven staan. Alle geplande taken waarvan de hook met `wpvivid` begint, worden afgemeld, dus ook `wpvivid_main_schedule_event` en `wpvivid_schedule_event<id>` van Pro, plus de taken die als hook het ID van een schema van Pro hebben (ook de incrementele). De namen zijn nagelopen in de broncode van WPvivid Backup Plugin 0.9.140 en in de broncode en database van WPvivid Plugins Pro 2.2.54. Zijn beide WPvivid-plugins weg, dan gaan daarna ook alle andere opties met `wpvivid_` ervoor en de tabel `wpvivid_options` weg.
+2. WPvivid Plugins Pro en daarna WPvivid Backup Plugin deactiveren en verwijderen.
+3. MainWP Child Reports en daarna MainWP Child deactiveren en verwijderen.
+4. Een mail naar `MM_MONITOR_ONTVANGER`, hetzelfde adres als de Formuliermonitor (per site te overschrijven in `wp-config.php`): domein, einddatum, per plugin verwijderd, niet gevonden, alleen gedeactiveerd of mislukt (met de melding), of het wissen in WPvivid gelukt is en wat er gewist is, en als laatste regel dat de site uit het MainWP-dashboard moet en het klantrecord in de Projecten-tool op pakket geen. Eerst via `wp_mail()`, en lukt dat niet via `mail()` van de hosting, zoals de Formuliermonitor.
+5. De toolkit deactiveren (de gewone haak ruimt de events en de `.htaccess`-blokken op) en verwijderen; `uninstall.php` ruimt de rest op, ook de opties van deze module.
+
+Plugins worden herkend op de naam in de pluginkop, en anders op het vaste bestand (`wpvivid-backup-pro/wpvivid-backup-pro.php`, `wpvivid-backuprestore/wpvivid-backuprestore.php`, `mainwp-child-reports/mainwp-child-reports.php`, `mainwp-child/mainwp-child.php`). Zo wordt ook een plugin in een andere map gevonden.
+
+Elke stap kijkt eerst naar de toestand en kan dus veilig nog een keer draaien; de voortgang staat in `mm_einddatum_stand`. Waren er in de ronde plugins actief, dan zit hun code nog in het geheugen. Daarom gaat het na stap 3 verder in een nieuw verzoek, het event `mm_einddatum_vervolg` twee minuten later: daar draait stap 1 nog een keer, wordt de rest van WPvivid opgeruimd, nagekeken en gemaild.
+
+**Zonder directe schrijftoegang.** Heeft WordPress in de cron geen methode `direct` in `WP_Filesystem` (bijvoorbeeld `FS_METHOD` op `ftpext`), dan worden de plugins alleen gedeactiveerd en staat dat in de mail. De toolkit blijft dan staan en probeert het elke nacht opnieuw. Dezelfde uitkomst wordt maar één keer gemaild; verandert er iets, dan volgt een nieuwe mail. Ook als de mail mislukt blijft de toolkit staan: hij verwijdert zichzelf pas als de eindstand gemaild is.
+
+Niet op een multisite. Bewust niet: de achtergebleven gegevens van MainWP Child (opties `mainwp_*`, tabellen `mainwp_child_changes_*`, `mainwp_stream`), het leegmaken van de S3-map en de lokale back-ups in `wp-content/wpvividbackups`. Let op: een databaseback-up daarin, en elke back-up die al in de bucket staat, bevat een kopie van de S3-instellingen van dat moment. Dat blijft werk voor de offboarding.
+
 ## Deactiveren en verwijderen
 
-Deactiveren haalt alleen de cron-events (ook die van Verweesde meta opruimen, de Instagram-feed, Tijdelijke accounts en de dagelijkse opschoning van de anti-spamlogs) en de blokken van de toolkit uit `.htaccess` weg, en leegt de element cache van Elementor en de LiteSpeed-cache als Afbeeldingstitels verbergen aan stond. Instellingen en logs blijven staan.
+Deactiveren haalt alleen de cron-events (ook die van Verweesde meta opruimen, de Instagram-feed, Tijdelijke accounts, Afsluiten op einddatum en de dagelijkse opschoning van de anti-spamlogs) en de blokken van de toolkit uit `.htaccess` weg, en leegt de element cache van Elementor en de LiteSpeed-cache als Afbeeldingstitels verbergen aan stond. Instellingen en logs blijven staan.
 
 Een module uitvinken ruimt alleen op wat zonder de module blijft doorlopen: de cron-events, bij Preview-link de sleutel `mm_preview_key` (alle links vervallen) en bij Afbeeldingstitels verbergen de caches. Gedeelde gegevens blijven staan zolang de losse versie van die module nog op de site staat, actief of niet.
 
-Verwijderen via Plugins ruimt alles op: de opties en transients van de toolkit en de modules (ook `mm_toolkit_onderhoudsklant`), de cron-events, de alt-tekstkenmerken (`_mm_alt_*`, de alt-teksten zelf blijven staan), de productmeta van Herroepingsrecht (`_mm_withdrawal_type` en het oude vinkje `_mm_withdrawal_waiver_applies`; de teksten `_mm_withdrawal_waiver` en `_mm_service_consent` op bestellingen blijven altijd staan, dat is het bewijs van de instemming), de opties van Verweesde meta opruimen, de opties en de fotomap `uploads/mediamora-instagram` van de Instagram-feed, de mailinstelling van Tijdelijke accounts, de stand van Afbeeldingstitels verbergen, de gegevens van Persoon in schema (`mm_schema_persoon`, `mm_schema_persoon_bezet`), de `.htaccess`-blokken en de logmap van de anti-spam met de inzendingen erin. Kan de logmap niet worden weggehaald, dan blijft de optie `mediamora_antispam_log_dir` staan, zodat te vinden is waar hij staat. Staat de losse versie van een module nog op de site, als plugin of mu-plugin en actief of niet, dan blijft alles van die module staan, want de losse versie gebruikt dezelfde gegevens. Dat werkt ook met `wp plugin uninstall --deactivate`, waarbij de toolkit in hetzelfde verzoek nog geladen is.
+Verwijderen via Plugins ruimt alles op: de opties en transients van de toolkit en de modules (ook `mm_toolkit_onderhoudsklant`), de cron-events, de alt-tekstkenmerken (`_mm_alt_*`, de alt-teksten zelf blijven staan), de productmeta van Herroepingsrecht (`_mm_withdrawal_type` en het oude vinkje `_mm_withdrawal_waiver_applies`; de teksten `_mm_withdrawal_waiver` en `_mm_service_consent` op bestellingen blijven altijd staan, dat is het bewijs van de instemming), de opties van Verweesde meta opruimen, de opties en de fotomap `uploads/mediamora-instagram` van de Instagram-feed, de mailinstelling van Tijdelijke accounts, de stand van Afbeeldingstitels verbergen, de gegevens van Persoon in schema (`mm_schema_persoon`, `mm_schema_persoon_bezet`), de einddatum en voortgang van Afsluiten op einddatum (`mm_einddatum`, `mm_einddatum_stand`), de `.htaccess`-blokken en de logmap van de anti-spam met de inzendingen erin. Kan de logmap niet worden weggehaald, dan blijft de optie `mediamora_antispam_log_dir` staan, zodat te vinden is waar hij staat. Staat de losse versie van een module nog op de site, als plugin of mu-plugin en actief of niet, dan blijft alles van die module staan, want de losse versie gebruikt dezelfde gegevens. Dat werkt ook met `wp plugin uninstall --deactivate`, waarbij de toolkit in hetzelfde verzoek nog geladen is.
 
 De user meta `mm_verloopt_op` en `mm_overdragen_aan` blijven altijd staan. Worden ze weggehaald en wordt de toolkit daarna opnieuw geïnstalleerd, bijvoorbeeld om een zip te vervangen, dan worden tijdelijke accounts stil vaste accounts.
 
 ## Wijzigingen
+
+### 1.25.0
+
+- Nieuwe module Afsluiten op einddatum (`einddatum`) op het tabblad Mediamora, standaard uit. Op de ingestelde einddatum wist de site de remote opslag, de back-upschema's en de Pro-koppeling in WPvivid, verwijdert WPvivid Plugins Pro, WPvivid Backup Plugin, MainWP Child Reports en MainWP Child, mailt het resultaat en verwijdert zichzelf. Met proefdraai en bevestiging bij een datum van vandaag of eerder. Zie "Afsluiten op einddatum".
+- Het meldingsadres `MM_MONITOR_ONTVANGER` staat nu in `includes/ontvanger.php` in plaats van in de module Formuliermonitor, zodat het ook bestaat als die module niet laadt. Overschrijven in `wp-config.php` werkt zoals eerst.
+- Testgevallen in `tests/einddatum.php`.
 
 ### 1.24.0
 
@@ -453,7 +484,7 @@ Fixes uit de tweede codereview.
 
 ## Release maken
 
-Eerst de testgevallen draaien (`php tests/anti-spam-links.php`, `php tests/anti-spam-rapport.php`, `php tests/tijdelijke-accounts.php`, `php tests/tijdelijke-accounts-toolkit.php`, `php tests/afbeeldingstitels.php`, `php tests/afbeeldingstitels-toolkit.php`, `php tests/schema-persoon.php`, `php tests/ai-bots-bezoek.php`, `php tests/font-preload.php` en `php tests/font-preload-toolkit.php`) en `php -l` op alle bestanden.
+Eerst de testgevallen draaien (`php tests/anti-spam-links.php`, `php tests/anti-spam-rapport.php`, `php tests/tijdelijke-accounts.php`, `php tests/tijdelijke-accounts-toolkit.php`, `php tests/afbeeldingstitels.php`, `php tests/afbeeldingstitels-toolkit.php`, `php tests/schema-persoon.php`, `php tests/ai-bots-bezoek.php`, `php tests/font-preload.php`, `php tests/font-preload-toolkit.php` en `php tests/einddatum.php`) en `php -l` op alle bestanden.
 
 1. Versie ophogen op twee plekken in `mediamora-toolkit.php`: `Version:` in de kop en `MM_TOOLKIT_VERSIE`. Of een update wordt aangeboden hangt alleen af van `Version:` in de kop; de constante wordt gelijk gehouden voor de rest, zoals de mailheader van de Formuliermonitor.
 2. Bestanden uploaden naar de repo.

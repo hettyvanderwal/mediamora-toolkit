@@ -140,6 +140,20 @@ function mm_toolkit_uninstall_site( $los ) {
 		wp_unschedule_hook( 'mm_tijdelijke_accounts_opruimen' );
 	}
 
+	// Afsluiten op einddatum: geen losse versie, dus altijd opruimen. Draait
+	// ook als de module zichzelf aan het eind verwijdert.
+	wp_unschedule_hook( 'mm_einddatum_controle' );
+	wp_unschedule_hook( 'mm_einddatum_vervolg' );
+	delete_option( 'mm_einddatum' );
+	delete_option( 'mm_einddatum_stand' );
+	delete_transient( 'mm_einddatum_slot' );
+	$namen = $wpdb->get_col(
+		"SELECT option_name FROM {$wpdb->options} WHERE option_name LIKE '\\_transient\\_mm\\_einddatum\\_proef\\_%' OR option_name LIKE '\\_transient\\_timeout\\_mm\\_einddatum\\_proef\\_%'"
+	);
+	foreach ( (array) $namen as $naam ) {
+		delete_option( $naam );
+	}
+
 	// Verweesde meta: geen losse versie, dus altijd opruimen.
 	wp_unschedule_hook( 'mm_meta_opruimen_wekelijks' );
 	wp_unschedule_hook( 'mm_meta_opruimen_vervolg' );
