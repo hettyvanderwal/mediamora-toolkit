@@ -423,6 +423,60 @@ mm_einddatum_uitvoeren();
 mm_einddatum_uitvoeren();
 klopt( is_dir( WP_CONTENT_DIR . '/mijnbackups' ), false, 'eigen map weg' );
 
+// --- Geneste back-upmap ------------------------------------------------------
+echo "Geneste back-upmap\n";
+klopt( mm_einddatum_backuppad( 'a/b' ), 'a/b', 'a/b blijft a/b' );
+klopt( mm_einddatum_backuppad( 'a\\b/' ), 'a/b', 'backslash en slash aan het eind' );
+klopt( mm_einddatum_backuppad( './a//b' ), 'a/b', 'punt en dubbele slash vallen weg' );
+klopt( mm_einddatum_backuppad( '../x' ), '', '../x geweigerd' );
+klopt( mm_einddatum_backuppad( 'a/../b' ), '', '.. halverwege geweigerd' );
+klopt( mm_einddatum_backuppad( 'uploads/x' ), '', 'uploads/x geweigerd' );
+klopt( mm_einddatum_backuppad( 'Plugins/x' ), '', 'Plugins/x geweigerd, ook met hoofdletter' );
+klopt( mm_einddatum_backuppad( '/var/backups' ), '', 'absoluut pad geweigerd' );
+klopt( mm_einddatum_backuppad( '.' ), '', 'wp-content zelf geweigerd' );
+
+begin();
+mkdir( WP_CONTENT_DIR . '/a/b', 0777, true );
+file_put_contents( WP_CONTENT_DIR . '/a/b/klant_db.zip', 'GEHEIM-in-dump' );
+file_put_contents( WP_CONTENT_DIR . '/a/ander.txt', 'blijft' );
+mkdir( WP_CONTENT_DIR . '/b' );
+file_put_contents( WP_CONTENT_DIR . '/b/van-iemand-anders.txt', 'blijft' );
+$GLOBALS['t']['opties']['wpvivid_local_setting'] = array( 'path' => 'a/b' );
+klopt( array_keys( mm_einddatum_backupmappen() ), array( 'wpvividbackups', 'a/b' ), 'a/b gevonden, niet b' );
+mm_einddatum_uitvoeren();
+mm_einddatum_uitvoeren();
+klopt( is_dir( WP_CONTENT_DIR . '/a/b' ), false, 'a/b weg' );
+klopt( is_file( WP_CONTENT_DIR . '/a/ander.txt' ), true, 'de rest van a blijft' );
+klopt( is_file( WP_CONTENT_DIR . '/b/van-iemand-anders.txt' ), true, 'b direct onder wp-content blijft' );
+$tekst = isset( $GLOBALS['t']['mails'][0] ) ? $GLOBALS['t']['mails'][0]['tekst'] : '';
+klopt( false !== strpos( $tekst, 'Lokale back-ups verwijderd: wp-content/a/b' ), true, 'geneste map in de mail' );
+
+begin();
+$buiten = dirname( WP_CONTENT_DIR ) . '/x';
+@mkdir( $buiten );
+$GLOBALS['t']['opties']['wpvivid_local_setting'] = array( 'path' => '../x' );
+klopt( array_keys( mm_einddatum_backupmappen() ), array( 'wpvividbackups' ), '../x niet gevonden' );
+mm_einddatum_uitvoeren();
+mm_einddatum_uitvoeren();
+klopt( is_dir( $buiten ), true, '../x blijft staan' );
+@rmdir( $buiten );
+
+begin();
+mkdir( WP_CONTENT_DIR . '/uploads/x' );
+file_put_contents( WP_CONTENT_DIR . '/uploads/x/foto.jpg', 'x' );
+$GLOBALS['t']['opties']['wpvivid_local_setting'] = array( 'path' => 'uploads/x' );
+klopt( array_keys( mm_einddatum_backupmappen() ), array( 'wpvividbackups' ), 'uploads/x niet gevonden' );
+mm_einddatum_uitvoeren();
+mm_einddatum_uitvoeren();
+klopt( is_file( WP_CONTENT_DIR . '/uploads/x/foto.jpg' ), true, 'uploads/x blijft staan' );
+
+// Een symbolische link halverwege die in uploads uitkomt.
+begin();
+mkdir( WP_CONTENT_DIR . '/uploads/y' );
+symlink( WP_CONTENT_DIR . '/uploads', WP_CONTENT_DIR . '/link' );
+$GLOBALS['t']['opties']['wpvivid_local_setting'] = array( 'path' => 'link/y' );
+klopt( array_keys( mm_einddatum_backupmappen() ), array( 'wpvividbackups' ), 'link/y naar uploads niet gevonden' );
+
 // --- Toolkit niet te verwijderen ---------------------------------------------
 echo "Toolkit niet te verwijderen\n";
 begin();

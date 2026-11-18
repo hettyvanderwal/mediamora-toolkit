@@ -592,42 +592,87 @@ function mm_einddatum_wpvivid_rest() {
  * ---------------------------------------------------------------------- */
 
 /**
- * De mappen met lokale back-ups van WPvivid. WPvivid zet ze in een map direct
- * onder wp-content: standaard wpvividbackups, of de naam in
- * wpvivid_local_setting['path']. Net als de uninstall.php van WPvivid alleen
- * de basisnaam, en nooit een map van WordPress zelf. Met de databaseback-ups
- * daarin staat ook een kopie van de S3-instellingen.
+ * De mappen met lokale back-ups van WPvivid, onder wp-content: standaard
+ * wpvividbackups, of het pad in wpvivid_local_setting['path']. Dat pad telt
+ * helemaal, ook als het genest is (a/b): dan gaat alleen a/b weg en niet een
+ * map b direct onder wp-content. WPvivid 0.9.140 accepteert zelf alleen een
+ * naam zonder slash, maar een oudere versie of een met de hand aangepaste
+ * optie kan een genest pad hebben. Met de databaseback-ups in die map staat
+ * ook een kopie van de S3-instellingen.
  *
- * @return string[] Naam => volledig pad.
+ * Nooit wp-content zelf, nooit iets buiten wp-content (ook niet via een
+ * symbolische link) en nooit iets in een map van WordPress, zie
+ * mm_einddatum_backuppad().
+ *
+ * @return string[] Relatief pad => volledig pad.
  */
 function mm_einddatum_backupmappen() {
 
-	$namen = array( 'wpvividbackups' );
+	$namen  = array( 'wpvividbackups' );
 	$lokaal = get_option( 'wpvivid_local_setting', array() );
 	if ( is_array( $lokaal ) && ! empty( $lokaal['path'] ) && is_string( $lokaal['path'] ) ) {
-		$namen[] = basename( $lokaal['path'] );
+		$namen[] = $lokaal['path'];
 	}
 
-	$verboden = array( '', '.', '..', 'plugins', 'themes', 'uploads', 'mu-plugins', 'languages', 'upgrade', 'cache' );
-	$basis    = realpath( WP_CONTENT_DIR );
-	$mappen   = array();
+	$basis  = realpath( WP_CONTENT_DIR );
+	$mappen = array();
 
-	foreach ( array_unique( $namen ) as $naam ) {
-		if ( in_array( strtolower( $naam ), $verboden, true ) || preg_match( '/[\/\\\\]/', $naam ) ) {
+	foreach ( $namen as $naam ) {
+		$naam = mm_einddatum_backuppad( $naam );
+		if ( '' === $naam || isset( $mappen[ $naam ] ) || false === $basis ) {
 			continue;
 		}
 		$pad = WP_CONTENT_DIR . '/' . $naam;
 		if ( ! is_dir( $pad ) || is_link( $pad ) ) {
 			continue;
 		}
+		// Een symbolische link halverwege kan buiten wp-content of in een map
+		// van WordPress uitkomen: daarom het echte pad nog een keer langs.
 		$echt = realpath( $pad );
-		if ( false === $echt || false === $basis || dirname( $echt ) !== $basis ) {
+		if ( false === $echt || $echt === $basis || 0 !== strpos( $echt, $basis . DIRECTORY_SEPARATOR ) ) {
+			continue;
+		}
+		if ( '' === mm_einddatum_backuppad( substr( $echt, strlen( $basis ) + 1 ) ) ) {
 			continue;
 		}
 		$mappen[ $naam ] = $echt;
 	}
 
 	return $mappen;
+}
+
+/**
+ * Een pad uit wpvivid_local_setting, relatief aan wp-content, opgeschoond:
+ * slashes en backslashes worden één /, lege delen en . vallen weg. Leeg als
+ * het niet mag: een absoluut pad, een ..-deel ergens in het pad, of een eerste
+ * deel dat een map van WordPress is (hoofdletters maken niet uit).
+ *
+ * @param string $pad
+ * @return string Bijvoorbeeld "a/b", of een lege string.
+ */
+function mm_einddatum_backuppad( $pad ) {
+
+	$pad = trim( (string) $pad );
+	if ( '' === $pad || '/' === $pad[0] || '\\' === $pad[0] || preg_match( '/^[a-z]:/i', $pad ) || false !== strpos( $pad, "\0" ) ) {
+		return '';
+	}
+
+	$delen = array();
+	foreach ( preg_split( '/[\/\\\\]+/', $pad ) as $deel ) {
+		if ( '..' === $deel ) {
+			return '';
+		}
+		if ( '' !== $deel && '.' !== $deel ) {
+			$delen[] = $deel;
+		}
+	}
+
+	$wordpress = array( 'uploads', 'plugins', 'themes', 'mu-plugins', 'languages', 'upgrade', 'cache' );
+	if ( ! $delen || in_array( strtolower( $delen[0] ), $wordpress, true ) ) {
+		return '';
+	}
+
+	return implode( '/', $delen );
 }
 
 /**
