@@ -334,7 +334,7 @@ function mm_toolkit_modules() {
 		// schakelaar intussen uit is gezet.
 		'einddatum'         => array(
 			'naam'            => 'Afsluiten op einddatum',
-			'uitleg'          => 'Voor een opgezegd onderhoudspakket. Op de ingestelde einddatum wist de site zelf de remote opslag, de back-upschema\'s en de koppeling met het Pro-account in WPvivid, haalt WPvivid Plugins Pro, WPvivid Backup Plugin, MainWP Child Reports en MainWP Child eraf, mailt Mediamora het resultaat en verwijdert daarna zichzelf. Draait via WP-cron, dus zonder dat er iemand hoeft in te loggen. Met de proefdraai is vooraf te zien wat er zou gebeuren.',
+			'uitleg'          => 'Voor een opgezegd onderhoudspakket. Op de ingestelde einddatum verwijdert de site zelf de lokale back-ups van WPvivid, wist de remote opslag, de back-upschema\'s en de koppeling met het Pro-account, haalt WPvivid Plugins Pro, WPvivid Backup Plugin, MainWP Child Reports en MainWP Child eraf, mailt Mediamora het resultaat en verwijdert daarna zichzelf. Draait via WP-cron, dus zonder dat er iemand hoeft in te loggen. Met de proefdraai is vooraf te zien wat er zou gebeuren.',
 			'bestand'         => 'einddatum.php',
 			'standaard'       => false,
 			'losse_mu'        => '',

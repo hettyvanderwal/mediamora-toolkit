@@ -21,6 +21,8 @@ define( 'WP_PLUGIN_DIR', '/tmp/plugins' );
 define( 'MINUTE_IN_SECONDS', 60 );
 define( 'ARRAY_A', 'ARRAY_A' );
 define( 'MM_TOOLKIT_BESTAND', WP_PLUGIN_DIR . '/mediamora-toolkit/mediamora-toolkit.php' );
+define( 'WP_CONTENT_DIR', sys_get_temp_dir() . '/mm-einddatum-test-' . getmypid() );
+define( 'MM_TOOLKIT_MAP', WP_CONTENT_DIR . '/toolkit' );
 define( 'MM_MONITOR_ONTVANGER', 'meldingen@voorbeeld.nl' );
 
 class WP_Error {
@@ -134,6 +136,21 @@ function delete_plugins( $bestanden ) {
 	return true;
 }
 function get_filesystem_method() { return $GLOBALS['t']['methode']; }
+function size_format( $bytes ) { return $bytes . ' B'; }
+function wp_is_writable( $pad ) { return ! in_array( $pad, $GLOBALS['t']['niet_schrijfbaar'], true ); }
+function rm_map( $pad ) {
+	if ( ! is_dir( $pad ) || is_link( $pad ) ) { @unlink( $pad ); return; }
+	foreach ( scandir( $pad ) as $f ) { if ( '.' !== $f && '..' !== $f ) rm_map( $pad . '/' . $f ); }
+	@rmdir( $pad );
+}
+class Nep_FS {
+	public function delete( $pad, $recursief, $soort ) {
+		$GLOBALS['t']['log'][] = 'map weg ' . basename( $pad );
+		if ( empty( $GLOBALS['t']['map_weigert'] ) ) { rm_map( $pad ); }
+		return true;
+	}
+}
+function WP_Filesystem() { $GLOBALS['wp_filesystem'] = new Nep_FS(); return true; }
 
 function wp_mail( $aan, $onderwerp, $tekst ) {
 	$GLOBALS['t']['log'][] = 'mail';
@@ -160,8 +177,15 @@ function klopt( $echt, $verwacht, $wat ) {
  * Een site met de vier plugins, WPvivid ingericht en de einddatum bereikt.
  */
 function begin( $extra = array() ) {
+	rm_map( WP_CONTENT_DIR );
+	mkdir( WP_CONTENT_DIR . '/wpvividbackups/wpvivid_log', 0777, true );
+	file_put_contents( WP_CONTENT_DIR . '/wpvividbackups/klant_2026_db.zip', 'GEHEIM-in-dump' );
+	mkdir( WP_CONTENT_DIR . '/uploads', 0777, true );
+	mkdir( MM_TOOLKIT_MAP . '/modules', 0777, true );
 	$GLOBALS['t'] = array_merge(
 		array(
+			'niet_schrijfbaar' => array(),
+			'map_weigert'      => false,
 			'vandaag'    => '2026-12-01',
 			'methode'    => 'direct',
 			'mail_lukt'  => true,
@@ -269,6 +293,7 @@ mm_einddatum_uitvoeren();
 klopt(
 	$GLOBALS['t']['log'],
 	array(
+		'map weg wpvividbackups',
 		'deactiveer wpvivid-backup-pro/wpvivid-backup-pro.php',
 		'verwijder wpvivid-backup-pro/wpvivid-backup-pro.php',
 		'deactiveer wpvivid-backuprestore/wpvivid-backuprestore.php',
@@ -278,7 +303,7 @@ klopt(
 		'deactiveer mainwp-child-2/mainwp-child.php',
 		'verwijder mainwp-child-2/mainwp-child.php',
 	),
-	'eerste ronde: in volgorde deactiveren en verwijderen, nog geen mail'
+	'eerste ronde: back-ups weg, in volgorde deactiveren en verwijderen, nog geen mail'
 );
 klopt( heeft_geheim(), false, 'S3-sleutels en Pro-token weg' );
 klopt( get_option( 'wpvivid_upload_setting' ), array( 'iets_anders' => 'blijft' ), 'wat geen remote is blijft in wpvivid_upload_setting' );
@@ -312,6 +337,9 @@ klopt( false !== strpos( $mail['tekst'], 'GEHEIM' ), false, 'geen sleutels in de
 klopt( get_option( 'wpvivid_common_setting', 'weg' ), 'weg', 'overige WPvivid-opties opgeruimd' );
 klopt( $GLOBALS['t']['tabel'], false, 'tabel wpvivid_options weg' );
 klopt( array_slice( $GLOBALS['t']['log'], -3 ), array( 'mail', 'deactiveer mediamora-toolkit/mediamora-toolkit.php', 'verwijder mediamora-toolkit/mediamora-toolkit.php' ), 'eerst de mail, dan de toolkit' );
+klopt( is_dir( WP_CONTENT_DIR . '/wpvividbackups' ), false, 'lokale back-ups weg' );
+klopt( is_dir( WP_CONTENT_DIR . '/uploads' ), true, 'uploads blijft staan' );
+klopt( false !== strpos( $mail['tekst'], '- Lokale back-ups verwijderd: wp-content/wpvividbackups (1 bestand, 14 B)' ), true, 'back-ups met omvang in de mail' );
 
 // --- Plugins al weg ----------------------------------------------------------
 echo "Plugins er niet\n";
@@ -338,6 +366,8 @@ klopt( false !== strpos( $tekst, '- MainWP Child: alleen gedeactiveerd, niet ver
 klopt( false !== strpos( $tekst, 'geen \'direct\'-methode' ), true, 'uitleg in de mail' );
 klopt( false !== strpos( $tekst, 'Wissen in WPvivid: gelukt' ), true, 'wissen toch gelukt' );
 klopt( isset( $GLOBALS['t']['plugins']['mainwp-child-2/mainwp-child.php'] ), true, 'plugin staat er nog' );
+klopt( is_dir( WP_CONTENT_DIR . '/wpvividbackups' ), true, 'back-ups blijven zonder schrijftoegang staan' );
+klopt( false !== strpos( $tekst, '- Lokale back-ups NIET verwijderd: wp-content/wpvividbackups' ), true, 'en dat staat in de mail' );
 klopt( heeft_geheim(), false, 'ook zonder verwijderen geen S3-gegevens meer, ook geen kopieën' );
 klopt( isset( $GLOBALS['t']['plugins']['mediamora-toolkit/mediamora-toolkit.php'] ), true, 'toolkit blijft staan' );
 klopt( in_array( 'verwijder mainwp-child-2/mainwp-child.php', $GLOBALS['t']['log'], true ), false, 'niets verwijderd' );
@@ -377,6 +407,46 @@ $tekst = isset( $GLOBALS['t']['mails'][0] ) ? $GLOBALS['t']['mails'][0]['tekst']
 klopt( false !== strpos( $tekst, '- MainWP Child: mislukt: kon de map niet weghalen' ), true, 'mislukt met melding in de mail' );
 klopt( isset( $GLOBALS['t']['plugins']['mediamora-toolkit/mediamora-toolkit.php'] ), true, 'toolkit blijft staan' );
 
+// --- Eigen back-upmap -------------------------------------------------------
+echo "Eigen back-upmap\n";
+begin();
+mkdir( WP_CONTENT_DIR . '/mijnbackups' );
+file_put_contents( WP_CONTENT_DIR . '/mijnbackups/a.zip', 'x' );
+$GLOBALS['t']['opties']['wpvivid_local_setting'] = array( 'path' => 'mijnbackups' );
+klopt( array_keys( mm_einddatum_backupmappen() ), array( 'wpvividbackups', 'mijnbackups' ), 'standaardmap en eigen map gevonden' );
+$GLOBALS['t']['opties']['wpvivid_local_setting'] = array( 'path' => 'uploads' );
+klopt( array_keys( mm_einddatum_backupmappen() ), array( 'wpvividbackups' ), 'nooit uploads' );
+$GLOBALS['t']['opties']['wpvivid_local_setting'] = array( 'path' => '../../etc' );
+klopt( array_keys( mm_einddatum_backupmappen() ), array( 'wpvividbackups' ), 'nooit buiten wp-content' );
+$GLOBALS['t']['opties']['wpvivid_local_setting'] = array( 'path' => 'mijnbackups' );
+mm_einddatum_uitvoeren();
+mm_einddatum_uitvoeren();
+klopt( is_dir( WP_CONTENT_DIR . '/mijnbackups' ), false, 'eigen map weg' );
+
+// --- Toolkit niet te verwijderen ---------------------------------------------
+echo "Toolkit niet te verwijderen\n";
+begin();
+$GLOBALS['t']['niet_schrijfbaar'] = array( MM_TOOLKIT_MAP . '/modules' );
+mm_einddatum_uitvoeren();
+mm_einddatum_uitvoeren();
+$tekst = isset( $GLOBALS['t']['mails'][0] ) ? $GLOBALS['t']['mails'][0]['tekst'] : '';
+klopt( false !== strpos( $tekst, 'kan zichzelf niet verwijderen' ), true, 'mail zegt dat de toolkit zelf weg moet' );
+klopt( isset( $GLOBALS['t']['plugins']['mediamora-toolkit/mediamora-toolkit.php'] ), true, 'toolkit niet uitgezet of verwijderd' );
+klopt( in_array( 'deactiveer mediamora-toolkit/mediamora-toolkit.php', $GLOBALS['t']['log'], true ), false, 'ook niet gedeactiveerd' );
+mm_einddatum_uitvoeren();
+klopt( count( $GLOBALS['t']['mails'] ), 1, 'volgende nacht geen tweede mail' );
+
+// --- Verwijderen van de toolkit mislukt ---------------------------------------
+echo "Verwijderen toolkit mislukt\n";
+begin();
+$GLOBALS['t']['plugins']['mediamora-toolkit/mediamora-toolkit.php']['weigert'] = true;
+mm_einddatum_uitvoeren();
+mm_einddatum_uitvoeren();
+klopt( count( $GLOBALS['t']['mails'] ), 2, 'eindmail en daarna een aparte mail' );
+$tweede = isset( $GLOBALS['t']['mails'][1] ) ? $GLOBALS['t']['mails'][1] : array( 'onderwerp' => '', 'tekst' => '' );
+klopt( $tweede['onderwerp'], '[Einddatum onderhoud] klant.nl: toolkit niet verwijderd', 'onderwerp van de aparte mail' );
+klopt( false !== strpos( $tweede['tekst'], 'kon de map niet weghalen' ), true, 'met de melding' );
+
 // --- Proefdraai ------------------------------------------------------------
 echo "Proefdraai\n";
 begin();
@@ -388,5 +458,6 @@ klopt( $GLOBALS['t']['cron'], $voor['cron'], 'cron onveranderd' );
 klopt( $GLOBALS['t']['log'], array(), 'niets gedeactiveerd, verwijderd of gemaild' );
 klopt( count( $p['regels'] ) > 5, true, 'rapport met regels' );
 
+rm_map( WP_CONTENT_DIR );
 echo $fouten ? "\n$fouten fout(en)\n" : "\nAlles goed\n";
 exit( $fouten ? 1 : 0 );

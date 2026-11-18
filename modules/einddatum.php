@@ -7,8 +7,9 @@
  * cron-taak mm_einddatum_controle, zonder ingelogde gebruiker, in deze
  * volgorde:
  *
- *  1. WPvivid: de remote opslag, de back-upschema's en de koppeling met het
- *     WPvivid Pro-account wissen, en alle geplande taken van WPvivid afmelden.
+ *  1. WPvivid: de lokale back-ups verwijderen, de remote opslag, de
+ *     back-upschema's en de koppeling met het WPvivid Pro-account wissen, en
+ *     alle geplande taken van WPvivid afmelden.
  *  2. WPvivid Plugins Pro en WPvivid Backup Plugin deactiveren en verwijderen.
  *  3. MainWP Child Reports en daarna MainWP Child deactiveren en verwijderen.
  *  4. Een mail naar MM_MONITOR_ONTVANGER met het resultaat.
@@ -587,6 +588,143 @@ function mm_einddatum_wpvivid_rest() {
 
 
 /* -------------------------------------------------------------------------
+ * Lokale back-ups
+ * ---------------------------------------------------------------------- */
+
+/**
+ * De mappen met lokale back-ups van WPvivid. WPvivid zet ze in een map direct
+ * onder wp-content: standaard wpvividbackups, of de naam in
+ * wpvivid_local_setting['path']. Net als de uninstall.php van WPvivid alleen
+ * de basisnaam, en nooit een map van WordPress zelf. Met de databaseback-ups
+ * daarin staat ook een kopie van de S3-instellingen.
+ *
+ * @return string[] Naam => volledig pad.
+ */
+function mm_einddatum_backupmappen() {
+
+	$namen = array( 'wpvividbackups' );
+	$lokaal = get_option( 'wpvivid_local_setting', array() );
+	if ( is_array( $lokaal ) && ! empty( $lokaal['path'] ) && is_string( $lokaal['path'] ) ) {
+		$namen[] = basename( $lokaal['path'] );
+	}
+
+	$verboden = array( '', '.', '..', 'plugins', 'themes', 'uploads', 'mu-plugins', 'languages', 'upgrade', 'cache' );
+	$basis    = realpath( WP_CONTENT_DIR );
+	$mappen   = array();
+
+	foreach ( array_unique( $namen ) as $naam ) {
+		if ( in_array( strtolower( $naam ), $verboden, true ) || preg_match( '/[\/\\\\]/', $naam ) ) {
+			continue;
+		}
+		$pad = WP_CONTENT_DIR . '/' . $naam;
+		if ( ! is_dir( $pad ) || is_link( $pad ) ) {
+			continue;
+		}
+		$echt = realpath( $pad );
+		if ( false === $echt || false === $basis || dirname( $echt ) !== $basis ) {
+			continue;
+		}
+		$mappen[ $naam ] = $echt;
+	}
+
+	return $mappen;
+}
+
+/**
+ * Aantal bestanden en omvang van een map, als tekst.
+ *
+ * @param string $pad
+ * @return string Bijvoorbeeld "12 bestanden, 340 MB".
+ */
+function mm_einddatum_map_omvang( $pad ) {
+	$aantal = 0;
+	$bytes  = 0;
+	try {
+		$lijst = new RecursiveIteratorIterator( new RecursiveDirectoryIterator( $pad, FilesystemIterator::SKIP_DOTS ) );
+		foreach ( $lijst as $bestand ) {
+			if ( $bestand->isFile() ) {
+				$aantal++;
+				$bytes += $bestand->getSize();
+			}
+		}
+	} catch ( Exception $e ) {
+		return 'omvang onbekend';
+	}
+	return $aantal . ( 1 === $aantal ? ' bestand' : ' bestanden' ) . ', ' . size_format( $bytes );
+}
+
+/**
+ * Verwijdert een map met alles erin, via WP_Filesystem.
+ *
+ * @param string $pad
+ * @return bool
+ */
+function mm_einddatum_map_verwijderen( $pad ) {
+	global $wp_filesystem;
+	mm_einddatum_admin_includes();
+	if ( ! WP_Filesystem() || ! $wp_filesystem ) {
+		return false;
+	}
+	$wp_filesystem->delete( $pad, true, 'd' );
+	clearstatcache();
+	return ! file_exists( $pad );
+}
+
+/**
+ * Verwijdert de lokale back-ups en houdt bij welke weg zijn. Zonder directe
+ * schrijftoegang blijven ze staan.
+ *
+ * @param array $eerder Wat er al bekend was.
+ * @param bool  $direct
+ * @return array Naam => status en omvang.
+ */
+function mm_einddatum_backups_verwijderen( $eerder, $direct ) {
+	foreach ( mm_einddatum_backupmappen() as $naam => $pad ) {
+		$omvang = mm_einddatum_map_omvang( $pad );
+		if ( ! $direct ) {
+			$status = 'niet verwijderd';
+		} else {
+			$status = mm_einddatum_map_verwijderen( $pad ) ? MM_EINDDATUM_VERWIJDERD : MM_EINDDATUM_MISLUKT;
+		}
+		$eerder[ $naam ] = array( 'status' => $status, 'omvang' => $omvang );
+	}
+	return $eerder;
+}
+
+
+/* -------------------------------------------------------------------------
+ * De toolkit zelf
+ * ---------------------------------------------------------------------- */
+
+/**
+ * Kan de toolkit zichzelf verwijderen? Daarvoor moeten de pluginmap en elke
+ * map in de toolkit schrijfbaar zijn. Zo wordt hij niet eerst uitgezet om
+ * daarna te blijven staan.
+ *
+ * @return bool
+ */
+function mm_einddatum_zelf_verwijderbaar() {
+	if ( ! wp_is_writable( WP_PLUGIN_DIR ) || ! wp_is_writable( MM_TOOLKIT_MAP ) ) {
+		return false;
+	}
+	try {
+		$lijst = new RecursiveIteratorIterator(
+			new RecursiveDirectoryIterator( MM_TOOLKIT_MAP, FilesystemIterator::SKIP_DOTS ),
+			RecursiveIteratorIterator::SELF_FIRST
+		);
+		foreach ( $lijst as $item ) {
+			if ( $item->isDir() && ! wp_is_writable( $item->getPathname() ) ) {
+				return false;
+			}
+		}
+	} catch ( Exception $e ) {
+		return false;
+	}
+	return true;
+}
+
+
+/* -------------------------------------------------------------------------
  * Uitvoeren
  * ---------------------------------------------------------------------- */
 
@@ -610,6 +748,7 @@ function mm_einddatum_stand() {
 				'kopieen' => array(),
 				'opties'  => 0,
 			),
+			'backups'    => array(),
 			'mail_hash'  => '',
 			'mail_datum' => 0,
 		),
@@ -685,12 +824,15 @@ function mm_einddatum_uitvoeren() {
 		$stand['gestart'] = time();
 	}
 
-	// 1. WPvivid wissen.
+	$direct = mm_einddatum_direct();
+
+	// 1. WPvivid wissen, met de lokale back-ups. Die eerst, want na het wissen
+	// is de naam van een eigen back-upmap niet meer te vinden.
+	$stand['backups'] = mm_einddatum_backups_verwijderen( $stand['backups'], $direct );
 	$stand['wpvivid'] = mm_einddatum_wpvivid_samenvoegen( $stand['wpvivid'], mm_einddatum_wpvivid_wissen() );
 	update_option( MM_EINDDATUM_STAND, $stand, false );
 
 	// 2 en 3. Plugins, in de volgorde van mm_einddatum_doelen().
-	$direct   = mm_einddatum_direct();
 	$geladen  = false;
 	$gevonden = mm_einddatum_plugins_zoeken();
 
@@ -748,13 +890,15 @@ function mm_einddatum_uitvoeren() {
 	}
 
 	$rest  = mm_einddatum_wpvivid_rest();
-	$klaar = $direct && ! $rest;
+	$klaar = $direct && ! $rest && ! mm_einddatum_backupmappen();
 	foreach ( array_keys( mm_einddatum_doelen() ) as $sleutel ) {
 		$klaar = $klaar && mm_einddatum_weg( $stand, $sleutel );
 	}
 
+	$zelf = $direct && mm_einddatum_zelf_verwijderbaar();
+
 	// 4. Mail. Dezelfde uitkomst gaat maar één keer.
-	$mail = mm_einddatum_mail_tekst( $datum, $stand, $rest, $direct, $klaar );
+	$mail = mm_einddatum_mail_tekst( $datum, $stand, $rest, $direct, $klaar, $zelf );
 	$hash = md5( $mail['onderwerp'] . "\n" . $mail['tekst'] );
 	if ( $hash !== $stand['mail_hash'] && mm_einddatum_mail_versturen( $mail ) ) {
 		$stand['mail_hash']  = $hash;
@@ -763,8 +907,11 @@ function mm_einddatum_uitvoeren() {
 	update_option( MM_EINDDATUM_STAND, $stand, false );
 
 	// 5. De toolkit zelf, pas als de eindstand gemaild is.
-	if ( $klaar && $hash === $stand['mail_hash'] ) {
-		mm_einddatum_zelf_verwijderen();
+	if ( $klaar && $zelf && $hash === $stand['mail_hash'] ) {
+		$fout = mm_einddatum_zelf_verwijderen();
+		if ( '' !== $fout ) {
+			mm_einddatum_mail_versturen( mm_einddatum_mail_zelf_mislukt( $fout ) );
+		}
 		return;
 	}
 
@@ -773,13 +920,47 @@ function mm_einddatum_uitvoeren() {
 
 /**
  * Deactiveren met de gewone haak, zodat mm_toolkit_deactiveren() de events en
- * de blokken in .htaccess opruimt. Daarna verwijderen; dat draait
- * uninstall.php, die de opties van de toolkit opruimt, ook die van deze module.
+ * de blokken in .htaccess opruimt. Daarna verwijderen; dat draait eerst
+ * uninstall.php, die de opties van de toolkit opruimt, ook die van deze
+ * module, en haalt dan de bestanden weg.
+ *
+ * Mislukt dat laatste, dan staat de toolkit uit en zijn de instellingen al weg.
+ * Weer aanzetten zou hem met de standaardinstellingen laten draaien, dus dat
+ * gebeurt niet; de code zit nog in het geheugen en mailt dat hij zelf weg moet.
+ *
+ * @return string Leeg als het gelukt is, anders de melding.
  */
 function mm_einddatum_zelf_verwijderen() {
 	$eigen = plugin_basename( MM_TOOLKIT_BESTAND );
 	deactivate_plugins( array( $eigen ) );
-	delete_plugins( array( $eigen ) );
+	$resultaat = delete_plugins( array( $eigen ) );
+	clearstatcache();
+	if ( true === $resultaat && ! file_exists( MM_TOOLKIT_BESTAND ) ) {
+		return '';
+	}
+	return is_wp_error( $resultaat ) ? $resultaat->get_error_message() : 'de bestanden konden niet worden weggehaald';
+}
+
+/**
+ * Mail als de toolkit zichzelf niet kon verwijderen.
+ *
+ * @param string $fout
+ * @return string[]
+ */
+function mm_einddatum_mail_zelf_mislukt( $fout ) {
+	$domein = mm_einddatum_domein();
+	return array(
+		'onderwerp' => '[Einddatum onderhoud] ' . $domein . ': toolkit niet verwijderd',
+		'tekst'     => implode(
+			"\n",
+			array(
+				'Site: ' . $domein,
+				'',
+				'De Mediamora Toolkit kon zichzelf niet verwijderen: ' . $fout . '.',
+				'Hij staat uit en zijn instellingen zijn weg, maar de map wp-content/plugins/' . dirname( plugin_basename( MM_TOOLKIT_BESTAND ) ) . ' staat er nog. Verwijder hem zelf via Plugins.',
+			)
+		),
+	);
 }
 
 
@@ -805,10 +986,11 @@ function mm_einddatum_domein() {
  * @param array    $stand
  * @param string[] $rest   Wat er van WPvivid over is.
  * @param bool     $direct
- * @param bool     $klaar
+ * @param bool     $klaar  Plugins en WPvivid helemaal weg.
+ * @param bool     $zelf   De toolkit kan zichzelf verwijderen.
  * @return string[] onderwerp, tekst.
  */
-function mm_einddatum_mail_tekst( $datum, $stand, $rest, $direct, $klaar ) {
+function mm_einddatum_mail_tekst( $datum, $stand, $rest, $direct, $klaar, $zelf = true ) {
 
 	$domein = mm_einddatum_domein();
 	$regels = array();
@@ -852,7 +1034,10 @@ function mm_einddatum_mail_tekst( $datum, $stand, $rest, $direct, $klaar ) {
 	if ( $w['opties'] ) {
 		$regels[] = '- Overige gegevens van WPvivid opgeruimd: ' . $w['opties'] . ' opties';
 	}
-	if ( ! $w['remotes'] && ! $w['schema'] && ! $w['account'] && ! $w['cron'] && ! $w['kopieen'] && ! $w['opties'] && ! $rest ) {
+	foreach ( $stand['backups'] as $naam => $b ) {
+		$regels[] = ( MM_EINDDATUM_VERWIJDERD === $b['status'] ? '- Lokale back-ups verwijderd: ' : '- Lokale back-ups NIET verwijderd: ' ) . 'wp-content/' . $naam . ' (' . $b['omvang'] . ')';
+	}
+	if ( ! $w['remotes'] && ! $w['schema'] && ! $w['account'] && ! $w['cron'] && ! $w['kopieen'] && ! $w['opties'] && ! $stand['backups'] && ! $rest ) {
 		$regels[] = '- Er stond niets van WPvivid op de site';
 	}
 	foreach ( $rest as $r ) {
@@ -860,11 +1045,13 @@ function mm_einddatum_mail_tekst( $datum, $stand, $rest, $direct, $klaar ) {
 	}
 
 	$regels[] = '';
-	if ( $klaar ) {
-		$regels[] = 'De Mediamora Toolkit verwijdert zichzelf direct na deze mail.';
+	if ( $klaar && $zelf ) {
+		$regels[] = 'De Mediamora Toolkit verwijdert zichzelf direct na deze mail. Lukt dat niet, dan volgt een aparte mail.';
+	} elseif ( $klaar ) {
+		$regels[] = 'De Mediamora Toolkit kan zichzelf niet verwijderen: de pluginmap of een map in de toolkit is niet schrijfbaar. Hij blijft aan staan; verwijder hem zelf via Plugins.';
 	} else {
 		if ( ! $direct || $gedeactiveerd ) {
-			$regels[] = 'WordPress kan in de cron niet zelf in de pluginmap schrijven (geen \'direct\'-methode in WP_Filesystem), dus de plugins zijn alleen gedeactiveerd. Verwijder ze zelf.';
+			$regels[] = 'WordPress kan in de cron niet zelf in de pluginmap of wp-content schrijven (geen \'direct\'-methode in WP_Filesystem), dus de plugins zijn alleen gedeactiveerd en de lokale back-ups staan er nog. Verwijder ze zelf.';
 		}
 		$regels[] = 'De Mediamora Toolkit blijft op de site staan en probeert het elke nacht opnieuw. Verandert de uitkomst, dan volgt een nieuwe mail.';
 	}
@@ -1085,7 +1272,13 @@ function mm_einddatum_proefdraai() {
 	}
 
 	$regel( 'Mail', 'Gaat naar ' . MM_MONITOR_ONTVANGER . ', via wp_mail() en anders via mail() van de hosting.' );
-	$regel( 'Toolkit', $direct ? 'Wordt na de mail gedeactiveerd en verwijderd; uninstall.php ruimt de instellingen op.' : 'Blijft staan.' );
+	if ( ! $direct ) {
+		$regel( 'Toolkit', 'Blijft staan.' );
+	} elseif ( mm_einddatum_zelf_verwijderbaar() ) {
+		$regel( 'Toolkit', 'Wordt na de mail gedeactiveerd en verwijderd; uninstall.php ruimt de instellingen op.' );
+	} else {
+		$regel( 'Toolkit', 'De pluginmap of een map in de toolkit is niet schrijfbaar: de toolkit blijft aan staan en moet je zelf verwijderen.', true );
+	}
 
 	$stand = mm_einddatum_stand();
 	if ( $stand['gestart'] ) {
@@ -1131,7 +1324,10 @@ function mm_einddatum_wpvivid_overzicht() {
 	if ( $inv['cron'] ) {
 		$regels[] = 'Geplande taken worden afgemeld: ' . implode( ', ', $inv['cron'] ) . '.';
 	}
-	$regels[] = $regels ? 'Zijn beide WPvivid-plugins weg, dan gaan ook de overige opties met wpvivid_ ervoor en de tabel wpvivid_options weg.' : 'Er staat niets van WPvivid in de database.';
+	foreach ( mm_einddatum_backupmappen() as $naam => $pad ) {
+		$regels[] = 'Lokale back-ups in wp-content/' . $naam . ' (' . mm_einddatum_map_omvang( $pad ) . ') worden verwijderd.';
+	}
+	$regels[] = $regels ? 'Zijn beide WPvivid-plugins weg, dan gaan ook de overige opties met wpvivid_ ervoor en de tabel wpvivid_options weg.' : 'Er staat niets van WPvivid op de site.';
 	return $regels;
 }
 
