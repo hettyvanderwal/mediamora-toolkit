@@ -262,6 +262,21 @@ Elke stap kijkt eerst naar de toestand en kan dus veilig nog een keer draaien; d
 
 Niet op een multisite. Bewust niet: de achtergebleven gegevens van MainWP Child (opties `mainwp_*`, tabellen `mainwp_child_changes_*`, `mainwp_stream`), het leegmaken van de S3-map en de snapshot-tabellen van WPvivid. Let op: elke back-up die al in de bucket staat, bevat een kopie van de S3-instellingen van dat moment. Maak bij de offboarding dus de map van de klant in de bucket leeg.
 
+## Anti-spam: velden uitzonderen
+
+Onder **Instellingen > Mediamora Anti-Spam** staat het tekstveld "Velden per formulier" (`exempt_fields` in `mediamora_antispam_settings`, standaard leeg). Per regel één formulier:
+
+```
+94c5fa7: field_c5fc26d, field_946b13c
+04f3906: *
+```
+
+Het formulier-ID is het element-ID van de formulierwidget, wat `$record->get_form_settings( 'id' )` teruggeeft. Het staat in de broncode als het verborgen veld `form_id` en als `data-id` op de widget; het is niet het veld "Formulier-ID" onder Extra opties. De veld-ID's zijn de `custom_id`'s, in Elementor bij het veld onder Geavanceerd > ID. Met `*` vallen alle velden van dat formulier erbuiten. Lege regels en spaties tellen niet, en een formulier op meer regels telt samen. Een ongeldige regel wordt niet opgeslagen en geeft een melding; de geldige regels wel.
+
+Een uitgezonderd veld wordt overgeslagen op dezelfde plek als de veldtypes zonder checks: het telt voor geen enkele check mee, ook niet voor dubbele inhoud, en komt niet in `log.txt` of `near-miss.txt`. Met debug aan staat in `debug.txt` alleen dat het is overgeslagen, zonder de waarde. De andere velden van dat formulier en alle andere formulieren blijven volledig gecontroleerd.
+
+Bedoeld voor lange intakeformulieren waar echte namen, straatnamen of klachtomschrijvingen net onder de drempel voor onleesbare tekst kunnen komen.
+
 ## Deactiveren en verwijderen
 
 Deactiveren haalt alleen de cron-events (ook die van Verweesde meta opruimen, de Instagram-feed, Tijdelijke accounts, Afsluiten op einddatum en de dagelijkse opschoning van de anti-spamlogs) en de blokken van de toolkit uit `.htaccess` weg, en leegt de element cache van Elementor en de LiteSpeed-cache als Afbeeldingstitels verbergen aan stond. Instellingen en logs blijven staan.
@@ -273,6 +288,11 @@ Verwijderen via Plugins ruimt alles op: de opties en transients van de toolkit e
 De user meta `mm_verloopt_op` en `mm_overdragen_aan` blijven altijd staan. Worden ze weggehaald en wordt de toolkit daarna opnieuw geïnstalleerd, bijvoorbeeld om een zip te vervangen, dan worden tijdelijke accounts stil vaste accounts.
 
 ## Wijzigingen
+
+### 1.27.0
+
+- Anti-spam: velden per formulier uitzonderen van alle checks. Nieuw tekstveld "Velden per formulier" op het instellingenscherm, één regel per formulier (`formulier-ID: veld-ID, veld-ID`, of `formulier-ID: *`). Uitgezonderde velden tellen voor geen enkele check mee en komen niet in de logbestanden; andere velden en formulieren blijven gecontroleerd. Ongeldige regels worden niet opgeslagen en gemeld. Zie "Anti-spam: velden uitzonderen".
+- Testgevallen in `tests/anti-spam-uitzonderingen.php`.
 
 ### 1.26.1
 
@@ -495,7 +515,7 @@ Fixes uit de tweede codereview.
 
 ## Release maken
 
-Eerst de testgevallen draaien (`php tests/anti-spam-links.php`, `php tests/anti-spam-rapport.php`, `php tests/tijdelijke-accounts.php`, `php tests/tijdelijke-accounts-toolkit.php`, `php tests/afbeeldingstitels.php`, `php tests/afbeeldingstitels-toolkit.php`, `php tests/schema-persoon.php`, `php tests/ai-bots-bezoek.php`, `php tests/font-preload.php`, `php tests/font-preload-toolkit.php` en `php tests/einddatum.php`) en `php -l` op alle bestanden.
+Eerst de testgevallen draaien (`php tests/anti-spam-links.php`, `php tests/anti-spam-rapport.php`, `php tests/anti-spam-uitzonderingen.php`, `php tests/tijdelijke-accounts.php`, `php tests/tijdelijke-accounts-toolkit.php`, `php tests/afbeeldingstitels.php`, `php tests/afbeeldingstitels-toolkit.php`, `php tests/schema-persoon.php`, `php tests/ai-bots-bezoek.php`, `php tests/font-preload.php`, `php tests/font-preload-toolkit.php` en `php tests/einddatum.php`) en `php -l` op alle bestanden.
 
 1. Versie ophogen op twee plekken in `mediamora-toolkit.php`: `Version:` in de kop en `MM_TOOLKIT_VERSIE`. Of een update wordt aangeboden hangt alleen af van `Version:` in de kop; de constante wordt gelijk gehouden voor de rest, zoals de mailheader van de Formuliermonitor.
 2. Bestanden uploaden naar de repo.

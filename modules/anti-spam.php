@@ -161,7 +161,107 @@ function mediamora_antispam_default_settings() {
 		'repetition_min_word_length' => 4,
 		'repetition_min_count'       => 4,
 		'repetition_max_ratio'       => 0.15,
+
+		// Velden per formulier die buiten alle checks vallen:
+		// formulier-ID => lijst veld-ID's, of array( '*' ) voor alle velden.
+		'exempt_fields' => array(),
 	);
+}
+
+/**
+ * Leest de uitgezonderde velden uit het tekstveld op het instellingenscherm.
+ * Per regel één formulier: "formulier-ID: veld-ID, veld-ID", of
+ * "formulier-ID: *" voor alle velden van dat formulier. Lege regels en
+ * spaties tellen niet. Staat een formulier op meer regels, dan tellen de
+ * velden van alle regels samen.
+ *
+ * Een ongeldige regel wordt niet opgeslagen en komt in $errors. De rest
+ * wel: anders gaat er een hele lijst verloren om één tikfout.
+ *
+ * @param string   $text
+ * @param string[] $errors Hier komen de meldingen bij.
+ * @return array formulier-ID => lijst veld-ID's.
+ */
+function mediamora_antispam_parse_exempt_fields( $text, &$errors = array() ) {
+
+	$map = array();
+
+	foreach ( preg_split( '/\R/', (string) $text ) as $nummer => $regel ) {
+
+		$regel = trim( $regel );
+		if ( '' === $regel ) {
+			continue;
+		}
+
+		$delen   = explode( ':', $regel, 2 );
+		$form_id = trim( $delen[0] );
+		$velden  = isset( $delen[1] ) ? preg_split( '/\s*,\s*/', trim( $delen[1] ), -1, PREG_SPLIT_NO_EMPTY ) : array();
+		$fout    = '';
+
+		if ( ! isset( $delen[1] ) ) {
+			$fout = 'er staat geen dubbele punt tussen het formulier-ID en de velden';
+		} elseif ( ! preg_match( '/^[A-Za-z0-9_-]+$/', $form_id ) ) {
+			$fout = '' === $form_id ? 'het formulier-ID ontbreekt' : sprintf( '"%s" is geen geldig formulier-ID', $form_id );
+		} elseif ( empty( $velden ) ) {
+			$fout = 'er staan geen veld-ID\'s achter de dubbele punt (gebruik * voor alle velden)';
+		} else {
+			foreach ( $velden as $veld ) {
+				if ( '*' !== $veld && ! preg_match( '/^[A-Za-z0-9_-]+$/', $veld ) ) {
+					$fout = sprintf( '"%s" is geen geldig veld-ID', $veld );
+					break;
+				}
+			}
+		}
+
+		if ( '' !== $fout ) {
+			$errors[] = sprintf( 'Uitgezonderde velden, regel %d ("%s"): %s. Deze regel is niet opgeslagen.', $nummer + 1, $regel, $fout );
+			continue;
+		}
+
+		$velden = in_array( '*', $velden, true ) || ( isset( $map[ $form_id ] ) && array( '*' ) === $map[ $form_id ] )
+			? array( '*' )
+			: array_values( array_unique( array_merge( isset( $map[ $form_id ] ) ? $map[ $form_id ] : array(), $velden ) ) );
+
+		$map[ $form_id ] = $velden;
+	}
+
+	return $map;
+}
+
+/**
+ * Zet de opgeslagen uitgezonderde velden terug in de vorm van het tekstveld.
+ *
+ * @param array $map formulier-ID => lijst veld-ID's.
+ * @return string
+ */
+function mediamora_antispam_format_exempt_fields( $map ) {
+
+	$regels = array();
+
+	foreach ( (array) $map as $form_id => $velden ) {
+		$regels[] = $form_id . ': ' . implode( ', ', (array) $velden );
+	}
+
+	return implode( "\n", $regels );
+}
+
+/**
+ * Valt dit veld van dit formulier buiten de checks?
+ *
+ * @param array  $map     formulier-ID => lijst veld-ID's.
+ * @param string $form_id Het Elementor element-ID van de formulierwidget.
+ * @param string $field_id De custom_id van het veld.
+ * @return bool
+ */
+function mediamora_antispam_is_exempt_field( $map, $form_id, $field_id ) {
+
+	$form_id = (string) $form_id;
+
+	if ( ! is_array( $map ) || '' === $form_id || empty( $map[ $form_id ] ) || ! is_array( $map[ $form_id ] ) ) {
+		return false;
+	}
+
+	return in_array( '*', $map[ $form_id ], true ) || in_array( (string) $field_id, $map[ $form_id ], true );
 }
 
 /**
@@ -266,6 +366,10 @@ function mediamora_antispam_sanitize_and_save_settings( $post, &$errors = array(
 	$clean['repetition_min_word_length'] = max( 1, (int) ( $post['repetition_min_word_length'] ?? 4 ) );
 	$clean['repetition_min_count']       = max( 1, (int) ( $post['repetition_min_count'] ?? 4 ) );
 	$clean['repetition_max_ratio']       = min( 1, max( 0, (float) ( $post['repetition_max_ratio'] ?? 0.15 ) ) );
+
+	$clean['exempt_fields'] = isset( $post['exempt_fields'] )
+		? mediamora_antispam_parse_exempt_fields( $post['exempt_fields'], $errors )
+		: $current['exempt_fields'];
 
 	update_option( 'mediamora_antispam_settings', $clean, false );
 
@@ -406,6 +510,20 @@ function mediamora_antispam_render_settings_page() {
 				</tr>
 			</table>
 
+			<h2>Uitgezonderde velden</h2>
+			<p class="description">Velden die buiten alle checks vallen, per formulier. Bedoeld voor velden waar echte invoer op spam kan lijken, zoals achternamen, straatnamen en klachtomschrijvingen in een intakeformulier. Een uitgezonderd veld telt voor geen enkele check mee en komt niet in de logbestanden. De andere velden van dat formulier en alle andere formulieren worden gewoon gecontroleerd.</p>
+			<table class="form-table" role="presentation">
+				<tr>
+					<th scope="row"><label for="exempt_fields">Velden per formulier</label></th>
+					<td>
+						<textarea id="exempt_fields" name="exempt_fields" rows="5" class="large-text code" placeholder="94c5fa7: field_c5fc26d, field_946b13c"><?php echo esc_textarea( mediamora_antispam_format_exempt_fields( $s['exempt_fields'] ) ); ?></textarea>
+						<p class="description">Per regel één formulier: <code>formulier-ID: veld-ID, veld-ID</code>. Met <code>formulier-ID: *</code> vallen alle velden van dat formulier erbuiten. Lege regels en spaties tellen niet.</p>
+						<p class="description"><strong>Formulier-ID:</strong> het element-ID van de formulierwidget. Dat staat in de broncode van de pagina als <code>&lt;input type="hidden" name="form_id" value="..."&gt;</code> in het formulier, en als <code>data-id</code> op de widget. Niet het veld "Formulier-ID" onder Extra opties in Elementor. Staat hetzelfde formulier op meer pagina's, kijk dan per pagina, want een gekopieerd formulier kan een ander ID hebben.</p>
+						<p class="description"><strong>Veld-ID:</strong> in Elementor bij het veld onder Geavanceerd &gt; ID, bijvoorbeeld <code>field_c5fc26d</code>. In de broncode is het het deel tussen de haken in <code>name="form_fields[...]"</code>.</p>
+					</td>
+				</tr>
+			</table>
+
 			<h2>Geavanceerd: detectiedrempels</h2>
 			<p class="description">De standaardwaardes zijn getest en werken goed op de meeste sites. Alleen aanpassen als je een concrete reden hebt, bijvoorbeeld op basis van het dagrapport.</p>
 
@@ -485,6 +603,9 @@ function mediamora_antispam_validate_form( $record, $ajax_handler ) {
 		'honeypot',
 	);
 
+	// Uitgezonderde velden gelden alleen voor het formulier waar ze bij staan.
+	$form_id = (string) $record->get_form_settings( 'id' );
+
 	$fields              = $record->get( 'fields' );
 	$long_values         = array();
 	$near_misses         = array();
@@ -503,6 +624,15 @@ function mediamora_antispam_validate_form( $record, $ajax_handler ) {
 			$value = trim( implode( ' ', array_map( 'strval', $raw_value ) ) );
 		} else {
 			$value = trim( (string) $raw_value );
+		}
+
+		// Uitgezonderd veld: geen enkele check, ook niet de dubbele inhoud of
+		// het vangnet, en de waarde komt nergens in een log, ook niet in debug.txt.
+		if ( mediamora_antispam_is_exempt_field( $s['exempt_fields'], $form_id, $id ) ) {
+			if ( $s['debug'] ) {
+				mediamora_antispam_debug_log( $id, $type, '(niet gelogd)', false, null, 'overgeslagen (uitgezonderd veld)' );
+			}
+			continue;
 		}
 
 		if ( '' === $value || in_array( $type, $skip_types, true ) ) {
