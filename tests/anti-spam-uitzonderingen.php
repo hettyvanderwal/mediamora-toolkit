@@ -72,6 +72,13 @@ function __( $tekst ) {
 	return $tekst;
 }
 
+// Zoals WordPress met de tijdzone Europe/Amsterdam.
+function wp_date( $formaat, $tijd = null ) {
+	$datum = new DateTime( '@' . ( null === $tijd ? time() : $tijd ) );
+	$datum->setTimezone( new DateTimeZone( 'Europe/Amsterdam' ) );
+	return $datum->format( $formaat );
+}
+
 require dirname( __DIR__ ) . '/modules/anti-spam.php';
 
 $fout = 0;

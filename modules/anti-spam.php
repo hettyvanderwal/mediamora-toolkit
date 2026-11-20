@@ -132,6 +132,10 @@ function mediamora_antispam_default_settings() {
 		'reject_own_domain_mention' => true,
 		'reject_shortened_urls'    => true,
 		'reject_scheduling_links'  => true,
+		'reject_name_underscore'   => true,
+		'reject_name_digits'       => true,
+		'reject_name_domain'       => true,
+		'reject_textarea_only_url' => true,
 
 		// Vangnet voor mogelijke vals-negatieven
 		'nearmiss_alert_enabled'  => true,
@@ -343,6 +347,10 @@ function mediamora_antispam_sanitize_and_save_settings( $post, &$errors = array(
 	$clean['reject_own_domain_mention'] = ! empty( $post['reject_own_domain_mention'] );
 	$clean['reject_shortened_urls']    = ! empty( $post['reject_shortened_urls'] );
 	$clean['reject_scheduling_links']  = ! empty( $post['reject_scheduling_links'] );
+	$clean['reject_name_underscore']   = ! empty( $post['reject_name_underscore'] );
+	$clean['reject_name_digits']       = ! empty( $post['reject_name_digits'] );
+	$clean['reject_name_domain']       = ! empty( $post['reject_name_domain'] );
+	$clean['reject_textarea_only_url'] = ! empty( $post['reject_textarea_only_url'] );
 
 	$clean['nearmiss_alert_enabled']  = ! empty( $post['nearmiss_alert_enabled'] );
 	$clean['nearmiss_email_interval'] = max( 1, (int) ( $post['nearmiss_email_interval_hours'] ?? 24 ) ) * HOUR_IN_SECONDS;
@@ -508,6 +516,32 @@ function mediamora_antispam_render_settings_page() {
 						<p class="description">Typerend voor cold-outreach/verkooppitches: de afzender wil dat jij een afspraak bij hén inplant. Een echte bezoeker stuurt in zijn eigen bericht nooit zo'n boekingslink mee.</p>
 					</td>
 				</tr>
+				<tr>
+					<th scope="row">Underscore in een naamveld</th>
+					<td>
+						<label><input type="checkbox" name="reject_name_underscore" value="1" <?php checked( $s['reject_name_underscore'] ); ?>> Weiger een naam met een underscore (_), zoals "mostbet_zlSl"</label>
+						<p class="description">Een echte naam heeft nooit een underscore. Bots vullen hier vaak een merknaam met een willekeurig achtervoegsel in. Zie hieronder welke velden als naamveld tellen.</p>
+					</td>
+				</tr>
+				<tr>
+					<th scope="row">Cijferreeks in een naamveld</th>
+					<td>
+						<label><input type="checkbox" name="reject_name_digits" value="1" <?php checked( $s['reject_name_digits'] ); ?>> Weiger een naam met 6 of meer cijfers achter elkaar, zoals "NAERTREGE2323839NEYRTHYT"</label>
+					</td>
+				</tr>
+				<tr>
+					<th scope="row">Domeinnaam in een naamveld</th>
+					<td>
+						<label><input type="checkbox" name="reject_name_domain" value="1" <?php checked( $s['reject_name_domain'] ); ?>> Weiger een naam met een link of domeinnaam, zoals "onhour.ru"</label>
+						<p class="description">Een voorletter met een punt ervoor telt niet als domein, dus "J.de Vries" mag. <strong>Naamveld:</strong> een tekstveld met veld-ID <code>name</code>, of met naam, voornaam, achternaam of name in het label (zonder label: in de placeholder). Nooit een veld met e-mail, bedrijf, website, Instagram, LinkedIn of gebruikersnaam in het label, en nooit een veld met een webadres als placeholder.</p>
+					</td>
+				</tr>
+				<tr>
+					<th scope="row">Bericht met alleen een link</th>
+					<td>
+						<label><input type="checkbox" name="reject_textarea_only_url" value="1" <?php checked( $s['reject_textarea_only_url'] ); ?>> Weiger een berichtveld dat uit niets anders bestaat dan één link, zoals "http://47kg.kr/"</label>
+					</td>
+				</tr>
 			</table>
 
 			<h2>Uitgezonderde velden</h2>
@@ -606,6 +640,18 @@ function mediamora_antispam_validate_form( $record, $ajax_handler ) {
 	// Uitgezonderde velden gelden alleen voor het formulier waar ze bij staan.
 	$form_id = (string) $record->get_form_settings( 'id' );
 
+	// De placeholders staan niet in de velden van het record, wel in de
+	// instellingen van het formulier.
+	$placeholders = array();
+	$form_fields  = $record->get_form_settings( 'form_fields' );
+	if ( is_array( $form_fields ) ) {
+		foreach ( $form_fields as $form_field ) {
+			if ( isset( $form_field['custom_id'] ) ) {
+				$placeholders[ (string) $form_field['custom_id'] ] = isset( $form_field['placeholder'] ) ? (string) $form_field['placeholder'] : '';
+			}
+		}
+	}
+
 	$fields              = $record->get( 'fields' );
 	$long_values         = array();
 	$near_misses         = array();
@@ -642,18 +688,42 @@ function mediamora_antispam_validate_form( $record, $ajax_handler ) {
 			continue;
 		}
 
+		// Zonder label telt de placeholder als label: veel formulieren tonen
+		// alleen een placeholder als "Je naam".
+		$placeholder = isset( $placeholders[ $id ] ) ? $placeholders[ $id ] : '';
+		$label       = isset( $field['title'] ) ? trim( (string) $field['title'] ) : '';
+		if ( '' === $label ) {
+			$label = $placeholder;
+		}
+
+		// Website- en profielvelden: daar hoort een domein of accountnaam in,
+		// dus geen check op onleesbare tekst en geen vangnet voor de link.
+		$is_profile      = mediamora_antispam_is_profile_field( $label, $placeholder, $value );
 		$is_link         = mediamora_has_link_injection( $value, $type );
 		$gibberish_score = mediamora_gibberish_score( $value );
-		$is_gibberish    = ! $is_link && $gibberish_score['is_gibberish'];
+		$is_gibberish    = ! $is_link && ! $is_profile && $gibberish_score['is_gibberish'];
 
 		if ( $s['debug'] ) {
 			mediamora_antispam_debug_log( $id, $type, $value, $is_link, $gibberish_score, 'beoordeeld' );
 		}
 
-		// Check 1: link injection (BBCode, of te veel URLs voor het veldtype)
+		// Check 0: naamveld met een underscore, een cijferreeks of een domein
+		if ( mediamora_antispam_is_name_field( $id, $type, $label, $placeholder ) ) {
+			$name_reason = mediamora_antispam_name_reason( $value );
+			if ( '' !== $name_reason ) {
+				$ajax_handler->add_error( $id, __( 'Ongeldige invoer gedetecteerd.', 'mediamora-toolkit' ) );
+				mediamora_antispam_log( $name_reason, $id, $type, $value );
+				$submission_rejected = true;
+				continue;
+			}
+		}
+
+		// Check 1: link injection (BBCode, te veel URLs voor het veldtype, of
+		// een berichtveld met alleen een link)
 		if ( $is_link ) {
+			$only_url = 'textarea' === $type && $s['reject_textarea_only_url'] && mediamora_antispam_is_only_url( $value );
 			$ajax_handler->add_error( $id, __( 'Ongeldige invoer gedetecteerd.', 'mediamora-toolkit' ) );
-			mediamora_antispam_log( 'verdachte link', $id, $type, $value );
+			mediamora_antispam_log( $only_url ? 'bericht is alleen een link' : 'verdachte link', $id, $type, $value );
 			$submission_rejected = true;
 			continue; // dit veld is al afgekeurd, geen zin om ook nog op gibberish te checken
 		}
@@ -713,7 +783,7 @@ function mediamora_antispam_validate_form( $record, $ajax_handler ) {
 		// laten weigeren, en die uiteindelijke status willen we erbij
 		// vermelden.
 		if ( $s['nearmiss_alert_enabled'] ) {
-			$near_miss_reasons = mediamora_antispam_find_near_misses( $value, $type, $gibberish_score );
+			$near_miss_reasons = mediamora_antispam_find_near_misses( $value, $type, $gibberish_score, $is_profile );
 			if ( ! empty( $near_miss_reasons ) ) {
 				$near_misses[] = array(
 					'id'      => $id,
@@ -951,6 +1021,114 @@ function mediamora_antispam_is_only_url( $value ) {
 }
 
 /**
+ * Of een placeholder een webadres is, zoals "https://", "www.jouwsite.nl"
+ * of "jouwsite.nl". Een veld met zo'n placeholder vraagt om een link.
+ *
+ * @param string $placeholder
+ * @return bool
+ */
+function mediamora_antispam_has_url_placeholder( $placeholder ) {
+
+	$placeholder = (string) $placeholder;
+
+	if ( '' === trim( $placeholder ) ) {
+		return false;
+	}
+
+	return (bool) preg_match( '/https?:|www\./i', $placeholder ) || mediamora_antispam_count_links( $placeholder )['total'] > 0;
+}
+
+/**
+ * Of een veld om een website of een profiel vraagt: Website, Instagram of
+ * LinkedIn in het label, een webadres als placeholder, of een waarde die
+ * met @ begint ("@hestervanrij"). Daar hoort een domeinnaam of een
+ * accountnaam in, en die lijken voor de check op onleesbare tekst en het
+ * vangnet "link in kort veld" op spam.
+ *
+ * @param string $label       Het label, of de placeholder als het label leeg is.
+ * @param string $placeholder
+ * @param string $value
+ * @return bool
+ */
+function mediamora_antispam_is_profile_field( $label, $placeholder, $value ) {
+
+	if ( preg_match( '/website|instagram|linkedin/i', (string) $label ) ) {
+		return true;
+	}
+
+	if ( mediamora_antispam_has_url_placeholder( $placeholder ) ) {
+		return true;
+	}
+
+	return 0 === strpos( ltrim( (string) $value ), '@' );
+}
+
+/**
+ * Of een veld een naamveld is: een tekstveld met veld-ID "name", of met
+ * naam, voornaam, achternaam of name in het label. Nooit een veld met
+ * e-mail, bedrijf(snaam), website, Instagram, LinkedIn of gebruikersnaam in
+ * het label, en nooit een veld met een webadres als placeholder: daar
+ * horen een domein, cijfers of een underscore er gewoon in.
+ *
+ * @param string $field_id    De custom_id van het veld.
+ * @param string $type
+ * @param string $label       Het label, of de placeholder als het label leeg is.
+ * @param string $placeholder
+ * @return bool
+ */
+function mediamora_antispam_is_name_field( $field_id, $type, $label, $placeholder ) {
+
+	if ( 'text' !== $type || mediamora_antispam_has_url_placeholder( $placeholder ) ) {
+		return false;
+	}
+
+	if ( preg_match( '/e-?mail|bedrijf|website|instagram|linkedin|gebruikersnaam|username/i', (string) $label ) ) {
+		return false;
+	}
+
+	return 'name' === (string) $field_id || (bool) preg_match( '/naam|name/i', (string) $label );
+}
+
+/**
+ * Of een naam een link of domeinnaam bevat. Een voorletter met een punt
+ * gaat er eerst uit, zodat "J.de Vries" niet als het domein "J.de" telt.
+ *
+ * @param string $value
+ * @return bool
+ */
+function mediamora_antispam_name_has_domain( $value ) {
+
+	$value = (string) preg_replace( '/(?<![\p{L}\p{N}])\p{L}\./u', ' ', $value );
+
+	return (bool) preg_match( '/www\./i', $value ) || mediamora_antispam_count_links( $value )['total'] > 0;
+}
+
+/**
+ * De checks op een naamveld, elk met een eigen schakelaar.
+ *
+ * @param string $value
+ * @return string De reden voor de log, leeg als de naam goed is.
+ */
+function mediamora_antispam_name_reason( $value ) {
+
+	$s = mediamora_antispam_settings();
+
+	if ( $s['reject_name_underscore'] && false !== strpos( $value, '_' ) ) {
+		return 'underscore in naamveld';
+	}
+
+	if ( $s['reject_name_digits'] && preg_match( '/\d{6,}/', $value ) ) {
+		return 'cijferreeks in naamveld';
+	}
+
+	if ( $s['reject_name_domain'] && mediamora_antispam_name_has_domain( $value ) ) {
+		return 'domeinnaam in naamveld';
+	}
+
+	return '';
+}
+
+/**
  * Herkent link injection. BBCode [url=] is in geen enkel veld legitiem.
  * Kale domeinnamen worden hetzelfde behandeld als volledige URLs, want
  * spam-bots laten het protocol vaak expres weg om linkherkenning te
@@ -967,7 +1145,8 @@ function mediamora_antispam_is_only_url( $value ) {
  * ("Beste SEO https://...") is het typische botpatroon en wordt geweigerd.
  *
  * Uitzondering op die drempels: een link gecombineerd met overwegend
- * niet-Latijns schrift wordt altijd geweigerd, ongeacht het aantal.
+ * niet-Latijns schrift wordt altijd geweigerd, ongeacht het aantal. Een
+ * berichtveld met niets anders dan één link ook, als die check aan staat.
  *
  * @param string $value
  * @param string $type
@@ -993,6 +1172,10 @@ function mediamora_has_link_injection( $value, $type ) {
 	}
 
 	if ( 'textarea' === $type ) {
+		// Een bericht dat alleen uit een link bestaat, is geen bericht.
+		if ( $s['reject_textarea_only_url'] && mediamora_antispam_is_only_url( $value ) ) {
+			return true;
+		}
 		return $url_count > $s['max_links_textarea'];
 	}
 
@@ -1207,15 +1390,16 @@ function mediamora_has_excessive_repetition( $value ) {
  * @param string $value
  * @param string $type
  * @param array  $gibberish_score Resultaat van mediamora_gibberish_score() voor dit veld.
+ * @param bool   $is_profile      Website- of profielveld: geen onleesbare tekst en geen link in kort veld.
  * @return string[] Lijst met redenen, leeg als er niets opvallends is.
  */
-function mediamora_antispam_find_near_misses( $value, $type, $gibberish_score ) {
+function mediamora_antispam_find_near_misses( $value, $type, $gibberish_score, $is_profile = false ) {
 
 	$s       = mediamora_antispam_settings();
 	$reasons = array();
 
 	// Gibberish: precies 1 signaal te weinig om te weigeren.
-	if ( $gibberish_score['suspicious'] > 0 && $gibberish_score['suspicious'] === ( $s['gibberish_threshold'] - 1 ) ) {
+	if ( ! $is_profile && $gibberish_score['suspicious'] > 0 && $gibberish_score['suspicious'] === ( $s['gibberish_threshold'] - 1 ) ) {
 		$reasons[] = 'onleesbare tekst (net niet genoeg signalen)';
 	}
 
@@ -1229,7 +1413,7 @@ function mediamora_antispam_find_near_misses( $value, $type, $gibberish_score ) 
 
 	// Links in een gewoon tekstveld: sinds de grens daar niet meer 0 is,
 	// elke doorgelaten link loggen, zodat zichtbaar wordt wat erdoor komt.
-	if ( 'textarea' !== $type ) {
+	if ( 'textarea' !== $type && ! $is_profile ) {
 		$url_count = mediamora_antispam_count_links( $value )['total'];
 		if ( $url_count > 0 ) {
 			$reasons[] = sprintf( 'link in kort veld, doorgelaten (%d)', $url_count );
@@ -1307,7 +1491,7 @@ function mediamora_antispam_debug_log( $field_id, $field_type, $value, $is_link,
 
 	$line = sprintf(
 		'%s | status: %s | veld-id: %s | type: %s | waarde: "%s" | link-check: %s | gibberish-detail: %s',
-		gmdate( 'Y-m-d H:i:s' ),
+		mediamora_antispam_log_time(),
 		$status,
 		$field_id,
 		$field_type,
@@ -1402,11 +1586,11 @@ function mediamora_antispam_log( $reason, $field_id, $field_type, $value ) {
 	mediamora_antispam_ensure_log_dir();
 
 	$snippet = str_replace( array( "\r", "\n" ), ' ', $value );
-	$snippet = mb_substr( $snippet, 0, 50 );
+	$snippet = mb_substr( $snippet, 0, 200 );
 
 	$line = sprintf(
 		'%s | veld: %s (%s) | reden: %s | waarde: %s',
-		gmdate( 'Y-m-d H:i:s' ),
+		mediamora_antispam_log_time(),
 		$field_id,
 		$field_type,
 		$reason,
@@ -1434,11 +1618,11 @@ function mediamora_antispam_nearmiss_log( $field_id, $field_type, $value, $reaso
 	mediamora_antispam_ensure_log_dir();
 
 	$snippet = str_replace( array( "\r", "\n" ), ' ', $value );
-	$snippet = mb_substr( $snippet, 0, 80 );
+	$snippet = mb_substr( $snippet, 0, 200 );
 
 	$line = sprintf(
 		'%s | veld: %s (%s) | vermoedelijke reden(en): %s | inzending: %s | waarde: %s',
-		gmdate( 'Y-m-d H:i:s' ),
+		mediamora_antispam_log_time(),
 		$field_id,
 		$field_type,
 		implode( ', ', $reasons ),
@@ -1698,22 +1882,60 @@ function mediamora_antispam_remove_legacy_log_dir( $oud ) {
 add_action( 'admin_init', 'mediamora_antispam_maybe_migrate_log_dir' );
 
 /**
- * Haalt de timestamp uit een logregel (begint met "Y-m-d H:i:s | ...").
+ * Het tijdstip voor een logregel: in de tijdzone van de site, met de
+ * afwijking van UTC erachter ("2026-11-20 15:03:11 +01:00"). Zo staan het
+ * log en de mails in dezelfde tijd als de rest van de site, en is elke
+ * regel ook buiten WordPress om terug te rekenen.
+ *
+ * @param int|null $tijd Unix-tijd, standaard nu.
+ * @return string
+ */
+function mediamora_antispam_log_time( $tijd = null ) {
+	return wp_date( 'Y-m-d H:i:s P', null === $tijd ? time() : $tijd );
+}
+
+/**
+ * Haalt de timestamp uit een logregel (begint met "Y-m-d H:i:s +01:00 | ...").
+ * Regels van voor 1.28.0 hebben geen tijdzone en staan in UTC.
  *
  * @param string $line
  * @return int|false
  */
 function mediamora_antispam_parse_line_timestamp( $line ) {
 
-	$parts = explode( ' | ', $line, 2 );
+	$parts   = explode( ' | ', $line, 2 );
+	$stempel = trim( $parts[0] );
 
-	if ( empty( $parts[0] ) ) {
+	if ( '' === $stempel ) {
 		return false;
 	}
 
-	$timestamp = strtotime( $parts[0] . ' UTC' );
+	if ( ! preg_match( '/[+-]\d{2}:\d{2}$/', $stempel ) ) {
+		$stempel .= ' UTC';
+	}
+
+	$timestamp = strtotime( $stempel );
 
 	return false !== $timestamp ? $timestamp : false;
+}
+
+/**
+ * Een logregel zoals die in een mail komt: met het tijdstip in de tijdzone
+ * van de site, ook als de regel nog van voor 1.28.0 is en in UTC staat.
+ *
+ * @param string $line
+ * @return string
+ */
+function mediamora_antispam_line_for_mail( $line ) {
+
+	$timestamp = mediamora_antispam_parse_line_timestamp( $line );
+	$parts     = explode( ' | ', $line, 2 );
+
+	if ( false === $timestamp || ! isset( $parts[1] ) ) {
+		return $line;
+	}
+
+	return mediamora_antispam_log_time( $timestamp ) . ' | ' . $parts[1];
 }
 
 /**
@@ -1820,7 +2042,7 @@ function mediamora_antispam_maybe_send_report() {
 		$count
 	);
 	$body .= "Details:\n\n";
-	$body .= implode( "\n", $recent_for_email );
+	$body .= implode( "\n", array_map( 'mediamora_antispam_line_for_mail', $recent_for_email ) );
 	$body .= "\n\nVolledige log (incl. de regels uit eerdere rapporten, binnen de bewaartermijn) staat in " . mediamora_antispam_log_path_label( $log_file ) . " op de server. Die mapnaam verschilt per site.";
 
 	$verstuurd = wp_mail(
@@ -1913,7 +2135,7 @@ function mediamora_antispam_maybe_send_nearmiss_alert() {
 		$count
 	);
 	$body .= "Details:\n\n";
-	$body .= implode( "\n", $recent );
+	$body .= implode( "\n", array_map( 'mediamora_antispam_line_for_mail', $recent ) );
 	$body .= "\n\nDit vangnet draait onafhankelijk van de gewone rapportage, en blijft dus actief ook als je die op deze site hebt uitgezet.";
 
 	$verstuurd = wp_mail(

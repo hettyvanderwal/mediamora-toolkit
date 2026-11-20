@@ -17,6 +17,13 @@ define( 'ABSPATH', __DIR__ . '/' );
 function add_action() {}
 function add_filter() {}
 
+// Zoals WordPress met de tijdzone Europe/Amsterdam.
+function wp_date( $formaat, $tijd = null ) {
+	$datum = new DateTime( '@' . ( null === $tijd ? time() : $tijd ) );
+	$datum->setTimezone( new DateTimeZone( 'Europe/Amsterdam' ) );
+	return $datum->format( $formaat );
+}
+
 require dirname( __DIR__ ) . '/modules/anti-spam.php';
 
 $gevallen = array(

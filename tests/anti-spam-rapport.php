@@ -89,6 +89,13 @@ function is_email( $email ) {
 	return false !== strpos( $email, '@' );
 }
 
+// Zoals WordPress met de tijdzone Europe/Amsterdam.
+function wp_date( $formaat, $tijd = null ) {
+	$datum = new DateTime( '@' . ( null === $tijd ? time() : $tijd ) );
+	$datum->setTimezone( new DateTimeZone( 'Europe/Amsterdam' ) );
+	return $datum->format( $formaat );
+}
+
 require dirname( __DIR__ ) . '/modules/anti-spam.php';
 
 $fout = 0;
@@ -126,7 +133,7 @@ function verschuif( $bestand, $seconden ) {
 	$regels = file( $bestand, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES );
 	foreach ( $regels as $i => $r ) {
 		$tijd       = mediamora_antispam_parse_line_timestamp( $r );
-		$regels[ $i ] = gmdate( 'Y-m-d H:i:s', $tijd - $seconden ) . substr( $r, 19 );
+		$regels[ $i ] = gmdate( 'Y-m-d H:i:s', $tijd - $seconden ) . ' | ' . explode( ' | ', $r, 2 )[1];
 	}
 	schrijf_log( $bestand, $regels );
 	foreach ( array( 'mediamora_antispam_last_report', 'mediamora_antispam_last_nearmiss_alert' ) as $optie ) {
