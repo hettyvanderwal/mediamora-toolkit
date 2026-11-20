@@ -277,6 +277,28 @@ Een uitgezonderd veld wordt overgeslagen op dezelfde plek als de veldtypes zonde
 
 Bedoeld voor lange intakeformulieren waar echte namen, straatnamen of klachtomschrijvingen net onder de drempel voor onleesbare tekst kunnen komen.
 
+## Anti-spam: naamvelden en profielvelden
+
+Een **naamveld** is een tekstveld (`text`) met veld-ID `name`, of met naam, voornaam, achternaam of name in het label, hoofdletters maken niet uit. Heeft het veld geen label, dan telt de placeholder als label. Nooit een naamveld: een veld met e-mail, bedrijf(snaam), website, Instagram, LinkedIn of gebruikersnaam in het label, en een veld met een webadres als placeholder (`https://`, `www.…` of een domeinnaam). Op een naamveld gelden drie checks, elk met een eigen schakelaar op het instellingenscherm, standaard aan:
+
+| Instelling | Weigert | Reden in de log |
+|---|---|---|
+| `reject_name_underscore` | een underscore, zoals `mostbet_zlSl` | `underscore in naamveld` |
+| `reject_name_digits` | 6 of meer cijfers achter elkaar, zoals `NAERTREGE2323839NEYRTHYT` | `cijferreeks in naamveld` |
+| `reject_name_domain` | een link of domeinnaam, zoals `onhour.ru` | `domeinnaam in naamveld` |
+
+Voor de domeinnaam geldt dezelfde lijst met domeinen als bij de links, plus alles met `www.` of `http(s)://`. Een voorletter met een punt telt niet als domein, zodat `J.de Vries` mag.
+
+Een berichtveld (`textarea`) met niets anders dan één link, zoals `http://47kg.kr/`, wordt geweigerd met reden `bericht is alleen een link` (`reject_textarea_only_url`, standaard aan). Dat gebeurt in `mediamora_has_link_injection()`, vóór de drempel voor het aantal links.
+
+Een **profielveld** is een veld met Website, Instagram of LinkedIn in het label (of de placeholder als het label leeg is), een veld met een webadres als placeholder, of een waarde die met `@` begint. Daar hoort een domein of accountnaam in, dus geen check op onleesbare tekst en geen vangnetregel "link in kort veld". De andere checks blijven gelden, zoals te veel links, BBCode en verkorte links.
+
+De placeholders komen uit `$record->get_form_settings( 'form_fields' )`, de labels uit de velden van het record.
+
+## Anti-spam: tijden in de log
+
+`log.txt`, `near-miss.txt` en `debug.txt` krijgen vanaf 1.28.0 de tijd in de tijdzone van de site, met de afwijking van UTC erachter: `2026-11-20 17:43:42 +01:00 | …`. Regels van daarvoor staan in UTC zonder tijdzone en worden ook zo gelezen. In de rapportmail en de vangnet-mail staan alle regels in de tijdzone van de site, ook de oude. Het mailvenster en de bewaartermijn rekenen met de echte tijd van elke regel, dus bij de overstap wordt niets dubbel gemaild of overgeslagen.
+
 ## Deactiveren en verwijderen
 
 Deactiveren haalt alleen de cron-events (ook die van Verweesde meta opruimen, de Instagram-feed, Tijdelijke accounts, Afsluiten op einddatum en de dagelijkse opschoning van de anti-spamlogs) en de blokken van de toolkit uit `.htaccess` weg, en leegt de element cache van Elementor en de LiteSpeed-cache als Afbeeldingstitels verbergen aan stond. Instellingen en logs blijven staan.
@@ -288,6 +310,15 @@ Verwijderen via Plugins ruimt alles op: de opties en transients van de toolkit e
 De user meta `mm_verloopt_op` en `mm_overdragen_aan` blijven altijd staan. Worden ze weggehaald en wordt de toolkit daarna opnieuw geïnstalleerd, bijvoorbeeld om een zip te vervangen, dan worden tijdelijke accounts stil vaste accounts.
 
 ## Wijzigingen
+
+### 1.28.0
+
+- Anti-spam: drie nieuwe checks op naamvelden, elk met een eigen schakelaar (standaard aan) en een eigen reden in de log: een underscore (`underscore in naamveld`), 6 of meer cijfers achter elkaar (`cijferreeks in naamveld`) en een link of domeinnaam (`domeinnaam in naamveld`). Een domein in een naamveld gaf eerst alleen een vangnetregel "link in kort veld, doorgelaten". Zie "Anti-spam: naamvelden en profielvelden" voor welke velden als naamveld tellen.
+- Anti-spam: een berichtveld met niets anders dan één link wordt geweigerd (`bericht is alleen een link`, eigen schakelaar, standaard aan). Eerst gold voor berichtvelden alleen het maximum aantal links.
+- Anti-spam: velden met Website, Instagram of LinkedIn in het label, velden met een webadres als placeholder en waarden die met @ beginnen, vallen niet meer onder de check op onleesbare tekst en geven geen vangnetregel "link in kort veld" meer.
+- Anti-spam: `log.txt` en `near-miss.txt` bewaren 200 tekens van de waarde, was 50 en 80. Zo is te zien waarop een check aansloeg. De bewaartermijn blijft gelijk.
+- Anti-spam: de logtijden staan in de tijdzone van de site met de afwijking van UTC erachter (`2026-11-20 17:43:42 +01:00`), net als de mails. Eerst stond het log in UTC zonder tijdzone, waardoor regels een uur verschoven leken. Bij de overstap: regels van vóór de update blijven in het bestand in UTC staan tot ze na de bewaartermijn verdwijnen, en worden ook als UTC gelezen; in de mails staan ze omgerekend naar de tijd van de site. Het mailvenster rekent met de echte tijd van elke regel, dus de eerste mail na de update mailt niets dubbel en slaat niets over. Zie "Anti-spam: tijden in de log".
+- Testgevallen in `tests/anti-spam-naamvelden.php`; de andere anti-spamtests bootsen nu `wp_date()` na.
 
 ### 1.27.0
 
@@ -515,7 +546,7 @@ Fixes uit de tweede codereview.
 
 ## Release maken
 
-Eerst de testgevallen draaien (`php tests/anti-spam-links.php`, `php tests/anti-spam-rapport.php`, `php tests/anti-spam-uitzonderingen.php`, `php tests/tijdelijke-accounts.php`, `php tests/tijdelijke-accounts-toolkit.php`, `php tests/afbeeldingstitels.php`, `php tests/afbeeldingstitels-toolkit.php`, `php tests/schema-persoon.php`, `php tests/ai-bots-bezoek.php`, `php tests/font-preload.php`, `php tests/font-preload-toolkit.php` en `php tests/einddatum.php`) en `php -l` op alle bestanden.
+Eerst de testgevallen draaien (`php tests/anti-spam-links.php`, `php tests/anti-spam-rapport.php`, `php tests/anti-spam-uitzonderingen.php`, `php tests/anti-spam-naamvelden.php`, `php tests/tijdelijke-accounts.php`, `php tests/tijdelijke-accounts-toolkit.php`, `php tests/afbeeldingstitels.php`, `php tests/afbeeldingstitels-toolkit.php`, `php tests/schema-persoon.php`, `php tests/ai-bots-bezoek.php`, `php tests/font-preload.php`, `php tests/font-preload-toolkit.php` en `php tests/einddatum.php`) en `php -l` op alle bestanden.
 
 1. Versie ophogen op twee plekken in `mediamora-toolkit.php`: `Version:` in de kop en `MM_TOOLKIT_VERSIE`. Of een update wordt aangeboden hangt alleen af van `Version:` in de kop; de constante wordt gelijk gehouden voor de rest, zoals de mailheader van de Formuliermonitor.
 2. Bestanden uploaden naar de repo.
