@@ -3,7 +3,7 @@
  * Plugin Name:       Mediamora Toolkit
  * Plugin URI:        https://github.com/hettyvanderwal/mediamora-toolkit
  * Description:       De vaste Mediamora-onderdelen in één plugin, per onderdeel aan en uit te zetten onder Instellingen > Mediamora Toolkit.
- * Version:           1.28.0
+ * Version:           1.29.0
  * Requires at least: 6.0
  * Requires PHP:      7.4
  * Update URI:        https://github.com/hettyvanderwal/mediamora-toolkit
@@ -22,7 +22,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  * updates telt alleen de kop, zie mm_toolkit_huidige_versie(); deze
  * constante is er voor de rest, zoals de mailheader van de Formuliermonitor.
  */
-const MM_TOOLKIT_VERSIE = '1.28.0';
+const MM_TOOLKIT_VERSIE = '1.29.0';
 const MM_TOOLKIT_REPO   = 'hettyvanderwal/mediamora-toolkit';
 const MM_TOOLKIT_SLUG   = 'mediamora-toolkit';
 const MM_TOOLKIT_OPTIE  = 'mm_toolkit_modules';
@@ -427,6 +427,12 @@ function mm_toolkit_deactiveren() {
 		mm_toolkit_afbeeldingstitels_cache_legen();
 	}
 	delete_option( MM_TOOLKIT_AFBEELDINGSTITELS_OPTIE );
+	// E-mailadressen afschermen: zonder de toolkit staan de adressen weer
+	// gewoon in de HTML, dus de LiteSpeed-cache leeg als de module aan stond.
+	if ( (int) get_option( MM_TOOLKIT_EMAIL_AFSCHERMEN_OPTIE, 0 ) && defined( 'LSCWP_V' ) ) {
+		do_action( 'litespeed_purge_all' );
+	}
+	delete_option( MM_TOOLKIT_EMAIL_AFSCHERMEN_OPTIE );
 	// Afsluiten op einddatum: geen controle meer zonder de toolkit. De datum
 	// blijft staan; na opnieuw activeren plant de module hem weer in.
 	wp_unschedule_hook( 'mm_einddatum_controle' );
@@ -706,6 +712,9 @@ function mm_toolkit_scherm() {
 		if ( 'instagram' === $sleutel && $s['laden'] && function_exists( 'mm_instagram_status_regel' ) ) {
 			$tekst .= '<br><span style="color:#646970;">' . mm_instagram_status_regel() . '</span>';
 		}
+		if ( 'email_afschermen' === $sleutel && $s['laden'] && function_exists( 'mm_email_afschermen_ase_aan' ) && mm_email_afschermen_ase_aan() ) {
+			$tekst .= '<br><span style="color:#b32d2e;">Email Address Obfuscator staat in ASE nog aan. Die kan uit: deze module neemt het over, ook de shortcode [obfuscate].</span>';
+		}
 		if ( 'withdrawal_waiver' === $sleutel && $s['laden'] && function_exists( 'mm_herroeping_meldingen' ) ) {
 			foreach ( mm_herroeping_meldingen() as $melding ) {
 				$tekst .= '<br><span style="color:#b32d2e;">' . esc_html( $melding ) . '</span>';
@@ -971,6 +980,38 @@ function mm_toolkit_afbeeldingstitels_herstel() {
  */
 function mm_toolkit_afbeeldingstitels_cache_legen() {
 	delete_post_meta_by_key( '_elementor_element_cache' );
+	if ( defined( 'LSCWP_V' ) ) {
+		do_action( 'litespeed_purge_all' );
+	}
+}
+
+
+/* -------------------------------------------------------------------------
+ * E-mailadressen afschermen: LiteSpeed-cache legen
+ *
+ * De module werkt op de HTML die LiteSpeed cachet. Na aan- of uitzetten
+ * blijven gecachete pagina's anders de oude HTML geven, met of zonder
+ * afgeschermde adressen. Daarom gaat bij elke wisseling de hele LiteSpeed-
+ * cache leeg. Zelfherstel zoals bij Afbeeldingstitels verbergen; de element
+ * cache van Elementor hoeft niet leeg, want de module werkt pas op de
+ * uiteindelijke pagina.
+ * ---------------------------------------------------------------------- */
+
+const MM_TOOLKIT_EMAIL_AFSCHERMEN_OPTIE = 'mm_toolkit_email_afschermen_stand';
+
+add_action( 'init', 'mm_toolkit_email_afschermen_herstel', 20 );
+
+function mm_toolkit_email_afschermen_herstel() {
+	$aan   = mm_toolkit_status()['email_afschermen']['laden'] ? 1 : 0;
+	$stand = get_option( MM_TOOLKIT_EMAIL_AFSCHERMEN_OPTIE, false );
+	if ( false !== $stand && (int) $stand === $aan ) {
+		return;
+	}
+	update_option( MM_TOOLKIT_EMAIL_AFSCHERMEN_OPTIE, $aan, true );
+	// Nog nooit aan geweest: dan staat er ook geen afgeschermde HTML in de cache.
+	if ( false === $stand && ! $aan ) {
+		return;
+	}
 	if ( defined( 'LSCWP_V' ) ) {
 		do_action( 'litespeed_purge_all' );
 	}

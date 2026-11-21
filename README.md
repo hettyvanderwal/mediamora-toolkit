@@ -25,6 +25,7 @@ De vaste Mediamora-onderdelen in één WordPress-plugin. Elk onderdeel is een mo
 | Afbeeldingstitels verbergen | Vindbaarheid | aan, doet niets zonder Elementor | tijdelijke code in `functions.php` (`mm_verberg_afbeeldingstitel`) |
 | Persoon in schema | Vindbaarheid | uit, per site aanzetten en invullen | losse code in `functions.php` (Person-node in `rank_math/json_ld`) |
 | Afsluiten op einddatum | Mediamora | uit, aanzetten bij een opgezegd onderhoudspakket, ook zonder Onderhoudsklant | nieuw |
+| E-mailadressen afschermen | Beveiliging | uit, per site aanzetten | Email Address Obfuscator van ASE en losse code in `functions.php` |
 
 ## Tabbladen en Onderhoudsklant
 
@@ -299,17 +300,70 @@ De placeholders komen uit `$record->get_form_settings( 'form_fields' )`, de labe
 
 `log.txt`, `near-miss.txt` en `debug.txt` krijgen vanaf 1.28.0 de tijd in de tijdzone van de site, met de afwijking van UTC erachter: `2026-11-20 17:43:42 +01:00 | …`. Regels van daarvoor staan in UTC zonder tijdzone en worden ook zo gelezen. In de rapportmail en de vangnet-mail staan alle regels in de tijdzone van de site, ook de oude. Het mailvenster en de bewaartermijn rekenen met de echte tijd van elke regel, dus bij de overstap wordt niets dubbel gemaild of overgeslagen.
 
+## E-mailadressen afschermen
+
+Schermt e-mailadressen op de voorkant af voor spambots, terwijl bezoekers ze gewoon zien, aanklikken en kopiëren. Staat standaard uit en is per site aan te zetten op het tabblad Beveiliging.
+
+### Aanpak en waarom
+
+De module werkt op de uiteindelijke HTML van de pagina, met een output buffer die op `template_redirect` start. Zo valt alles eronder wat Elementor rendert, ook de header en footer van de Theme Builder, popups, widgets, `the_content` en shortcodes, zonder per widget een filter dat bij een volgende Elementor-versie kan verschuiven. De buffer zit binnen die van LiteSpeed Cache, dus LiteSpeed optimaliseert en cachet HTML die al is afgeschermd.
+
+Per plek:
+
+- **mailto-link**: de `href` wordt `mailto:info[at]domein.nl` en het echte adres staat versleuteld in `data-mm-e`. Een klein script zet de echte `href` terug.
+- **aria-label, title en alt** met een adres erin, zoals het icoon van een Pictogramvak: zelfde aanpak, met `info [at] domein.nl` in de plaats.
+- **zichtbare tekst**: het adres wordt `<span data-mm-t="…">info [at] domein.nl</span>`. Het script vervangt die span door het echte adres als gewone tekst. Het ziet er dus normaal uit, en kopiëren geeft precies het adres. Een los adres zonder link blijft een los adres en wordt niet klikbaar gemaakt.
+
+Het script staat vlak voor `</body>` en draait meteen, dus vóór `DOMContentLoaded` en voordat Elementor zijn links uitleest. Het heeft `data-no-defer`, `data-no-optimize` en `data-no-minify` voor LiteSpeed en `data-cfasync="false"` voor Rocket Loader van Cloudflare: uitgesteld zou de leesbare vorm blijven staan tot de bezoeker iets doet. Er komt alleen een script op pagina's waar iets is afgeschermd.
+
+**Zonder JavaScript** blijft `info [at] domein.nl` staan: leesbaar voor een mens, en een link opent het mailprogramma met `info[at]domein.nl`, dat de bezoeker zelf kan verbeteren. Dat is de afweging. Het alternatief, het echte adres in de HTML laten staan en het alleen met entiteiten of CSS verstoppen, houdt geen bot tegen die de HTML gewoon decodeert, en de trucs van ASE (omgekeerde tekst met `direction: rtl`, een verborgen span) geven bij kopiëren een verkeerd adres en het adres is niet klikbaar. Met JavaScript, dus voor vrijwel elke bezoeker, werkt alles volledig.
+
+De versleuteling is geen beveiliging, alleen genoeg om bots die op een `@` of `mailto:` zoeken niets te laten vinden: per waarde een sleutelbyte, daarna elke byte van de UTF-8-tekst XOR die sleutel, als hex. De sleutel volgt uit de waarde, zodat dezelfde pagina steeds dezelfde HTML geeft.
+
+Adressen die met entiteiten zijn geschreven, zoals `antispambot()` ze maakt (`&#109;a&#114;ianne&#64;…`), worden ook herkend. Bestandsnamen als `logo@2x.png` en losse handles als `@artsenkompas` niet.
+
+### Wat ongemoeid blijft
+
+- Alles vóór `<body>`: meta-tags en het schema van Rank Math (Organization, WebSite, WebPage).
+- De inhoud van `script` (dus ook JSON-LD in de body, zoals het FAQ-schema van een accordeon), `style`, `textarea`, `noscript`, `template`, `form`, `select`, `svg`, `iframe`, `object` en `math`, en HTML-commentaar.
+- Alle andere attributen dan `href`, `aria-label`, `title` en `alt`, dus ook `value` en `placeholder` van invoervelden en de `data-settings` van Elementor. Een `href` die niet met `mailto:` begint blijft staan.
+- Het beheer, de Elementor-editor en het voorbeeld (`elementor-preview`), het WordPress-voorbeeld, de customizer, REST, AJAX, cron, feeds, robots.txt, XML-RPC en WP-CLI. `wp-login.php` komt niet bij `template_redirect`. Uitgaande mail gaat niet door de buffer.
+- Antwoorden die geen HTML zijn: een `Content-Type` anders dan `text/html`, of geen `<body>` (sitemaps, JSON).
+
+Per verzoek is de module uit te zetten met het filter `mm_email_afschermen`, bijvoorbeeld voor één pagina:
+
+```php
+add_filter( 'mm_email_afschermen', function ( $aan ) {
+	return is_page( 'contact' ) ? false : $aan;
+} );
+```
+
+### ASE en de shortcode
+
+Staat Email Address Obfuscator van ASE (`obfuscate_email_address` in de optie `admin_site_enhancements`) nog aan terwijl de module aan staat, dan staat er in de toolkit-instellingen een melding dat die uit kan. Ze zitten elkaar niet in de weg: de omgekeerde tekst van ASE is voor de module geen adres.
+
+Gaat de instelling in ASE uit, dan zou `[obfuscate email="…"]` als tekst op de pagina komen. Daarom registreert de module die shortcode zelf zolang ASE dat niet doet, met dezelfde attributen (`email`, `subject`, `text`, `display`, `link`, `class`). Het adres komt er gewoon in, als link bij `link="yes"` of `link="mailto"`, en de buffer schermt het daarna af. Anders dan bij ASE is het adres dan wel klikbaar als `link` aan staat.
+
+### Cache
+
+Bij aan- en uitzetten gaat de hele LiteSpeed-cache leeg, via een zelfherstel op `init` met de stand in `mm_toolkit_email_afschermen_stand`, net als bij Afbeeldingstitels verbergen. Zo vangt het ook een define in `wp-config.php`. De element cache van Elementor hoeft niet leeg: de module werkt pas op de uiteindelijke pagina. Een CDN met een eigen paginacache (Cloudflare APO, QUIC.cloud CDN) leegt mee met LiteSpeed of moet apart geleegd worden.
+
 ## Deactiveren en verwijderen
 
-Deactiveren haalt alleen de cron-events (ook die van Verweesde meta opruimen, de Instagram-feed, Tijdelijke accounts, Afsluiten op einddatum en de dagelijkse opschoning van de anti-spamlogs) en de blokken van de toolkit uit `.htaccess` weg, en leegt de element cache van Elementor en de LiteSpeed-cache als Afbeeldingstitels verbergen aan stond. Instellingen en logs blijven staan.
+Deactiveren haalt alleen de cron-events (ook die van Verweesde meta opruimen, de Instagram-feed, Tijdelijke accounts, Afsluiten op einddatum en de dagelijkse opschoning van de anti-spamlogs) en de blokken van de toolkit uit `.htaccess` weg, en leegt de element cache van Elementor en de LiteSpeed-cache als Afbeeldingstitels verbergen aan stond, en de LiteSpeed-cache als E-mailadressen afschermen aan stond. Instellingen en logs blijven staan.
 
-Een module uitvinken ruimt alleen op wat zonder de module blijft doorlopen: de cron-events, bij Preview-link de sleutel `mm_preview_key` (alle links vervallen) en bij Afbeeldingstitels verbergen de caches. Gedeelde gegevens blijven staan zolang de losse versie van die module nog op de site staat, actief of niet.
+Een module uitvinken ruimt alleen op wat zonder de module blijft doorlopen: de cron-events, bij Preview-link de sleutel `mm_preview_key` (alle links vervallen) en bij Afbeeldingstitels verbergen en E-mailadressen afschermen de caches. Gedeelde gegevens blijven staan zolang de losse versie van die module nog op de site staat, actief of niet.
 
-Verwijderen via Plugins ruimt alles op: de opties en transients van de toolkit en de modules (ook `mm_toolkit_onderhoudsklant`), de cron-events, de alt-tekstkenmerken (`_mm_alt_*`, de alt-teksten zelf blijven staan), de productmeta van Herroepingsrecht (`_mm_withdrawal_type` en het oude vinkje `_mm_withdrawal_waiver_applies`; de teksten `_mm_withdrawal_waiver` en `_mm_service_consent` op bestellingen blijven altijd staan, dat is het bewijs van de instemming), de opties van Verweesde meta opruimen, de opties en de fotomap `uploads/mediamora-instagram` van de Instagram-feed, de mailinstelling van Tijdelijke accounts, de stand van Afbeeldingstitels verbergen, de gegevens van Persoon in schema (`mm_schema_persoon`, `mm_schema_persoon_bezet`), de einddatum en voortgang van Afsluiten op einddatum (`mm_einddatum`, `mm_einddatum_stand`), de `.htaccess`-blokken en de logmap van de anti-spam met de inzendingen erin. Kan de logmap niet worden weggehaald, dan blijft de optie `mediamora_antispam_log_dir` staan, zodat te vinden is waar hij staat. Staat de losse versie van een module nog op de site, als plugin of mu-plugin en actief of niet, dan blijft alles van die module staan, want de losse versie gebruikt dezelfde gegevens. Dat werkt ook met `wp plugin uninstall --deactivate`, waarbij de toolkit in hetzelfde verzoek nog geladen is.
+Verwijderen via Plugins ruimt alles op: de opties en transients van de toolkit en de modules (ook `mm_toolkit_onderhoudsklant`), de cron-events, de alt-tekstkenmerken (`_mm_alt_*`, de alt-teksten zelf blijven staan), de productmeta van Herroepingsrecht (`_mm_withdrawal_type` en het oude vinkje `_mm_withdrawal_waiver_applies`; de teksten `_mm_withdrawal_waiver` en `_mm_service_consent` op bestellingen blijven altijd staan, dat is het bewijs van de instemming), de opties van Verweesde meta opruimen, de opties en de fotomap `uploads/mediamora-instagram` van de Instagram-feed, de mailinstelling van Tijdelijke accounts, de stand van Afbeeldingstitels verbergen en van E-mailadressen afschermen, de gegevens van Persoon in schema (`mm_schema_persoon`, `mm_schema_persoon_bezet`), de einddatum en voortgang van Afsluiten op einddatum (`mm_einddatum`, `mm_einddatum_stand`), de `.htaccess`-blokken en de logmap van de anti-spam met de inzendingen erin. Kan de logmap niet worden weggehaald, dan blijft de optie `mediamora_antispam_log_dir` staan, zodat te vinden is waar hij staat. Staat de losse versie van een module nog op de site, als plugin of mu-plugin en actief of niet, dan blijft alles van die module staan, want de losse versie gebruikt dezelfde gegevens. Dat werkt ook met `wp plugin uninstall --deactivate`, waarbij de toolkit in hetzelfde verzoek nog geladen is.
 
 De user meta `mm_verloopt_op` en `mm_overdragen_aan` blijven altijd staan. Worden ze weggehaald en wordt de toolkit daarna opnieuw geïnstalleerd, bijvoorbeeld om een zip te vervangen, dan worden tijdelijke accounts stil vaste accounts.
 
 ## Wijzigingen
+
+### 1.29.0
+
+- Nieuwe module E-mailadressen afschermen (`email_afschermen`, tabblad Beveiliging, standaard uit). Schermt mailto-links, zichtbare adressen en adressen in `aria-label`, `title` en `alt` af in de uiteindelijke HTML van de voorkant, met een klein script dat ze voor bezoekers terugzet. Zonder JavaScript staat er `info [at] domein.nl`. Scripts (ook JSON-LD), formulieren, de kop van de pagina, het beheer, de Elementor-editor, REST, AJAX, feeds en uitgaande mail blijven ongemoeid. Vervangt Email Address Obfuscator van ASE; de shortcode `[obfuscate]` blijft werken. Staat die in ASE nog aan, dan meldt het instellingenscherm dat hij uit kan. Bij aan- of uitzetten wordt de LiteSpeed-cache geleegd. Zie "E-mailadressen afschermen".
+- Testgevallen in `tests/email-afschermen.php`.
 
 ### 1.28.0
 
@@ -546,7 +600,7 @@ Fixes uit de tweede codereview.
 
 ## Release maken
 
-Eerst de testgevallen draaien (`php tests/anti-spam-links.php`, `php tests/anti-spam-rapport.php`, `php tests/anti-spam-uitzonderingen.php`, `php tests/anti-spam-naamvelden.php`, `php tests/tijdelijke-accounts.php`, `php tests/tijdelijke-accounts-toolkit.php`, `php tests/afbeeldingstitels.php`, `php tests/afbeeldingstitels-toolkit.php`, `php tests/schema-persoon.php`, `php tests/ai-bots-bezoek.php`, `php tests/font-preload.php`, `php tests/font-preload-toolkit.php` en `php tests/einddatum.php`) en `php -l` op alle bestanden.
+Eerst de testgevallen draaien (`php tests/anti-spam-links.php`, `php tests/anti-spam-rapport.php`, `php tests/anti-spam-uitzonderingen.php`, `php tests/anti-spam-naamvelden.php`, `php tests/tijdelijke-accounts.php`, `php tests/tijdelijke-accounts-toolkit.php`, `php tests/afbeeldingstitels.php`, `php tests/afbeeldingstitels-toolkit.php`, `php tests/schema-persoon.php`, `php tests/ai-bots-bezoek.php`, `php tests/font-preload.php`, `php tests/font-preload-toolkit.php` en `php tests/einddatum.php` en `php tests/email-afschermen.php`) en `php -l` op alle bestanden.
 
 1. Versie ophogen op twee plekken in `mediamora-toolkit.php`: `Version:` in de kop en `MM_TOOLKIT_VERSIE`. Of een update wordt aangeboden hangt alleen af van `Version:` in de kop; de constante wordt gelijk gehouden voor de rest, zoals de mailheader van de Formuliermonitor.
 2. Bestanden uploaden naar de repo.

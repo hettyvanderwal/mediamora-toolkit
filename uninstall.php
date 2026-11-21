@@ -69,6 +69,7 @@ function mm_toolkit_uninstall_site( $los ) {
 	delete_option( 'mm_toolkit_onderhoudsklant' );
 	delete_option( 'mm_tijdelijke_accounts_mail' );
 	delete_option( 'mm_toolkit_afbeeldingstitels_stand' );
+	delete_option( 'mm_toolkit_email_afschermen_stand' );
 	delete_option( 'mm_font_preload_kop' );
 	delete_transient( 'mm_font_preload' );
 

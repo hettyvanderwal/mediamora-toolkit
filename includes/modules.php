@@ -167,6 +167,23 @@ function mm_toolkit_modules() {
 			'tabblad'         => 'beveiliging',
 			'onderhoud'       => false,
 		),
+		// Geen merkteken: de losse code in functions.php verschilt per site.
+		// Email Address Obfuscator van ASE kan naast de module aan blijven
+		// staan; het instellingenscherm meldt dan dat die uit kan.
+		'email_afschermen'  => array(
+			'naam'            => 'E-mailadressen afschermen',
+			'uitleg'          => 'Schermt e-mailadressen op de voorkant af voor spambots: mailto-links, zichtbare adressen en adressen in aria-label, title en alt. Bezoekers zien en kopiëren het gewone adres en mailto-links blijven werken; zonder JavaScript staat er "info [at] domein.nl". Werkt op de hele pagina, ook de header en footer van de Theme Builder, en de gecachete HTML van LiteSpeed is al afgeschermd. Scripts (ook JSON-LD), formulieren, de kop van de pagina, het beheer, de Elementor-editor, REST, feeds en uitgaande mail blijven ongemoeid. Vervangt Email Address Obfuscator van ASE; de shortcode [obfuscate] blijft werken. Bij aan- of uitzetten wordt de LiteSpeed-cache geleegd.',
+			'bestand'         => 'email-afschermen.php',
+			'standaard'       => false,
+			'losse_mu'        => '',
+			'losse_plugin'    => '',
+			'merkteken'       => array(),
+			'scherm'          => '',
+			'vereist'         => '',
+			'thema_merkteken' => '',
+			'tabblad'         => 'beveiliging',
+			'onderhoud'       => false,
+		),
 		// Geen merkteken voor de oude functions.php-code (mm_withdrawal_text,
 		// mm_consent_text): die laadt pas na de plugins. De module kijkt daar
 		// zelf per soort naar op init.
