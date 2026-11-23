@@ -26,6 +26,7 @@ De vaste Mediamora-onderdelen in één WordPress-plugin. Elk onderdeel is een mo
 | Persoon in schema | Vindbaarheid | uit, per site aanzetten en invullen | losse code in `functions.php` (Person-node in `rank_math/json_ld`) |
 | Afsluiten op einddatum | Mediamora | uit, aanzetten bij een opgezegd onderhoudspakket, ook zonder Onderhoudsklant | nieuw |
 | E-mailadressen afschermen | Beveiliging | uit, per site aanzetten | Email Address Obfuscator van ASE en losse code in `functions.php` |
+| Formulieren: nieuwsbrief alleen bij vinkje | Koppelingen | uit, alleen met Elementor Pro | losse code in `functions.php` |
 
 ## Tabbladen en Onderhoudsklant
 
@@ -224,7 +225,7 @@ In `wp-config.php`, bijvoorbeeld op een academie:
 define( 'MM_TOOLKIT_MODULE_ALT_TEKSTEN', false );
 ```
 
-Beschikbaar: `MM_TOOLKIT_MODULE_ALT_TEKSTEN`, `MM_TOOLKIT_MODULE_HERO_PRELOAD`, `MM_TOOLKIT_MODULE_PREVIEW_LINK`, `MM_TOOLKIT_MODULE_ANTI_SPAM`, `MM_TOOLKIT_MODULE_FORMULIERMONITOR`, `MM_TOOLKIT_MODULE_AI_BOTS`, `MM_TOOLKIT_MODULE_REST_USERS`, `MM_TOOLKIT_MODULE_WITHDRAWAL_WAIVER`, `MM_TOOLKIT_MODULE_POPUP_TIK`, `MM_TOOLKIT_MODULE_JQUERY_WACHT`, `MM_TOOLKIT_MODULE_QUIC_CLOUD`, `MM_TOOLKIT_MODULE_SCHEMA_BASIS`, `MM_TOOLKIT_MODULE_AFBEELDING_RUIMTE`, `MM_TOOLKIT_MODULE_ELEMENTOR_VERSIE`, `MM_TOOLKIT_MODULE_META_OPRUIMEN`, `MM_TOOLKIT_MODULE_INSTAGRAM`, `MM_TOOLKIT_MODULE_TIJDELIJKE_ACCOUNTS`, `MM_TOOLKIT_MODULE_AFBEELDINGSTITELS`.
+Beschikbaar: `MM_TOOLKIT_MODULE_ALT_TEKSTEN`, `MM_TOOLKIT_MODULE_HERO_PRELOAD`, `MM_TOOLKIT_MODULE_PREVIEW_LINK`, `MM_TOOLKIT_MODULE_ANTI_SPAM`, `MM_TOOLKIT_MODULE_FORMULIERMONITOR`, `MM_TOOLKIT_MODULE_AI_BOTS`, `MM_TOOLKIT_MODULE_REST_USERS`, `MM_TOOLKIT_MODULE_WITHDRAWAL_WAIVER`, `MM_TOOLKIT_MODULE_POPUP_TIK`, `MM_TOOLKIT_MODULE_JQUERY_WACHT`, `MM_TOOLKIT_MODULE_QUIC_CLOUD`, `MM_TOOLKIT_MODULE_SCHEMA_BASIS`, `MM_TOOLKIT_MODULE_AFBEELDING_RUIMTE`, `MM_TOOLKIT_MODULE_ELEMENTOR_VERSIE`, `MM_TOOLKIT_MODULE_META_OPRUIMEN`, `MM_TOOLKIT_MODULE_INSTAGRAM`, `MM_TOOLKIT_MODULE_TIJDELIJKE_ACCOUNTS`, `MM_TOOLKIT_MODULE_AFBEELDINGSTITELS`, `MM_TOOLKIT_MODULE_NIEUWSBRIEF_VINKJE`.
 
 De oude namen zonder `MODULE_` (zoals `MM_TOOLKIT_ALT_TEKSTEN`) werken nog voor de eerste zeven modules, zodat bestaande regels in `wp-config.php` niet aangepast hoeven te worden. Staan beide er, dan wint de nieuwe naam. Een vastgezette module houdt bij het opslaan van het instellingenscherm de keuze die er al stond.
 
@@ -348,17 +349,46 @@ Gaat de instelling in ASE uit, dan zou `[obfuscate email="…"]` als tekst op de
 
 Bij aan- en uitzetten gaat de hele LiteSpeed-cache leeg, via een zelfherstel op `init` met de stand in `mm_toolkit_email_afschermen_stand`, net als bij Afbeeldingstitels verbergen. Zo vangt het ook een define in `wp-config.php`. De element cache van Elementor hoeft niet leeg: de module werkt pas op de uiteindelijke pagina. Een CDN met een eigen paginacache (Cloudflare APO, QUIC.cloud CDN) leegt mee met LiteSpeed of moet apart geleegd worden.
 
+## Formulieren: nieuwsbrief alleen bij vinkje
+
+Elementor Pro voert de koppeling met ActiveCampaign (ook MailBlue, dezelfde API) of MailerLite bij elke inzending uit. Met deze module (`nieuwsbrief_vinkje`, tabblad Koppelingen, standaard uit) gebeurt dat alleen als de bezoeker een vinkveld heeft aangezet. De module is alleen aan te zetten als Elementor Pro actief is.
+
+### Deel A: koppeling alleen bij vinkje
+
+In de editor staat onderaan de sectie ActiveCampaign en de sectie MailerLite van de formulierwidget het tekstveld **Alleen uitvoeren als dit veld is aangevinkt** (`mm_activecampaign_vinkveld` en `mm_mailerlite_vinkveld`, één per koppeling, want een formulier kan beide gebruiken). Daar komt het ID van het vinkveld, zoals het bij het veld onder Geavanceerd > ID staat, bijvoorbeeld `nieuwsbrief`. Leeg betekent altijd uitvoeren, zoals zonder de module.
+
+- Is het vinkveld bij een inzending niet aangevinkt (`raw_value` leeg), dan slaat de module de koppeling voor die inzending stil over. Geen foutmelding voor de bezoeker; de mail, de opgeslagen inzending en de andere acties gaan gewoon door. Met `WP_DEBUG_LOG` aan komt er een regel in de debuglog, zonder gegevens van de bezoeker.
+- Staat het veld-ID niet in het formulier, bijvoorbeeld door een tikfout, dan draait de koppeling gewoon en komt er een melding in het beheer met het formulier, de koppeling en het veld-ID (optie `mm_nieuwsbrief_vinkje_meldingen`, geen autoload). De melding verdwijnt zodra dat formulier weer zonder tikfout is ingezonden, of met de link Melding wegklikken.
+- Hoe: het filter `elementor_pro/forms/submit_actions` (sinds Elementor Pro 4.0.3), dat vlak voor het uitvoeren de lijst met acties van die inzending geeft. De module haalt `activecampaign` of `mailerlite` uit die lijst. De klassen van Elementor Pro blijven ongemoeid, dus API-sleutel, lijst of groep, tags en veldkoppelingen werken zoals altijd. Eerst was het plan om de acties te vervangen door een eigen subclass, maar `Registrar::register()` weigert een naam die al bestaat en de constructors van de acties hangen ajax- en adminhooks op; het filter is eenvoudiger en vangt hetzelfde af.
+- Op Elementor Pro ouder dan 4.0.3 staat het tekstveld niet in de editor en meldt het beheer dat Elementor Pro bijgewerkt moet worden. Deel B werkt daar wel.
+
+### Deel B: lege vinkvelden als Nee
+
+Altijd actief zolang de module aan staat, voor alle Elementor-formulieren van de site. Op `elementor_pro/forms/record/actions_before` krijgt elk acceptatieveld en elke checkbox met precies één optie `value` "Nee" als `raw_value` leeg is; een aangevinkte acceptatie ("on") wordt "Ja". Een aangevinkte checkbox houdt zijn eigen waarde, bij de optie `tekst|Ja` dus "Ja". Alleen `value` verandert, via `Form_Record::update_field()`; `raw_value` blijft zoals hij binnenkwam, en deel A kijkt daarnaar. Checkboxen met meer opties en andere veldtypes blijven ongemoeid.
+
+De mail (`[all-fields]` en `[field id="..."]`), de opgeslagen inzending (Opslaan in database) en de koppelingen lezen `value` na dit filter, dus overal staat Nee of Ja. Gaat een acceptatieveld via de veldkoppeling naar ActiveCampaign of MailerLite, dan komt daar "Ja" in plaats van "on".
+
+De anti-spam draait eerder, op `elementor_pro/forms/validation`, en ziet de velden nog zoals ze binnenkwamen. De Formuliermonitor hangt aan `wp_mail_failed` en merkt er niets van.
+
+Testgevallen in `tests/nieuwsbrief-vinkje.php`.
+
 ## Deactiveren en verwijderen
 
 Deactiveren haalt alleen de cron-events (ook die van Verweesde meta opruimen, de Instagram-feed, Tijdelijke accounts, Afsluiten op einddatum en de dagelijkse opschoning van de anti-spamlogs) en de blokken van de toolkit uit `.htaccess` weg, en leegt de element cache van Elementor en de LiteSpeed-cache als Afbeeldingstitels verbergen aan stond, en de LiteSpeed-cache als E-mailadressen afschermen aan stond. Instellingen en logs blijven staan.
 
 Een module uitvinken ruimt alleen op wat zonder de module blijft doorlopen: de cron-events, bij Preview-link de sleutel `mm_preview_key` (alle links vervallen) en bij Afbeeldingstitels verbergen en E-mailadressen afschermen de caches. Gedeelde gegevens blijven staan zolang de losse versie van die module nog op de site staat, actief of niet.
 
-Verwijderen via Plugins ruimt alles op: de opties en transients van de toolkit en de modules (ook `mm_toolkit_onderhoudsklant`), de cron-events, de alt-tekstkenmerken (`_mm_alt_*`, de alt-teksten zelf blijven staan), de productmeta van Herroepingsrecht (`_mm_withdrawal_type` en het oude vinkje `_mm_withdrawal_waiver_applies`; de teksten `_mm_withdrawal_waiver` en `_mm_service_consent` op bestellingen blijven altijd staan, dat is het bewijs van de instemming), de opties van Verweesde meta opruimen, de opties en de fotomap `uploads/mediamora-instagram` van de Instagram-feed, de mailinstelling van Tijdelijke accounts, de stand van Afbeeldingstitels verbergen en van E-mailadressen afschermen, de gegevens van Persoon in schema (`mm_schema_persoon`, `mm_schema_persoon_bezet`), de einddatum en voortgang van Afsluiten op einddatum (`mm_einddatum`, `mm_einddatum_stand`), de `.htaccess`-blokken en de logmap van de anti-spam met de inzendingen erin. Kan de logmap niet worden weggehaald, dan blijft de optie `mediamora_antispam_log_dir` staan, zodat te vinden is waar hij staat. Staat de losse versie van een module nog op de site, als plugin of mu-plugin en actief of niet, dan blijft alles van die module staan, want de losse versie gebruikt dezelfde gegevens. Dat werkt ook met `wp plugin uninstall --deactivate`, waarbij de toolkit in hetzelfde verzoek nog geladen is.
+Verwijderen via Plugins ruimt alles op: de opties en transients van de toolkit en de modules (ook `mm_toolkit_onderhoudsklant`), de cron-events, de alt-tekstkenmerken (`_mm_alt_*`, de alt-teksten zelf blijven staan), de productmeta van Herroepingsrecht (`_mm_withdrawal_type` en het oude vinkje `_mm_withdrawal_waiver_applies`; de teksten `_mm_withdrawal_waiver` en `_mm_service_consent` op bestellingen blijven altijd staan, dat is het bewijs van de instemming), de opties van Verweesde meta opruimen, de opties en de fotomap `uploads/mediamora-instagram` van de Instagram-feed, de mailinstelling van Tijdelijke accounts, de stand van Afbeeldingstitels verbergen en van E-mailadressen afschermen, de gegevens van Persoon in schema (`mm_schema_persoon`, `mm_schema_persoon_bezet`), de einddatum en voortgang van Afsluiten op einddatum (`mm_einddatum`, `mm_einddatum_stand`), de meldingen van Formulieren: nieuwsbrief alleen bij vinkje (`mm_nieuwsbrief_vinkje_meldingen`; de veld-ID's staan in de formulieren zelf en blijven daar staan), de `.htaccess`-blokken en de logmap van de anti-spam met de inzendingen erin. Kan de logmap niet worden weggehaald, dan blijft de optie `mediamora_antispam_log_dir` staan, zodat te vinden is waar hij staat. Staat de losse versie van een module nog op de site, als plugin of mu-plugin en actief of niet, dan blijft alles van die module staan, want de losse versie gebruikt dezelfde gegevens. Dat werkt ook met `wp plugin uninstall --deactivate`, waarbij de toolkit in hetzelfde verzoek nog geladen is.
 
 De user meta `mm_verloopt_op` en `mm_overdragen_aan` blijven altijd staan. Worden ze weggehaald en wordt de toolkit daarna opnieuw geïnstalleerd, bijvoorbeeld om een zip te vervangen, dan worden tijdelijke accounts stil vaste accounts.
 
 ## Wijzigingen
+
+### 1.30.0
+
+- Nieuwe module Formulieren: nieuwsbrief alleen bij vinkje (`nieuwsbrief_vinkje`, tabblad Koppelingen, standaard uit, alleen aan te zetten met Elementor Pro). De koppelingen met ActiveCampaign (ook MailBlue) en MailerLite krijgen in de editor de instelling "Alleen uitvoeren als dit veld is aangevinkt" en worden overgeslagen als dat veld niet is aangevinkt. Een veld-ID dat niet in het formulier staat geeft een melding in het beheer en laat de koppeling gewoon draaien. Daarnaast tonen lege acceptatievelden en checkboxen met één optie in de mail en de inzendingen "Nee", en een aangevinkte acceptatie "Ja". Werkt via het filter `elementor_pro/forms/submit_actions`, dus vanaf Elementor Pro 4.0.3. Zie "Formulieren: nieuwsbrief alleen bij vinkje".
+- `vereist` in de modulelijst kent nu ook `elementor_pro`. Het instellingenscherm noemt de juiste plugin als die niet actief is.
+- Testgevallen in `tests/nieuwsbrief-vinkje.php`.
 
 ### 1.29.0
 
@@ -600,7 +630,7 @@ Fixes uit de tweede codereview.
 
 ## Release maken
 
-Eerst de testgevallen draaien (`php tests/anti-spam-links.php`, `php tests/anti-spam-rapport.php`, `php tests/anti-spam-uitzonderingen.php`, `php tests/anti-spam-naamvelden.php`, `php tests/tijdelijke-accounts.php`, `php tests/tijdelijke-accounts-toolkit.php`, `php tests/afbeeldingstitels.php`, `php tests/afbeeldingstitels-toolkit.php`, `php tests/schema-persoon.php`, `php tests/ai-bots-bezoek.php`, `php tests/font-preload.php`, `php tests/font-preload-toolkit.php` en `php tests/einddatum.php` en `php tests/email-afschermen.php`) en `php -l` op alle bestanden.
+Eerst de testgevallen draaien (`php tests/anti-spam-links.php`, `php tests/anti-spam-rapport.php`, `php tests/anti-spam-uitzonderingen.php`, `php tests/anti-spam-naamvelden.php`, `php tests/tijdelijke-accounts.php`, `php tests/tijdelijke-accounts-toolkit.php`, `php tests/afbeeldingstitels.php`, `php tests/afbeeldingstitels-toolkit.php`, `php tests/schema-persoon.php`, `php tests/ai-bots-bezoek.php`, `php tests/font-preload.php`, `php tests/font-preload-toolkit.php` `php tests/einddatum.php`, `php tests/email-afschermen.php` en `php tests/nieuwsbrief-vinkje.php`) en `php -l` op alle bestanden.
 
 1. Versie ophogen op twee plekken in `mediamora-toolkit.php`: `Version:` in de kop en `MM_TOOLKIT_VERSIE`. Of een update wordt aangeboden hangt alleen af van `Version:` in de kop; de constante wordt gelijk gehouden voor de rest, zoals de mailheader van de Formuliermonitor.
 2. Bestanden uploaden naar de repo.

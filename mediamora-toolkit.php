@@ -3,7 +3,7 @@
  * Plugin Name:       Mediamora Toolkit
  * Plugin URI:        https://github.com/hettyvanderwal/mediamora-toolkit
  * Description:       De vaste Mediamora-onderdelen in één plugin, per onderdeel aan en uit te zetten onder Instellingen > Mediamora Toolkit.
- * Version:           1.29.0
+ * Version:           1.30.0
  * Requires at least: 6.0
  * Requires PHP:      7.4
  * Update URI:        https://github.com/hettyvanderwal/mediamora-toolkit
@@ -22,7 +22,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  * updates telt alleen de kop, zie mm_toolkit_huidige_versie(); deze
  * constante is er voor de rest, zoals de mailheader van de Formuliermonitor.
  */
-const MM_TOOLKIT_VERSIE = '1.29.0';
+const MM_TOOLKIT_VERSIE = '1.30.0';
 const MM_TOOLKIT_REPO   = 'hettyvanderwal/mediamora-toolkit';
 const MM_TOOLKIT_SLUG   = 'mediamora-toolkit';
 const MM_TOOLKIT_OPTIE  = 'mm_toolkit_modules';
@@ -111,7 +111,19 @@ function mm_toolkit_vereiste_actief( $module ) {
 	if ( 'woocommerce' === $module['vereist'] ) {
 		return mm_toolkit_woocommerce_actief();
 	}
+	if ( 'elementor_pro' === $module['vereist'] ) {
+		return mm_toolkit_plugin_actief( 'elementor-pro/elementor-pro.php' );
+	}
 	return true;
+}
+
+/**
+ * De naam van de vereiste plugin, voor de status in het instellingenscherm.
+ *
+ * @param array $module Een regel uit mm_toolkit_modules().
+ */
+function mm_toolkit_vereiste_naam( $module ) {
+	return 'elementor_pro' === $module['vereist'] ? 'Elementor Pro' : 'WooCommerce';
 }
 
 /**
@@ -170,8 +182,16 @@ function mm_toolkit_status() {
  * het hele netwerk aanstaan, dat staat in een aparte optie.
  */
 function mm_toolkit_woocommerce_actief() {
+	return mm_toolkit_plugin_actief( 'woocommerce/woocommerce.php' );
+}
 
-	$bestand = 'woocommerce/woocommerce.php';
+/**
+ * Staat deze plugin aan, op de site of voor het hele netwerk? Om dezelfde
+ * reden als hierboven via de lijst met actieve plugins.
+ *
+ * @param string $bestand Pad van de plugin, zoals 'woocommerce/woocommerce.php'.
+ */
+function mm_toolkit_plugin_actief( $bestand ) {
 
 	if ( in_array( $bestand, (array) get_option( 'active_plugins', array() ), true ) ) {
 		return true;
@@ -673,9 +693,9 @@ function mm_toolkit_scherm() {
 		} elseif ( ! $s['pakket'] ) {
 			$tekst = 'Inactief: Onderhoudsklant staat uit';
 		} elseif ( ! $s['vereist'] && $s['gewild'] ) {
-			$tekst = '<span style="color:#b32d2e;">Staat uit: WooCommerce is niet actief</span>';
+			$tekst = '<span style="color:#b32d2e;">Staat uit: ' . esc_html( mm_toolkit_vereiste_naam( $module ) ) . ' is niet actief</span>';
 		} elseif ( ! $s['vereist'] ) {
-			$tekst = 'Uit, alleen aan te zetten als WooCommerce actief is';
+			$tekst = 'Uit, alleen aan te zetten als ' . esc_html( mm_toolkit_vereiste_naam( $module ) ) . ' actief is';
 		} elseif ( $s['los'] && $s['gewild'] ) {
 			$tekst = '<span style="color:#b32d2e;">Staat uit: eerst ' . esc_html( $s['los'] ) . ' verwijderen</span>';
 		} elseif ( $s['los'] ) {

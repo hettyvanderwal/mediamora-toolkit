@@ -19,7 +19,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  *                  die al, dan blijft de module uit, anders botsen de
  *                  functienamen en ligt de site plat.
  * vereist:         plugin die aan moet staan, anders is de module niet aan
- *                  te zetten. Nu alleen 'woocommerce'.
+ *                  te zetten: 'woocommerce' of 'elementor_pro'.
  * thema_merkteken: functie uit testcode in functions.php van het thema.
  *                  Die laadt na de plugins, dus bij het laden van de
  *                  modules is hij nog niet te zien en laadt de module
@@ -325,6 +325,22 @@ function mm_toolkit_modules() {
 			'merkteken'       => array(),
 			'scherm'          => 'options-general.php?page=mm-instagram',
 			'vereist'         => '',
+			'thema_merkteken' => '',
+			'tabblad'         => 'koppelingen',
+			'onderhoud'       => false,
+		),
+		// Geen merkteken voor losse code in functions.php (sanneburen.nl): die
+		// verschilt per site en moet na het overzetten met de hand weg.
+		'nieuwsbrief_vinkje' => array(
+			'naam'            => 'Formulieren: nieuwsbrief alleen bij vinkje',
+			'uitleg'          => 'Geeft de koppelingen met ActiveCampaign (ook MailBlue) en MailerLite in Elementor-formulieren de instelling "Alleen uitvoeren als dit veld is aangevinkt". Staat daar het ID van een vinkveld en is dat niet aangevinkt, dan slaat de koppeling die inzending stil over; de mail en de opgeslagen inzending gaan gewoon door. Een veld-ID dat niet in het formulier staat, geeft een melding in het beheer en de koppeling draait dan gewoon, zodat een tikfout geen inschrijvingen kost. Daarnaast tonen lege vinkvelden (acceptatie, en een checkbox met één optie) in de formuliermail en de inzendingen "Nee" in plaats van niets, en een aangevinkte acceptatie "Ja". Werkt vanaf Elementor Pro 4.0.3; alleen aan te zetten als Elementor Pro actief is.',
+			'bestand'         => 'nieuwsbrief-vinkje.php',
+			'standaard'       => false,
+			'losse_mu'        => '',
+			'losse_plugin'    => '',
+			'merkteken'       => array(),
+			'scherm'          => '',
+			'vereist'         => 'elementor_pro',
 			'thema_merkteken' => '',
 			'tabblad'         => 'koppelingen',
 			'onderhoud'       => false,
