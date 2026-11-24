@@ -136,6 +136,7 @@ function mediamora_antispam_default_settings() {
 		'reject_name_digits'       => true,
 		'reject_name_domain'       => true,
 		'reject_textarea_only_url' => true,
+		'check_postcode'           => true,
 
 		// Vangnet voor mogelijke vals-negatieven
 		'nearmiss_alert_enabled'  => true,
@@ -351,6 +352,7 @@ function mediamora_antispam_sanitize_and_save_settings( $post, &$errors = array(
 	$clean['reject_name_digits']       = ! empty( $post['reject_name_digits'] );
 	$clean['reject_name_domain']       = ! empty( $post['reject_name_domain'] );
 	$clean['reject_textarea_only_url'] = ! empty( $post['reject_textarea_only_url'] );
+	$clean['check_postcode']           = ! empty( $post['check_postcode'] );
 
 	$clean['nearmiss_alert_enabled']  = ! empty( $post['nearmiss_alert_enabled'] );
 	$clean['nearmiss_email_interval'] = max( 1, (int) ( $post['nearmiss_email_interval_hours'] ?? 24 ) ) * HOUR_IN_SECONDS;
@@ -542,6 +544,13 @@ function mediamora_antispam_render_settings_page() {
 						<label><input type="checkbox" name="reject_textarea_only_url" value="1" <?php checked( $s['reject_textarea_only_url'] ); ?>> Weiger een berichtveld dat uit niets anders bestaat dan één link, zoals "http://47kg.kr/"</label>
 					</td>
 				</tr>
+				<tr>
+					<th scope="row">Postcode controleren (NL/BE)</th>
+					<td>
+						<label><input type="checkbox" name="check_postcode" value="1" <?php checked( $s['check_postcode'] ); ?>> Weiger een postcode die geen Nederlandse (2921 AB of 2921ab) of Belgische (4 cijfers) postcode is</label>
+						<p class="description">Een postcodeveld is een veld met postcode of post code in het label of het veld-ID, maar niet als er ook plaats, adres of straat in het label staat. De bezoeker krijgt bij het veld de melding "Vul een geldige postcode in, bijvoorbeeld 2921 AB." en kan het verbeteren. Een leeg veld wordt overgeslagen; of het verplicht is, regelt Elementor.</p>
+					</td>
+				</tr>
 			</table>
 
 			<h2>Uitgezonderde velden</h2>
@@ -681,19 +690,29 @@ function mediamora_antispam_validate_form( $record, $ajax_handler ) {
 			continue;
 		}
 
-		if ( '' === $value || in_array( $type, $skip_types, true ) ) {
-			if ( $s['debug'] ) {
-				mediamora_antispam_debug_log( $id, $type, 'password' === $type ? '(niet gelogd)' : $value, false, null, 'overgeslagen (leeg of skip-type)' );
-			}
-			continue;
-		}
-
 		// Zonder label telt de placeholder als label: veel formulieren tonen
 		// alleen een placeholder als "Je naam".
 		$placeholder = isset( $placeholders[ $id ] ) ? $placeholders[ $id ] : '';
 		$label       = isset( $field['title'] ) ? trim( (string) $field['title'] ) : '';
 		if ( '' === $label ) {
 			$label = $placeholder;
+		}
+
+		// Postcode: vóór de skip-types, want een postcodeveld kan als
+		// nummerveld gebouwd zijn. Eigen melding, zodat een bezoeker met een
+		// tikfout ziet wat er mis is en het kan verbeteren.
+		if ( '' !== $value && $s['check_postcode'] && mediamora_antispam_is_postcode_field( $id, $type, $label ) && ! mediamora_antispam_is_valid_postcode( $value ) ) {
+			$ajax_handler->add_error( $id, __( 'Vul een geldige postcode in, bijvoorbeeld 2921 AB.', 'mediamora-toolkit' ) );
+			mediamora_antispam_log( 'ongeldige postcode', $id, $type, $value );
+			$submission_rejected = true;
+			continue;
+		}
+
+		if ( '' === $value || in_array( $type, $skip_types, true ) ) {
+			if ( $s['debug'] ) {
+				mediamora_antispam_debug_log( $id, $type, 'password' === $type ? '(niet gelogd)' : $value, false, null, 'overgeslagen (leeg of skip-type)' );
+			}
+			continue;
 		}
 
 		// Website- en profielvelden: daar hoort een domein of accountnaam in,
@@ -1126,6 +1145,42 @@ function mediamora_antispam_name_reason( $value ) {
 	}
 
 	return '';
+}
+
+/**
+ * Of een veld een postcodeveld is: een tekst-, telefoon- of nummerveld met
+ * postcode of post code in het label of het veld-ID, hoofdletters maken
+ * niet uit. Niet als het label ook om een plaats, adres of straat vraagt,
+ * zoals "Postcode en woonplaats": daar hoort meer in dan alleen de postcode.
+ *
+ * @param string $field_id De custom_id van het veld.
+ * @param string $type
+ * @param string $label    Het label, of de placeholder als het label leeg is.
+ * @return bool
+ */
+function mediamora_antispam_is_postcode_field( $field_id, $type, $label ) {
+
+	if ( ! in_array( $type, array( 'text', 'tel', 'number' ), true ) ) {
+		return false;
+	}
+
+	if ( preg_match( '/plaats|adres|straat|city|address|street/i', (string) $label ) ) {
+		return false;
+	}
+
+	return (bool) preg_match( '/post[\s_-]?code/i', (string) $label . ' ' . (string) $field_id );
+}
+
+/**
+ * Of een waarde een Nederlandse of Belgische postcode is. Nederlands: vier
+ * cijfers zonder 0 vooraan, eventueel een spatie, twee letters ("2921 AB",
+ * "2921ab"). Belgisch: vier cijfers. Witruimte eromheen telt niet.
+ *
+ * @param string $value
+ * @return bool
+ */
+function mediamora_antispam_is_valid_postcode( $value ) {
+	return (bool) preg_match( '/^(?:[1-9][0-9]{3} ?[a-z]{2}|[0-9]{4})$/i', trim( (string) $value ) );
 }
 
 /**

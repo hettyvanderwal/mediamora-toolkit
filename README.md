@@ -297,6 +297,16 @@ Een **profielveld** is een veld met Website, Instagram of LinkedIn in het label 
 
 De placeholders komen uit `$record->get_form_settings( 'form_fields' )`, de labels uit de velden van het record.
 
+## Anti-spam: postcode controleren
+
+Een **postcodeveld** is een tekst-, telefoon- of nummerveld (`text`, `tel`, `number`) met postcode of post code in het label of het veld-ID (ook `post_code` en `post-code`), hoofdletters maken niet uit. Heeft het veld geen label, dan telt de placeholder als label. Nooit een postcodeveld: een veld met plaats, adres of straat in het label, zoals "Postcode en woonplaats", want daar hoort meer in dan alleen de postcode.
+
+Geldig is een Nederlandse postcode (vier cijfers zonder 0 vooraan, eventueel één spatie, twee letters: `2921 AB`, `2921ab`) of een Belgische (vier cijfers: `1000`). Witruimte eromheen telt niet, en een leeg veld wordt overgeslagen; of het verplicht is, regelt Elementor.
+
+Een ongeldige postcode krijgt via `$ajax_handler->add_error()` de melding "Vul een geldige postcode in, bijvoorbeeld 2921 AB." bij het veld zelf, zodat een echte bezoeker het kan verbeteren, en komt in `log.txt` met reden `ongeldige postcode`. De check draait vóór de veldtypes zonder checks, zodat ook een als nummerveld gebouwd postcodeveld wordt gecontroleerd. Uitgezonderde velden ("Velden per formulier") worden overgeslagen.
+
+Schakelaar: "Postcode controleren (NL/BE)" onder Modus (`check_postcode`, standaard aan).
+
 ## Anti-spam: tijden in de log
 
 `log.txt`, `near-miss.txt` en `debug.txt` krijgen vanaf 1.28.0 de tijd in de tijdzone van de site, met de afwijking van UTC erachter: `2026-11-20 17:43:42 +01:00 | …`. Regels van daarvoor staan in UTC zonder tijdzone en worden ook zo gelezen. In de rapportmail en de vangnet-mail staan alle regels in de tijdzone van de site, ook de oude. Het mailvenster en de bewaartermijn rekenen met de echte tijd van elke regel, dus bij de overstap wordt niets dubbel gemaild of overgeslagen.
@@ -383,6 +393,11 @@ Verwijderen via Plugins ruimt alles op: de opties en transients van de toolkit e
 De user meta `mm_verloopt_op` en `mm_overdragen_aan` blijven altijd staan. Worden ze weggehaald en wordt de toolkit daarna opnieuw geïnstalleerd, bijvoorbeeld om een zip te vervangen, dan worden tijdelijke accounts stil vaste accounts.
 
 ## Wijzigingen
+
+### 1.31.0
+
+- Anti-spam: postcodecheck. Een postcodeveld (postcode of post code in het label of het veld-ID) moet een Nederlandse (`2921 AB`, `2921ab`) of Belgische (vier cijfers) postcode bevatten. Anders krijgt de bezoeker bij het veld de melding "Vul een geldige postcode in, bijvoorbeeld 2921 AB." en komt de inzending in het log met reden `ongeldige postcode`. Een leeg veld en uitgezonderde velden worden overgeslagen, net als een veld met ook plaats, adres of straat in het label. Eigen schakelaar "Postcode controleren (NL/BE)" (`check_postcode`, standaard aan). Aanleiding: een bot die honderden keren met een zescijferige postcode door de honeypot en de andere checks kwam. Zie "Anti-spam: postcode controleren".
+- Testgevallen in `tests/anti-spam-postcode.php`.
 
 ### 1.30.0
 
@@ -630,7 +645,7 @@ Fixes uit de tweede codereview.
 
 ## Release maken
 
-Eerst de testgevallen draaien (`php tests/anti-spam-links.php`, `php tests/anti-spam-rapport.php`, `php tests/anti-spam-uitzonderingen.php`, `php tests/anti-spam-naamvelden.php`, `php tests/tijdelijke-accounts.php`, `php tests/tijdelijke-accounts-toolkit.php`, `php tests/afbeeldingstitels.php`, `php tests/afbeeldingstitels-toolkit.php`, `php tests/schema-persoon.php`, `php tests/ai-bots-bezoek.php`, `php tests/font-preload.php`, `php tests/font-preload-toolkit.php` `php tests/einddatum.php`, `php tests/email-afschermen.php` en `php tests/nieuwsbrief-vinkje.php`) en `php -l` op alle bestanden.
+Eerst de testgevallen draaien (`php tests/anti-spam-links.php`, `php tests/anti-spam-rapport.php`, `php tests/anti-spam-uitzonderingen.php`, `php tests/anti-spam-naamvelden.php`, `php tests/anti-spam-postcode.php`, `php tests/tijdelijke-accounts.php`, `php tests/tijdelijke-accounts-toolkit.php`, `php tests/afbeeldingstitels.php`, `php tests/afbeeldingstitels-toolkit.php`, `php tests/schema-persoon.php`, `php tests/ai-bots-bezoek.php`, `php tests/font-preload.php`, `php tests/font-preload-toolkit.php` `php tests/einddatum.php`, `php tests/email-afschermen.php` en `php tests/nieuwsbrief-vinkje.php`) en `php -l` op alle bestanden.
 
 1. Versie ophogen op twee plekken in `mediamora-toolkit.php`: `Version:` in de kop en `MM_TOOLKIT_VERSIE`. Of een update wordt aangeboden hangt alleen af van `Version:` in de kop; de constante wordt gelijk gehouden voor de rest, zoals de mailheader van de Formuliermonitor.
 2. Bestanden uploaden naar de repo.
