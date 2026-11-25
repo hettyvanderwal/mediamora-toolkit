@@ -868,8 +868,13 @@ function mediamora_antispam_validate_form( $record, $ajax_handler ) {
 /**
  * Of de huidige aanvraag een inzending is van het klassieke formulier van
  * Elementor Pro: een ajax-aanvraag met de actie elementor_pro_forms_send_form.
- * De referrercheck geldt alleen daarvoor. Andere wegen naar
- * elementor_pro/forms/validation sturen het veld referrer niet per se mee.
+ * De referrercheck geldt alleen daarvoor; het atomic formulier van Elementor 4
+ * (elementor_pro_atomic_forms_send_form) valt er voorlopig bewust buiten.
+ *
+ * Nagekeken in Elementor Pro 4.4.1: de handler van het formulierwidget
+ * (elements-handlers.js, getFormData) doet formData.append( "referrer",
+ * location.toString() ), dus ook in popups en loop-items. Form_Record leest
+ * $_POST['referrer'] als meta page_url, die in e_submissions.referer komt.
  *
  * @return bool
  */

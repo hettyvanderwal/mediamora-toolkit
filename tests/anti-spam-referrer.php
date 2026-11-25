@@ -263,6 +263,7 @@ $test( 'zonder referer_title staat (leeg) in de log', false !== strpos( (string)
 
 // --- Alleen de klassieke ajax-actie ---
 
+$test( 'atomic formulier (elementor_pro_atomic_forms_send_form): niet gecontroleerd', array() === insturen( array( 'referrer' => null ), null, 'elementor_pro_atomic_forms_send_form' ) );
 $test( 'andere ajax-actie: niet gecontroleerd', array() === insturen( array( 'referrer' => null ), null, 'iets_anders' ) );
 $test( 'geen actie: niet gecontroleerd', array() === insturen( array( 'referrer' => null ), null, null ) );
 $GLOBALS['ajax'] = false;

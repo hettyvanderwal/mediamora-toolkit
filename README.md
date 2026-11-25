@@ -309,11 +309,18 @@ Schakelaar: "Postcode controleren (NL/BE)" onder Modus (`check_postcode`, standa
 
 ## Anti-spam: referrer controleren
 
-Het JavaScript van Elementor Pro voegt bij elke inzending van het formulier zelf het veld `referrer` toe, met het adres van de pagina (`location.href`). Dat veld staat niet in de HTML. Het verborgen veld `referer_title` staat er wel in. In de tabel `e_submissions` komen ze terecht in de kolommen `referer` en `referer_title`. Een bot die de HTML uitleest en het formulier rechtstreeks naar `admin-ajax.php` stuurt, zonder JavaScript uit te voeren, stuurt dus wel `referer_title` mee, maar geen `referrer`.
+Het JavaScript van Elementor Pro voegt bij elke inzending van het formulier zelf het veld `referrer` toe, met het adres van de pagina (`location.href`). Dat veld staat niet in de HTML. Het verborgen veld `referer_title` staat er wel in. In de tabel `e_submissions` komen ze terecht in de kolommen `referer` en `referer_title`.
+
+Nagekeken in Elementor Pro 4.4.1:
+
+- `assets/js/elements-handlers.js`, `getFormData()` van het formulierwidget: `formData.append("referrer", location.toString())`. Het is de handler van het widget zelf, dus het geldt ook voor formulieren in popups en loop-items.
+- `modules/forms/classes/ajax-handler.php`: de acties `wp_ajax_elementor_pro_forms_send_form` en `wp_ajax_nopriv_elementor_pro_forms_send_form`.
+- `modules/forms/classes/form-record.php`: `isset( $_POST['referrer'] ) ? esc_url_raw( wp_unslash( $_POST['referrer'] ) ) : ''` wordt de meta `page_url`, die Save to database in de kolom `referer` opslaat.
+- `modules/forms/widgets/form.php`: `referer_title` is een verborgen input in de HTML. Een bot die de HTML uitleest en het formulier rechtstreeks naar `admin-ajax.php` stuurt, zonder JavaScript uit te voeren, stuurt dus wel `referer_title` mee, maar geen `referrer`.
 
 De check weigert een inzending als `$_POST['referrer']` ontbreekt of leeg is (alleen witruimte telt als leeg). Alleen leeg telt. Het domein wordt niet gecontroleerd, dus staging, subdomeinen en WPML-domeinen gaan gewoon door.
 
-- Geldt alleen voor de ajax-actie `elementor_pro_forms_send_form`, de inzending van het klassieke formulier. Hij draait in `mediamora_antispam_validate_form()` op `elementor_pro/forms/validation`, net als de andere checks.
+- Geldt alleen voor de ajax-actie `elementor_pro_forms_send_form`, de inzending van het klassieke formulier. Hij draait in `mediamora_antispam_validate_form()` op `elementor_pro/forms/validation`, net als de andere checks. Het atomic formulier van Elementor 4 (`elementor_pro_atomic_forms_send_form`) valt er voorlopig bewust buiten.
 - Hij draait vóór alle inhoudelijke checks. Een inzending zonder referrer ligt er meteen uit en de velden worden niet meer bekeken. Dat geldt ook voor een formulier met uitgezonderde velden, want het gaat niet om de inhoud van een veld.
 - Bij een weigering zet de check via `$ajax_handler->add_error( 'referrer', … )` dezelfde algemene foutmelding als de andere weigeringen. Er komt één regel in `log.txt`, die meetelt in de rapportmail:
   `… | veld: referrer (n.v.t.) | reden: verstuurd zonder JavaScript (geen referrer) | waarde: formulier: Contact (94c5fa7), referer_title: Contact - Voorbeeld`
