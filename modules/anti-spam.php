@@ -137,6 +137,7 @@ function mediamora_antispam_default_settings() {
 		'reject_name_domain'       => true,
 		'reject_textarea_only_url' => true,
 		'check_postcode'           => true,
+		'check_referrer'           => true,
 
 		// Vangnet voor mogelijke vals-negatieven
 		'nearmiss_alert_enabled'  => true,
@@ -353,6 +354,7 @@ function mediamora_antispam_sanitize_and_save_settings( $post, &$errors = array(
 	$clean['reject_name_domain']       = ! empty( $post['reject_name_domain'] );
 	$clean['reject_textarea_only_url'] = ! empty( $post['reject_textarea_only_url'] );
 	$clean['check_postcode']           = ! empty( $post['check_postcode'] );
+	$clean['check_referrer']           = ! empty( $post['check_referrer'] );
 
 	$clean['nearmiss_alert_enabled']  = ! empty( $post['nearmiss_alert_enabled'] );
 	$clean['nearmiss_email_interval'] = max( 1, (int) ( $post['nearmiss_email_interval_hours'] ?? 24 ) ) * HOUR_IN_SECONDS;
@@ -551,6 +553,13 @@ function mediamora_antispam_render_settings_page() {
 						<p class="description">Een postcodeveld is een veld met postcode of post code in het label of het veld-ID, maar niet als er ook plaats, adres of straat in het label staat. De bezoeker krijgt bij het veld de melding "Vul een geldige postcode in, bijvoorbeeld 2921 AB." en kan het verbeteren. Een leeg veld wordt overgeslagen; of het verplicht is, regelt Elementor.</p>
 					</td>
 				</tr>
+				<tr>
+					<th scope="row">Referrer controleren</th>
+					<td>
+						<label><input type="checkbox" name="check_referrer" value="1" <?php checked( $s['check_referrer'] ); ?>> Weiger een inzending van het Elementor Pro-formulier zonder referrer (verstuurd zonder JavaScript)</label>
+						<p class="description">Het JavaScript van Elementor Pro stuurt bij elke inzending zelf het adres van de pagina mee als <code>referrer</code>. Een bot die het formulier rechtstreeks naar admin-ajax.php stuurt, zonder JavaScript uit te voeren, laat dat veld weg. Alleen of het leeg is telt, niet het domein. Geldt alleen voor de ajax-actie <code>elementor_pro_forms_send_form</code> en draait vóór alle andere checks. Zet dit uit als een site formulieren op een andere manier laat versturen.</p>
+					</td>
+				</tr>
 			</table>
 
 			<h2>Uitgezonderde velden</h2>
@@ -627,6 +636,18 @@ function mediamora_antispam_validate_form( $record, $ajax_handler ) {
 
 	$s = mediamora_antispam_settings();
 
+	// Uitgezonderde velden gelden alleen voor het formulier waar ze bij staan.
+	$form_id = (string) $record->get_form_settings( 'id' );
+
+	// Referrer: vóór alle inhoudelijke checks. Een inzending die niet via het
+	// JavaScript van Elementor Pro is verstuurd, ligt er meteen uit; de velden
+	// worden dan niet meer bekeken en er komt één regel in het log.
+	if ( $s['check_referrer'] && mediamora_antispam_is_classic_form_request() && mediamora_antispam_referrer_missing() ) {
+		$ajax_handler->add_error( 'referrer', __( 'Ongeldige invoer gedetecteerd.', 'mediamora-toolkit' ) );
+		mediamora_antispam_log( 'verstuurd zonder JavaScript (geen referrer)', 'referrer', 'n.v.t.', mediamora_antispam_referrer_log_value( $record, $form_id ) );
+		return;
+	}
+
 	// Veldtypes waar we deze checks niet op toepassen.
 	$skip_types = array(
 		'email', // een domeinnaam is een verplicht, normaal onderdeel van elk e-mailadres, geen spamsignaal
@@ -645,9 +666,6 @@ function mediamora_antispam_validate_form( $record, $ajax_handler ) {
 		'recaptcha_v3',
 		'honeypot',
 	);
-
-	// Uitgezonderde velden gelden alleen voor het formulier waar ze bij staan.
-	$form_id = (string) $record->get_form_settings( 'id' );
 
 	// De placeholders staan niet in de velden van het record, wel in de
 	// instellingen van het formulier.
@@ -845,6 +863,65 @@ function mediamora_antispam_validate_form( $record, $ajax_handler ) {
 			mediamora_antispam_nearmiss_log( $near_miss['id'], $near_miss['type'], $near_miss['value'], $near_miss['reasons'], $status );
 		}
 	}
+}
+
+/**
+ * Of de huidige aanvraag een inzending is van het klassieke formulier van
+ * Elementor Pro: een ajax-aanvraag met de actie elementor_pro_forms_send_form.
+ * De referrercheck geldt alleen daarvoor. Andere wegen naar
+ * elementor_pro/forms/validation sturen het veld referrer niet per se mee.
+ *
+ * @return bool
+ */
+function mediamora_antispam_is_classic_form_request() {
+
+	if ( ! function_exists( 'wp_doing_ajax' ) || ! wp_doing_ajax() ) {
+		return false;
+	}
+
+	$action = isset( $_REQUEST['action'] ) && is_string( $_REQUEST['action'] ) ? $_REQUEST['action'] : ''; // phpcs:ignore WordPress.Security.NonceVerification
+
+	return 'elementor_pro_forms_send_form' === $action;
+}
+
+/**
+ * Of het veld referrer in de inzending ontbreekt of leeg is. Het JavaScript
+ * van Elementor Pro zet daar zelf het adres van de pagina in (location.href);
+ * het staat niet als verborgen veld in de HTML, in tegenstelling tot
+ * referer_title. Alleen leeg telt: een ander domein (staging, subdomein,
+ * WPML) is geen reden om te weigeren.
+ *
+ * @return bool
+ */
+function mediamora_antispam_referrer_missing() {
+
+	if ( ! isset( $_POST['referrer'] ) || ! is_string( $_POST['referrer'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification
+		return true;
+	}
+
+	return '' === trim( wp_unslash( $_POST['referrer'] ) ); // phpcs:ignore WordPress.Security.NonceVerification
+}
+
+/**
+ * Wat er bij een weigering zonder referrer als waarde in het log komt: welk
+ * formulier en op welke pagina (referer_title), zodat te zien is waar de
+ * bot op afkwam. Geen veldwaardes.
+ *
+ * @param \ElementorPro\Modules\Forms\Classes\Form_Record $record
+ * @param string $form_id
+ * @return string
+ */
+function mediamora_antispam_referrer_log_value( $record, $form_id ) {
+
+	$naam  = trim( (string) $record->get_form_settings( 'form_name' ) );
+	$titel = isset( $_POST['referer_title'] ) && is_string( $_POST['referer_title'] ) ? trim( wp_unslash( $_POST['referer_title'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification
+
+	return sprintf(
+		'formulier: %s (%s), referer_title: %s',
+		'' !== $naam ? $naam : '-',
+		'' !== $form_id ? $form_id : '-',
+		'' !== $titel ? $titel : '(leeg)'
+	);
 }
 
 /**

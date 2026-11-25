@@ -307,6 +307,23 @@ Een ongeldige postcode krijgt via `$ajax_handler->add_error()` de melding "Vul e
 
 Schakelaar: "Postcode controleren (NL/BE)" onder Modus (`check_postcode`, standaard aan).
 
+## Anti-spam: referrer controleren
+
+Het JavaScript van Elementor Pro voegt bij elke inzending van het formulier zelf het veld `referrer` toe, met het adres van de pagina (`location.href`). Dat veld staat niet in de HTML. Het verborgen veld `referer_title` staat er wel in. In de tabel `e_submissions` komen ze terecht in de kolommen `referer` en `referer_title`. Een bot die de HTML uitleest en het formulier rechtstreeks naar `admin-ajax.php` stuurt, zonder JavaScript uit te voeren, stuurt dus wel `referer_title` mee, maar geen `referrer`.
+
+De check weigert een inzending als `$_POST['referrer']` ontbreekt of leeg is (alleen witruimte telt als leeg). Alleen leeg telt. Het domein wordt niet gecontroleerd, dus staging, subdomeinen en WPML-domeinen gaan gewoon door.
+
+- Geldt alleen voor de ajax-actie `elementor_pro_forms_send_form`, de inzending van het klassieke formulier. Hij draait in `mediamora_antispam_validate_form()` op `elementor_pro/forms/validation`, net als de andere checks.
+- Hij draait vóór alle inhoudelijke checks. Een inzending zonder referrer ligt er meteen uit en de velden worden niet meer bekeken. Dat geldt ook voor een formulier met uitgezonderde velden, want het gaat niet om de inhoud van een veld.
+- Bij een weigering zet de check via `$ajax_handler->add_error( 'referrer', … )` dezelfde algemene foutmelding als de andere weigeringen. Er komt één regel in `log.txt`, die meetelt in de rapportmail:
+  `… | veld: referrer (n.v.t.) | reden: verstuurd zonder JavaScript (geen referrer) | waarde: formulier: Contact (94c5fa7), referer_title: Contact - Voorbeeld`
+  Als waarde staan de formuliernaam, het formulier-ID en de meegestuurde `referer_title` erin, geen veldwaardes.
+- Acquisitie die iemand met de hand in een echte browser invult, heeft wel een referrer. Die vangt deze check niet; daar zijn de andere checks voor.
+
+Aanleiding: een telling op 4 sites (25 november 2026) gaf 240 inzendingen, waarvan 28 met een lege `referer`. Die 28 waren allemaal botspam (de prijs-bot RobertPhirl/RobertAgimi/Robertanowl, AndrewCer/Andrewneent, gokspam en onzintekst). Ze kwamen door alle inhoudelijke checks en door de honeypot van Elementor heen. De andere 212, waaronder ruim 180 echte aanmeldingen op hyhb.nl en alle tests, hadden een gevulde `referer`.
+
+Schakelaar: "Referrer controleren" onder Modus (`check_referrer`, standaard aan). Per site uit te zetten op het instellingenscherm. Bij een upgrade blijven de bestaande instellingen staan en komt deze er aan bij. Zet hem uit als een site formulieren op een andere manier laat versturen, bijvoorbeeld met eigen JavaScript dat de inzending zelf opbouwt.
+
 ## Anti-spam: tijden in de log
 
 `log.txt`, `near-miss.txt` en `debug.txt` krijgen vanaf 1.28.0 de tijd in de tijdzone van de site, met de afwijking van UTC erachter: `2026-11-20 17:43:42 +01:00 | …`. Regels van daarvoor staan in UTC zonder tijdzone en worden ook zo gelezen. In de rapportmail en de vangnet-mail staan alle regels in de tijdzone van de site, ook de oude. Het mailvenster en de bewaartermijn rekenen met de echte tijd van elke regel, dus bij de overstap wordt niets dubbel gemaild of overgeslagen.
@@ -393,6 +410,11 @@ Verwijderen via Plugins ruimt alles op: de opties en transients van de toolkit e
 De user meta `mm_verloopt_op` en `mm_overdragen_aan` blijven altijd staan. Worden ze weggehaald en wordt de toolkit daarna opnieuw geïnstalleerd, bijvoorbeeld om een zip te vervangen, dan worden tijdelijke accounts stil vaste accounts.
 
 ## Wijzigingen
+
+### 1.32.0
+
+- Anti-spam: referrercheck. Een inzending van het klassieke Elementor Pro-formulier (ajax-actie `elementor_pro_forms_send_form`) zonder of met een lege `referrer` wordt geweigerd met de algemene foutmelding. In `log.txt` komt de reden `verstuurd zonder JavaScript (geen referrer)`. Alleen leeg telt, niet het domein. De check draait vóór de inhoudelijke checks. Eigen schakelaar "Referrer controleren" (`check_referrer`, standaard aan). Aanleiding: 28 van 240 inzendingen op 4 sites hadden geen referrer, en die waren allemaal botspam die door de andere checks en de honeypot kwam. Zie "Anti-spam: referrer controleren".
+- Testgevallen in `tests/anti-spam-referrer.php`.
 
 ### 1.31.0
 
@@ -645,7 +667,7 @@ Fixes uit de tweede codereview.
 
 ## Release maken
 
-Eerst de testgevallen draaien (`php tests/anti-spam-links.php`, `php tests/anti-spam-rapport.php`, `php tests/anti-spam-uitzonderingen.php`, `php tests/anti-spam-naamvelden.php`, `php tests/anti-spam-postcode.php`, `php tests/tijdelijke-accounts.php`, `php tests/tijdelijke-accounts-toolkit.php`, `php tests/afbeeldingstitels.php`, `php tests/afbeeldingstitels-toolkit.php`, `php tests/schema-persoon.php`, `php tests/ai-bots-bezoek.php`, `php tests/font-preload.php`, `php tests/font-preload-toolkit.php` `php tests/einddatum.php`, `php tests/email-afschermen.php` en `php tests/nieuwsbrief-vinkje.php`) en `php -l` op alle bestanden.
+Eerst de testgevallen draaien (`php tests/anti-spam-links.php`, `php tests/anti-spam-rapport.php`, `php tests/anti-spam-uitzonderingen.php`, `php tests/anti-spam-naamvelden.php`, `php tests/anti-spam-postcode.php`, `php tests/anti-spam-referrer.php`, `php tests/tijdelijke-accounts.php`, `php tests/tijdelijke-accounts-toolkit.php`, `php tests/afbeeldingstitels.php`, `php tests/afbeeldingstitels-toolkit.php`, `php tests/schema-persoon.php`, `php tests/ai-bots-bezoek.php`, `php tests/font-preload.php`, `php tests/font-preload-toolkit.php` `php tests/einddatum.php`, `php tests/email-afschermen.php` en `php tests/nieuwsbrief-vinkje.php`) en `php -l` op alle bestanden.
 
 1. Versie ophogen op twee plekken in `mediamora-toolkit.php`: `Version:` in de kop en `MM_TOOLKIT_VERSIE`. Of een update wordt aangeboden hangt alleen af van `Version:` in de kop; de constante wordt gelijk gehouden voor de rest, zoals de mailheader van de Formuliermonitor.
 2. Bestanden uploaden naar de repo.
