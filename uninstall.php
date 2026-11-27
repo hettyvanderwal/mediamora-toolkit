@@ -126,6 +126,8 @@ function mm_toolkit_uninstall_site( $los ) {
 	if ( ! $los['formuliermonitor'] ) {
 		delete_option( 'mm_monitor_teller' );
 		delete_option( 'mm_monitor_log' );
+		delete_option( 'mm_monitor_storing' );
+		delete_option( 'mm_monitor_laatst_gelukt' );
 	}
 
 	if ( ! $los['ai_bots'] ) {
