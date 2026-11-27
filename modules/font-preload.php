@@ -314,6 +314,8 @@ function mm_font_preload_bestanden() {
 		}
 	}
 
+	// md5 alleen als cachesleutel, niet voor beveiliging.
+	// nosemgrep: php.lang.security.weak-crypto.weak-crypto
 	$sleutel = md5(
 		implode(
 			'|',

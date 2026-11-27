@@ -48,8 +48,9 @@ function mm_toolkit_uninstall_logmap_weg( $dir ) {
 		if ( is_dir( $pad ) && ! is_link( $pad ) ) {
 			return false;
 		}
+		// Semgrep unlink-use: alleen bestanden uit de eigen logmap; mappen en links worden hierboven al overgeslagen.
 		// phpcs:ignore WordPress.WP.AlternativeFunctions.unlink_unlink -- Eigen bestand in de eigen logmap; direct, zodat het ook werkt als WP_Filesystem om FTP-gegevens zou vragen.
-		@unlink( $pad );
+		@unlink( $pad ); // nosemgrep: php.lang.security.unlink-use.unlink-use
 	}
 
 	// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_rmdir -- Eigen bestand in de eigen logmap; direct, zodat het ook werkt als WP_Filesystem om FTP-gegevens zou vragen.

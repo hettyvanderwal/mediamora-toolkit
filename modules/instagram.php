@@ -264,6 +264,8 @@ function mm_instagram_ophalen_uitvoeren( $instellingen ) {
 		if ( isset( $nu[ $bestand ] ) ) {
 			unset( $status['oud'][ $bestand ] );
 		} elseif ( $weg_na < time() ) {
+			// Semgrep unlink-use: alleen bestanden uit de eigen map, via basename().
+			// nosemgrep: php.lang.security.unlink-use.unlink-use
 			@unlink( $map['pad'] . '/' . basename( $bestand ) ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged, WordPress.WP.AlternativeFunctions.unlink_unlink -- Eigen bestand in de eigen map in uploads; direct en stil, een mislukte poging wordt hieronder afgehandeld.
 			unset( $status['oud'][ $bestand ] );
 		}
@@ -415,17 +417,23 @@ function mm_instagram_foto_downloaden( $bron, $pad, $naam ) {
 		IMAGETYPE_WEBP => 'webp',
 	);
 	if ( ! $info || ! isset( $types[ $info[2] ] ) ) {
-		@unlink( $tijdelijk ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged, WordPress.WP.AlternativeFunctions.unlink_unlink -- Eigen bestand in de eigen map in uploads; direct en stil, een mislukte poging wordt hieronder afgehandeld.
+		// Semgrep unlink-use: het tijdelijke bestand van download_url(), geen invoer van buiten.
+		// nosemgrep: php.lang.security.unlink-use.unlink-use
+		@unlink( $tijdelijk ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged, WordPress.WP.AlternativeFunctions.unlink_unlink -- Tijdelijk bestand van download_url() en de eigen map in uploads; direct en stil, een mislukte poging wordt afgehandeld.
 		return null;
 	}
 
 	$bestand = $naam . '.' . $types[ $info[2] ];
-	if ( ! @rename( $tijdelijk, $pad . '/' . $bestand ) ) { // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged, WordPress.WP.AlternativeFunctions.rename_rename -- Eigen bestand in de eigen map in uploads; direct en stil, een mislukte poging wordt hieronder afgehandeld.
-		if ( ! @copy( $tijdelijk, $pad . '/' . $bestand ) ) { // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged -- Eigen bestand in de eigen map in uploads; direct en stil, een mislukte poging wordt hieronder afgehandeld.
-			@unlink( $tijdelijk ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged, WordPress.WP.AlternativeFunctions.unlink_unlink -- Eigen bestand in de eigen map in uploads; direct en stil, een mislukte poging wordt hieronder afgehandeld.
+	if ( ! @rename( $tijdelijk, $pad . '/' . $bestand ) ) { // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged, WordPress.WP.AlternativeFunctions.rename_rename -- Tijdelijk bestand van download_url() en de eigen map in uploads; direct en stil, een mislukte poging wordt afgehandeld.
+		if ( ! @copy( $tijdelijk, $pad . '/' . $bestand ) ) { // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged -- Tijdelijk bestand van download_url() en de eigen map in uploads; direct en stil, een mislukte poging wordt afgehandeld.
+			// Semgrep unlink-use: het tijdelijke bestand van download_url(), geen invoer van buiten.
+			// nosemgrep: php.lang.security.unlink-use.unlink-use
+			@unlink( $tijdelijk ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged, WordPress.WP.AlternativeFunctions.unlink_unlink -- Tijdelijk bestand van download_url() en de eigen map in uploads; direct en stil, een mislukte poging wordt afgehandeld.
 			return null;
 		}
-		@unlink( $tijdelijk ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged, WordPress.WP.AlternativeFunctions.unlink_unlink -- Eigen bestand in de eigen map in uploads; direct en stil, een mislukte poging wordt hieronder afgehandeld.
+		// Semgrep unlink-use: het tijdelijke bestand van download_url(), geen invoer van buiten.
+		// nosemgrep: php.lang.security.unlink-use.unlink-use
+		@unlink( $tijdelijk ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged, WordPress.WP.AlternativeFunctions.unlink_unlink -- Tijdelijk bestand van download_url() en de eigen map in uploads; direct en stil, een mislukte poging wordt afgehandeld.
 	}
 	@chmod( $pad . '/' . $bestand, 0644 ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged, WordPress.WP.AlternativeFunctions.file_system_operations_chmod -- Eigen bestand in de eigen map in uploads; direct en stil, een mislukte poging wordt hieronder afgehandeld.
 

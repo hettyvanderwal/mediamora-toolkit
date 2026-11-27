@@ -946,6 +946,8 @@ function mm_einddatum_uitvoeren() {
 
 	// 4. Mail. Dezelfde uitkomst gaat maar één keer.
 	$mail = mm_einddatum_mail_tekst( $datum, $stand, $rest, $direct, $klaar, $zelf );
+	// md5 alleen om dezelfde mail te herkennen, niet voor beveiliging.
+	// nosemgrep: php.lang.security.weak-crypto.weak-crypto
 	$hash = md5( $mail['onderwerp'] . "\n" . $mail['tekst'] );
 	if ( $hash !== $stand['mail_hash'] && mm_einddatum_mail_versturen( $mail ) ) {
 		$stand['mail_hash']  = $hash;

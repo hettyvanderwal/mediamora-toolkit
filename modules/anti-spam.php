@@ -71,7 +71,7 @@ function mediamora_antispam_random_suffix() {
 		return strtolower( wp_generate_password( 12, false, false ) );
 	}
 
-	return substr( md5( uniqid( '', true ) ), 0, 12 );
+	return bin2hex( random_bytes( 6 ) );
 }
 
 /**
@@ -406,8 +406,9 @@ function mediamora_antispam_sanitize_and_save_settings( $post, &$errors = array(
 	if ( ! $clean['debug'] ) {
 		$debug_file = mediamora_antispam_debug_file();
 		if ( file_exists( $debug_file ) ) {
+			// Semgrep unlink-use: het pad is een eigen bestand in de eigen logmap, geen invoer van buiten.
 			// phpcs:ignore WordPress.WP.AlternativeFunctions.unlink_unlink -- Eigen bestand in de eigen logmap; direct, zodat het ook werkt als WP_Filesystem om FTP-gegevens zou vragen.
-			@unlink( $debug_file );
+			@unlink( $debug_file ); // nosemgrep: php.lang.security.unlink-use.unlink-use
 		}
 	}
 
@@ -1975,8 +1976,9 @@ function mediamora_antispam_maybe_migrate_log_dir() {
 				// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents -- Eigen bestand in de eigen logmap; direct, zodat het ook werkt als WP_Filesystem om FTP-gegevens zou vragen.
 				file_put_contents( $naar, $inhoud, FILE_APPEND | LOCK_EX );
 			}
+			// Semgrep unlink-use: het pad is een eigen bestand in de eigen logmap, geen invoer van buiten.
 			// phpcs:ignore WordPress.WP.AlternativeFunctions.unlink_unlink -- Eigen bestand in de eigen logmap; direct, zodat het ook werkt als WP_Filesystem om FTP-gegevens zou vragen.
-			@unlink( $van );
+			@unlink( $van ); // nosemgrep: php.lang.security.unlink-use.unlink-use
 			continue;
 		}
 
@@ -1988,8 +1990,9 @@ function mediamora_antispam_maybe_migrate_log_dir() {
 		// Rename kan stuklopen op open_basedir of een ander filesysteem.
 		// Dan kopieren, en het origineel pas weghalen als dat gelukt is.
 		if ( @copy( $van, $naar ) ) {
+			// Semgrep unlink-use: het pad is een eigen bestand in de eigen logmap, geen invoer van buiten.
 			// phpcs:ignore WordPress.WP.AlternativeFunctions.unlink_unlink -- Eigen bestand in de eigen logmap; direct, zodat het ook werkt als WP_Filesystem om FTP-gegevens zou vragen.
-			@unlink( $van );
+			@unlink( $van ); // nosemgrep: php.lang.security.unlink-use.unlink-use
 		}
 	}
 
@@ -2020,8 +2023,9 @@ function mediamora_antispam_remove_legacy_log_dir( $oud ) {
 
 	foreach ( array( '.htaccess', 'index.php' ) as $bestand ) {
 		if ( file_exists( $oud . '/' . $bestand ) ) {
+			// Semgrep unlink-use: het pad is een eigen bestand in de eigen logmap, geen invoer van buiten.
 			// phpcs:ignore WordPress.WP.AlternativeFunctions.unlink_unlink -- Eigen bestand in de eigen logmap; direct, zodat het ook werkt als WP_Filesystem om FTP-gegevens zou vragen.
-			@unlink( $oud . '/' . $bestand );
+			@unlink( $oud . '/' . $bestand ); // nosemgrep: php.lang.security.unlink-use.unlink-use
 		}
 	}
 
