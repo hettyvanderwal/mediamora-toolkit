@@ -1,9 +1,10 @@
 version: 2
 updates:
+  # Maandelijks, en per ecosysteem alles in één pull request.
   - package-ecosystem: github-actions
     directory: /
     schedule:
-      interval: weekly
+      interval: monthly
     groups:
       actions:
         patterns:
@@ -12,7 +13,8 @@ updates:
   - package-ecosystem: composer
     directory: /
     schedule:
-      interval: weekly
+      interval: monthly
     groups:
       ontwikkeltools:
-        dependency-type: development
+        patterns:
+          - '*'
