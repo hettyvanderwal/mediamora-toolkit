@@ -93,19 +93,13 @@ jobs:
       - run: pip install --disable-pip-version-check semgrep==1.185.0
 
       # PHP-rulesets met taint-analyse, alleen op wat in de releasezip zit.
+      # p/php is de vaste PHP-set; r/php.lang voegt de overige regels voor
+      # PHP zelf toe, zoals zwakke crypto en unlink met invoer.
       - name: Semgrep PHP (blokkerend)
         run: |
-          semgrep scan --config p/php --metrics=off --error \
+          semgrep scan --config p/php --config r/php.lang --metrics=off --error \
             mediamora-toolkit.php uninstall.php includes modules
 
-      - name: Semgrep verkenning (tijdelijk)
-        if: always()
-        run: |
-          for c in p/phpcs-security-audit r/php.wordpress-plugins r/php.lang; do
-            echo "=== $c"
-            semgrep scan --config "$c" --metrics=off --text \
-              mediamora-toolkit.php uninstall.php includes modules 2>&1 | grep -E 'rules|Findings|❯❯❱|❯❱|❱ ' || true
-          done
 
   gitleaks:
     name: gitleaks
