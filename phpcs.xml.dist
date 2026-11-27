@@ -1,0 +1,37 @@
+<?xml version="1.0"?>
+<!--
+	Volledige controle: de standaard WordPress plus PHPCompatibilityWP.
+	Dit is het rapport in GitHub Actions en blokkeert niet. Wat wel blokkeert
+	staat in phpcs-security.xml.dist.
+-->
+<ruleset name="Mediamora Toolkit">
+	<description>WordPress Coding Standards en PHP-compatibiliteit voor de Mediamora Toolkit.</description>
+
+	<!-- Alleen wat in de releasezip zit. tests/ draait los van WordPress. -->
+	<file>mediamora-toolkit.php</file>
+	<file>uninstall.php</file>
+	<file>includes</file>
+	<file>modules</file>
+
+	<arg name="extensions" value="php"/>
+	<arg name="colors"/>
+	<arg value="sp"/>
+
+	<!-- Gelijk aan "Requires PHP" en "Requires at least" in de pluginkop. -->
+	<config name="testVersion" value="7.4-"/>
+	<config name="minimum_wp_version" value="6.0"/>
+
+	<rule ref="WordPress">
+		<properties>
+			<property name="prefixes" type="array">
+				<element value="mm_"/>
+				<element value="MM_"/>
+			</property>
+			<property name="text_domain" type="array">
+				<element value="mediamora-toolkit"/>
+			</property>
+		</properties>
+	</rule>
+
+	<rule ref="PHPCompatibilityWP"/>
+</ruleset>

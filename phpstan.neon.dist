@@ -1,0 +1,15 @@
+# PHPStan met de WordPress-stubs van szepeviktor/phpstan-wordpress (geladen
+# via phpstan/extension-installer). Gestart op level 5; bestaande meldingen
+# staan in phpstan-baseline.neon. Nieuwe meldingen laten de build falen.
+includes:
+	- phpstan-baseline.neon
+
+parameters:
+	level: 5
+	# Gelijk aan "Requires PHP" in de pluginkop.
+	phpVersion: 70400
+	paths:
+		- mediamora-toolkit.php
+		- uninstall.php
+		- includes
+		- modules

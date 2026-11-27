@@ -1,0 +1,29 @@
+{
+    "name": "hettyvanderwal/mediamora-toolkit",
+    "description": "Ontwikkeltools voor de Mediamora Toolkit. Alleen voor de controles in GitHub Actions; de plugin zelf heeft geen Composer nodig en vendor/ gaat nooit mee in de releasezip.",
+    "type": "wordpress-plugin",
+    "license": "GPL-2.0-or-later",
+    "require-dev": {
+        "dealerdirect/phpcodesniffer-composer-installer": "^1.0",
+        "phpcompatibility/phpcompatibility-wp": "^2.1",
+        "phpstan/extension-installer": "^1.4",
+        "phpstan/phpstan": "^2.1",
+        "szepeviktor/phpstan-wordpress": "^2.0",
+        "wp-coding-standards/wpcs": "^3.1"
+    },
+    "config": {
+        "allow-plugins": {
+            "dealerdirect/phpcodesniffer-composer-installer": true,
+            "phpstan/extension-installer": true
+        },
+        "platform": {
+            "php": "8.3"
+        },
+        "sort-packages": true
+    },
+    "scripts": {
+        "phpcs:security": "phpcs --standard=phpcs-security.xml.dist",
+        "phpcs:rapport": "phpcs --standard=phpcs.xml.dist --report=source",
+        "phpstan": "phpstan analyse --memory-limit=1G"
+    }
+}

@@ -1,0 +1,463 @@
+parameters:
+	ignoreErrors:
+		-
+			message: '#^Call to function is_string\(\) with string will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: includes/htaccess.php
+
+		-
+			message: '#^Call to function is_object\(\) with object will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: mediamora-toolkit.php
+
+		-
+			message: '#^Call to function is_string\(\) with string will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: modules/afbeelding-ruimte.php
+
+		-
+			message: '#^Call to function is_array\(\) with array will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: modules/ai-bots.php
+
+		-
+			message: '#^Call to function is_array\(\) with array will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: modules/anti-spam.php
+
+		-
+			message: '#^Call to method add_error\(\) on an unknown class ElementorPro\\Modules\\Forms\\Classes\\Ajax_Handler\.$#'
+			identifier: class.notFound
+			count: 11
+			path: modules/anti-spam.php
+
+		-
+			message: '#^Call to method get\(\) on an unknown class ElementorPro\\Modules\\Forms\\Classes\\Form_Record\.$#'
+			identifier: class.notFound
+			count: 1
+			path: modules/anti-spam.php
+
+		-
+			message: '#^Call to method get_form_settings\(\) on an unknown class ElementorPro\\Modules\\Forms\\Classes\\Form_Record\.$#'
+			identifier: class.notFound
+			count: 3
+			path: modules/anti-spam.php
+
+		-
+			message: '#^Parameter \#1 \$text of function esc_attr expects string, float given\.$#'
+			identifier: argument.type
+			count: 3
+			path: modules/anti-spam.php
+
+		-
+			message: '#^Parameter \$ajax_handler of function mediamora_antispam_validate_form\(\) has invalid type ElementorPro\\Modules\\Forms\\Classes\\Ajax_Handler\.$#'
+			identifier: class.notFound
+			count: 1
+			path: modules/anti-spam.php
+
+		-
+			message: '#^Parameter \$record of function mediamora_antispam_referrer_log_value\(\) has invalid type ElementorPro\\Modules\\Forms\\Classes\\Form_Record\.$#'
+			identifier: class.notFound
+			count: 1
+			path: modules/anti-spam.php
+
+		-
+			message: '#^Parameter \$record of function mediamora_antispam_validate_form\(\) has invalid type ElementorPro\\Modules\\Forms\\Classes\\Form_Record\.$#'
+			identifier: class.notFound
+			count: 1
+			path: modules/anti-spam.php
+
+		-
+			message: '#^Right side of && is always true\.$#'
+			identifier: booleanAnd.rightAlwaysTrue
+			count: 1
+			path: modules/anti-spam.php
+
+		-
+			message: '#^Call to function is_string\(\) with string will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: modules/einddatum.php
+
+		-
+			message: '#^Access to static property \$instance on an unknown class Elementor\\Plugin\.$#'
+			identifier: class.notFound
+			count: 1
+			path: modules/elementor-versie.php
+
+		-
+			message: '#^Call to function is_array\(\) with array will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 2
+			path: modules/elementor-versie.php
+
+		-
+			message: '#^Call to function is_object\(\) with Elementor\\Core\\Base\\Document will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 2
+			path: modules/elementor-versie.php
+
+		-
+			message: '#^Call to method get_main_id\(\) on an unknown class Elementor\\Core\\Base\\Document\.$#'
+			identifier: class.notFound
+			count: 2
+			path: modules/elementor-versie.php
+
+		-
+			message: '#^Call to method get_post\(\) on an unknown class Elementor\\Core\\Base\\Document\.$#'
+			identifier: class.notFound
+			count: 1
+			path: modules/elementor-versie.php
+
+		-
+			message: '#^Parameter \$document of function mm_elementor_versie_controleren\(\) has invalid type Elementor\\Core\\Base\\Document\.$#'
+			identifier: class.notFound
+			count: 1
+			path: modules/elementor-versie.php
+
+		-
+			message: '#^Parameter \$document of function mm_elementor_versie_terug\(\) has invalid type Elementor\\Core\\Base\\Document\.$#'
+			identifier: class.notFound
+			count: 1
+			path: modules/elementor-versie.php
+
+		-
+			message: '#^Result of \|\| is always false\.$#'
+			identifier: booleanOr.alwaysFalse
+			count: 1
+			path: modules/elementor-versie.php
+
+		-
+			message: '#^Call to function is_string\(\) with string will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: modules/email-afschermen.php
+
+		-
+			message: '#^Call to function method_exists\(\) with ''\\\\Elementor\\\\Fonts'' and ''get_font_type'' will always evaluate to false\.$#'
+			identifier: function.impossibleType
+			count: 1
+			path: modules/font-preload.php
+
+		-
+			message: '#^Strict comparison using \!\=\= between '''' and numeric\-string will always evaluate to true\.$#'
+			identifier: notIdentical.alwaysTrue
+			count: 1
+			path: modules/font-preload.php
+
+		-
+			message: '#^Call to function is_wp_error\(\) with WP_Error will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: modules/formuliermonitor.php
+
+		-
+			message: '#^Call to function is_string\(\) with string will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: modules/hero-preload.php
+
+		-
+			message: '#^Action callback returns WP_Error\|true but should not return anything\.$#'
+			identifier: return.void
+			count: 1
+			path: modules/instagram.php
+
+		-
+			message: '#^Ternary operator condition is always false\.$#'
+			identifier: ternary.alwaysFalse
+			count: 1
+			path: modules/meta-opruimen.php
+
+		-
+			message: '#^Call to function is_array\(\) with array will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: modules/nieuwsbrief-vinkje.php
+
+		-
+			message: '#^Call to function is_array\(\) with array\<string\> will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 2
+			path: modules/nieuwsbrief-vinkje.php
+
+		-
+			message: '#^Call to function is_object\(\) with ElementorPro\\Modules\\Forms\\Classes\\Form_Record will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 2
+			path: modules/nieuwsbrief-vinkje.php
+
+		-
+			message: '#^Call to function is_object\(\) with Elementor\\Controls_Stack will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: modules/nieuwsbrief-vinkje.php
+
+		-
+			message: '#^Call to method add_control\(\) on an unknown class Elementor\\Controls_Stack\.$#'
+			identifier: class.notFound
+			count: 1
+			path: modules/nieuwsbrief-vinkje.php
+
+		-
+			message: '#^Call to method get\(\) on an unknown class ElementorPro\\Modules\\Forms\\Classes\\Form_Record\.$#'
+			identifier: class.notFound
+			count: 4
+			path: modules/nieuwsbrief-vinkje.php
+
+		-
+			message: '#^Call to method update_field\(\) on an unknown class ElementorPro\\Modules\\Forms\\Classes\\Form_Record\.$#'
+			identifier: class.notFound
+			count: 1
+			path: modules/nieuwsbrief-vinkje.php
+
+		-
+			message: '#^Function mm_nieuwsbrief_record\(\) has invalid return type ElementorPro\\Modules\\Forms\\Classes\\Form_Record\.$#'
+			identifier: class.notFound
+			count: 1
+			path: modules/nieuwsbrief-vinkje.php
+
+		-
+			message: '#^Parameter \$record of function mm_nieuwsbrief_record\(\) has invalid type ElementorPro\\Modules\\Forms\\Classes\\Form_Record\.$#'
+			identifier: class.notFound
+			count: 1
+			path: modules/nieuwsbrief-vinkje.php
+
+		-
+			message: '#^Parameter \$record of function mm_nieuwsbrief_submit_actions\(\) has invalid type ElementorPro\\Modules\\Forms\\Classes\\Form_Record\.$#'
+			identifier: class.notFound
+			count: 1
+			path: modules/nieuwsbrief-vinkje.php
+
+		-
+			message: '#^Parameter \$widget of function mm_nieuwsbrief_instelling\(\) has invalid type Elementor\\Controls_Stack\.$#'
+			identifier: class.notFound
+			count: 1
+			path: modules/nieuwsbrief-vinkje.php
+
+		-
+			message: '#^Result of \|\| is always false\.$#'
+			identifier: booleanOr.alwaysFalse
+			count: 1
+			path: modules/nieuwsbrief-vinkje.php
+
+		-
+			message: '#^Constant COOKIEPATH not found\.$#'
+			identifier: constant.notFound
+			count: 1
+			path: modules/preview-link.php
+
+		-
+			message: '#^Call to function method_exists\(\) with ''\\\\LiteSpeed\\\\Conf'' and ''cls'' will always evaluate to false\.$#'
+			identifier: function.impossibleType
+			count: 1
+			path: modules/quic-cloud.php
+
+		-
+			message: '#^Call to static method cls\(\) on an unknown class LiteSpeed\\Conf\.$#'
+			identifier: class.notFound
+			count: 2
+			path: modules/quic-cloud.php
+
+		-
+			message: '#^Parameter \#2 \$callback of function array_filter expects \(callable\(string\)\: bool\)\|null, ''strlen'' given\.$#'
+			identifier: argument.type
+			count: 1
+			path: modules/quic-cloud.php
+
+		-
+			message: '#^Call to function is_array\(\) with array will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 2
+			path: modules/schema-persoon.php
+
+		-
+			message: '#^Function mm_schema_persoon_toevoegen\(\) never assigns null to &\$bezet so it can be removed from the by\-ref type\.$#'
+			identifier: parameterByRef.unusedType
+			count: 1
+			path: modules/schema-persoon.php
+
+		-
+			message: '#^Parameter \#2 \$callback of function array_filter expects \(callable\(mixed\)\: bool\)\|null, ''strlen'' given\.$#'
+			identifier: argument.type
+			count: 1
+			path: modules/schema-persoon.php
+
+		-
+			message: '#^Parameter \#2 \$callback of function array_filter expects \(callable\(string\)\: bool\)\|null, ''strlen'' given\.$#'
+			identifier: argument.type
+			count: 1
+			path: modules/schema-persoon.php
+
+		-
+			message: '#^Parameter \#1 \$args of function get_users expects array\{blog_id\?\: int, role\?\: array\<string\>\|string, role__in\?\: array\<string\>, role__not_in\?\: array\<string\>, meta_key\?\: array\<string\>\|string, meta_value\?\: array\<string\>\|string, meta_compare\?\: string, meta_compare_key\?\: string, \.\.\.\}, array\{meta_key\: ''mm_verloopt_op'', meta_value\: 0, meta_compare\: ''\>'', meta_type\: ''NUMERIC'', orderby\: ''meta_value_num'', order\: ''ASC''\} given\.$#'
+			identifier: argument.type
+			count: 1
+			path: modules/tijdelijke-accounts.php
+
+		-
+			message: '#^Parameter \#1 \$args of function get_users expects array\{blog_id\?\: int, role\?\: array\<string\>\|string, role__in\?\: array\<string\>, role__not_in\?\: array\<string\>, meta_key\?\: array\<string\>\|string, meta_value\?\: array\<string\>\|string, meta_compare\?\: string, meta_compare_key\?\: string, \.\.\.\}, array\{meta_key\: ''mm_verloopt_op'', meta_value\: int\<1, max\>, meta_compare\: ''\<\='', meta_type\: ''NUMERIC''\} given\.$#'
+			identifier: argument.type
+			count: 1
+			path: modules/tijdelijke-accounts.php
+
+		-
+			message: '#^Access to property \$id on an unknown class WC_Email\.$#'
+			identifier: class.notFound
+			count: 1
+			path: modules/withdrawal-waiver.php
+
+		-
+			message: '#^Access to property \$object on an unknown class WC_Email\.$#'
+			identifier: class.notFound
+			count: 1
+			path: modules/withdrawal-waiver.php
+
+		-
+			message: '#^Call to method delete_meta_data\(\) on an unknown class WC_Product\.$#'
+			identifier: class.notFound
+			count: 1
+			path: modules/withdrawal-waiver.php
+
+		-
+			message: '#^Call to method get_email_type\(\) on an unknown class WC_Email\.$#'
+			identifier: class.notFound
+			count: 1
+			path: modules/withdrawal-waiver.php
+
+		-
+			message: '#^Call to method get_meta\(\) on an unknown class WC_Order\.$#'
+			identifier: class.notFound
+			count: 1
+			path: modules/withdrawal-waiver.php
+
+		-
+			message: '#^Call to method needs_shipping\(\) on an unknown class WC_Product\.$#'
+			identifier: class.notFound
+			count: 1
+			path: modules/withdrawal-waiver.php
+
+		-
+			message: '#^Call to method update_meta_data\(\) on an unknown class WC_Order\.$#'
+			identifier: class.notFound
+			count: 1
+			path: modules/withdrawal-waiver.php
+
+		-
+			message: '#^Call to method update_meta_data\(\) on an unknown class WC_Product\.$#'
+			identifier: class.notFound
+			count: 1
+			path: modules/withdrawal-waiver.php
+
+		-
+			message: '#^Class WC_Email not found\.$#'
+			identifier: class.notFound
+			count: 2
+			path: modules/withdrawal-waiver.php
+
+		-
+			message: '#^Class WC_Order not found\.$#'
+			identifier: class.notFound
+			count: 1
+			path: modules/withdrawal-waiver.php
+
+		-
+			message: '#^Class WC_Product not found\.$#'
+			identifier: class.notFound
+			count: 1
+			path: modules/withdrawal-waiver.php
+
+		-
+			message: '#^Function is_wc_endpoint_url not found\.$#'
+			identifier: function.notFound
+			count: 1
+			path: modules/withdrawal-waiver.php
+
+		-
+			message: '#^Function wc_get_product not found\.$#'
+			identifier: function.notFound
+			count: 2
+			path: modules/withdrawal-waiver.php
+
+		-
+			message: '#^Function woocommerce_wp_select not found\.$#'
+			identifier: function.notFound
+			count: 1
+			path: modules/withdrawal-waiver.php
+
+		-
+			message: '#^Instanceof between WC_Email and WC_Email will always evaluate to true\.$#'
+			identifier: instanceof.alwaysTrue
+			count: 1
+			path: modules/withdrawal-waiver.php
+
+		-
+			message: '#^Instanceof between WC_Order and WC_Order will always evaluate to true\.$#'
+			identifier: instanceof.alwaysTrue
+			count: 1
+			path: modules/withdrawal-waiver.php
+
+		-
+			message: '#^Parameter \$email of function mm_herroeping_herinnering\(\) has invalid type WC_Email\.$#'
+			identifier: class.notFound
+			count: 1
+			path: modules/withdrawal-waiver.php
+
+		-
+			message: '#^Parameter \$email of function mm_herroeping_herinnering_tekst\(\) has invalid type WC_Email\.$#'
+			identifier: class.notFound
+			count: 1
+			path: modules/withdrawal-waiver.php
+
+		-
+			message: '#^Parameter \$email of function mm_herroeping_herinneringen\(\) has invalid type WC_Email\.$#'
+			identifier: class.notFound
+			count: 1
+			path: modules/withdrawal-waiver.php
+
+		-
+			message: '#^Parameter \$order of function mm_herroeping_beheer\(\) has invalid type WC_Order\.$#'
+			identifier: class.notFound
+			count: 1
+			path: modules/withdrawal-waiver.php
+
+		-
+			message: '#^Parameter \$order of function mm_herroeping_herinnering_tekst\(\) has invalid type WC_Order\.$#'
+			identifier: class.notFound
+			count: 1
+			path: modules/withdrawal-waiver.php
+
+		-
+			message: '#^Parameter \$order of function mm_herroeping_mail\(\) has invalid type WC_Order\.$#'
+			identifier: class.notFound
+			count: 1
+			path: modules/withdrawal-waiver.php
+
+		-
+			message: '#^Parameter \$order of function mm_herroeping_op_bestelling\(\) has invalid type WC_Order\.$#'
+			identifier: class.notFound
+			count: 1
+			path: modules/withdrawal-waiver.php
+
+		-
+			message: '#^Parameter \$order of function mm_herroeping_opslaan\(\) has invalid type WC_Order\.$#'
+			identifier: class.notFound
+			count: 1
+			path: modules/withdrawal-waiver.php
+
+		-
+			message: '#^Parameter \$product of function mm_herroeping_productveld_opslaan\(\) has invalid type WC_Product\.$#'
+			identifier: class.notFound
+			count: 1
+			path: modules/withdrawal-waiver.php
+
+		-
+			message: '#^Right side of && is always true\.$#'
+			identifier: booleanAnd.rightAlwaysTrue
+			count: 1
+			path: modules/withdrawal-waiver.php

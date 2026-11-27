@@ -1,0 +1,30 @@
+<?xml version="1.0"?>
+<!--
+	Blokkerende controle in GitHub Actions. Alleen deze sniffs mogen de build
+	laten falen, zowel bij errors als bij warnings. Een vals alarm wordt inline
+	genegeerd met een reden erbij (phpcs:ignore met de sniffnaam en de reden erachter), nooit door
+	hier een sniff of regel uit te zetten.
+-->
+<ruleset name="Mediamora Toolkit beveiliging">
+	<description>Beveiligings- en compatibiliteitssniffs die de build laten falen.</description>
+
+	<file>mediamora-toolkit.php</file>
+	<file>uninstall.php</file>
+	<file>includes</file>
+	<file>modules</file>
+
+	<arg name="extensions" value="php"/>
+	<arg name="colors"/>
+	<arg value="sp"/>
+
+	<config name="testVersion" value="7.4-"/>
+	<config name="minimum_wp_version" value="6.0"/>
+
+	<rule ref="WordPress.Security"/>
+	<rule ref="WordPress.DB.PreparedSQL"/>
+	<rule ref="WordPress.DB.PreparedSQLPlaceholders"/>
+	<rule ref="WordPress.PHP.DiscouragedPHPFunctions"/>
+	<rule ref="WordPress.PHP.DevelopmentFunctions"/>
+	<rule ref="WordPress.WP.AlternativeFunctions"/>
+	<rule ref="PHPCompatibilityWP"/>
+</ruleset>

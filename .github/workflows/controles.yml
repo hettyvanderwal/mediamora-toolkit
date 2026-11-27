@@ -1,0 +1,142 @@
+# Automatische beveiligingscontroles op elke push en pull request.
+# Alle actions staan vast op een commit-SHA; Dependabot houdt ze bij.
+name: Controles
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: controles-${{ github.ref }}-${{ github.event_name }}
+  cancel-in-progress: true
+
+jobs:
+  phpcs:
+    name: PHPCS
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+        with:
+          php-version: '8.3'
+          tools: composer:v2
+          coverage: none
+
+      - run: composer install --no-interaction --no-progress
+
+      # Blokkerend: alleen WordPress.Security.*, WordPress.DB.PreparedSQL*,
+      # WordPress.PHP.DiscouragedPHPFunctions, WordPress.PHP.DevelopmentFunctions,
+      # WordPress.WP.AlternativeFunctions en PHPCompatibility, errors en warnings.
+      - name: Beveiliging en PHP-compatibiliteit (blokkerend)
+        run: vendor/bin/phpcs --standard=phpcs-security.xml.dist --no-colors
+
+      # Niet blokkerend: de volledige standaard WordPress als rapport.
+      - name: Volledige WordPress-standaard (rapport)
+        if: always()
+        run: |
+          vendor/bin/phpcs --standard=phpcs.xml.dist --no-colors \
+            --report-full=phpcs-rapport.txt \
+            --report-source=phpcs-per-sniff.txt \
+            --report-summary=phpcs-per-bestand.txt || true
+          {
+            echo '## PHPCS-rapport (niet blokkerend)'
+            echo
+            echo '```'
+            cat phpcs-per-sniff.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: phpcs-rapport
+          path: phpcs-*.txt
+          if-no-files-found: ignore
+
+  phpstan:
+    name: PHPStan
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+        with:
+          php-version: '8.3'
+          tools: composer:v2
+          coverage: none
+
+      - run: composer install --no-interaction --no-progress
+
+      - name: PHPStan level 5 met baseline
+        run: vendor/bin/phpstan analyse --no-progress --memory-limit=1G --error-format=github
+
+  semgrep:
+    name: Semgrep
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.12'
+
+      - run: pip install --disable-pip-version-check semgrep==1.185.0
+
+      # PHP-rulesets met taint-analyse, alleen op wat in de releasezip zit.
+      - name: Semgrep PHP (blokkerend)
+        run: |
+          semgrep scan --config p/php --metrics=off --error \
+            mediamora-toolkit.php uninstall.php includes modules
+
+  gitleaks:
+    name: gitleaks
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: gitleaks installeren
+        env:
+          VERSIE: 8.30.1
+          SHA256: 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb
+        run: |
+          cd "$RUNNER_TEMP"
+          curl -sSfL -o gitleaks.tar.gz "https://github.com/gitleaks/gitleaks/releases/download/v${VERSIE}/gitleaks_${VERSIE}_linux_x64.tar.gz"
+          echo "${SHA256}  gitleaks.tar.gz" | sha256sum -c -
+          tar -xzf gitleaks.tar.gz gitleaks
+
+      # De volledige git-geschiedenis, niet alleen de laatste commit.
+      - name: Geheimen in de hele geschiedenis
+        run: '"$RUNNER_TEMP/gitleaks" git --redact --verbose --exit-code 1 .'
+
+  releasezip:
+    name: Inhoud releasezip
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # Zo maakt GitHub de zipball waar de updater mee werkt, en zo wordt ook
+      # de bijlage mediamora-toolkit.zip gemaakt.
+      - name: Zip bouwen en controleren
+        run: |
+          git archive --format=zip --prefix=mediamora-toolkit/ -o "$RUNNER_TEMP/mediamora-toolkit.zip" HEAD
+          unzip -Z1 "$RUNNER_TEMP/mediamora-toolkit.zip" > inhoud.txt
+          cat inhoud.txt
+          if grep -E '(^|/)(vendor|\.github|tests)/|phpcs|phpstan|composer\.(json|lock)|CLAUDE\.md|\.gitattributes|\.gitignore' inhoud.txt; then
+            echo '::error::De releasezip bevat ontwikkelbestanden (zie hierboven).'
+            exit 1
+          fi
