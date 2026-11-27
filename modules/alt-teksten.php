@@ -249,11 +249,13 @@ class Mediamora_Alt_Teksten {
 		if ( ! $scherm || $scherm->id !== 'upload' ) {
 			return;
 		}
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Filter in de mediabibliotheek; alleen gelezen om te bepalen wat er getoond wordt, er wordt niets opgeslagen.
 		$huidig = isset( $_GET['mm_alt'] ) ? sanitize_key( wp_unslash( $_GET['mm_alt'] ) ) : '';
 		echo '<select name="mm_alt">';
 		echo '<option value="">Alle alt-teksten</option>';
-		echo '<option value="auto"' . selected( $huidig, 'auto', false ) . '>Automatisch ingevuld</option>';
-		echo '<option value="eigen"' . selected( $huidig, 'eigen', false ) . '>Zelf ingevuld of leeg</option>';
+		// Semgrep ziet $_GET in selected(), maar dat geeft alleen vaste tekst terug: selected='selected' of niets.
+		echo '<option value="auto"' . selected( $huidig, 'auto', false ) . '>Automatisch ingevuld</option>'; // nosemgrep: php.lang.security.injection.echoed-request.echoed-request
+		echo '<option value="eigen"' . selected( $huidig, 'eigen', false ) . '>Zelf ingevuld of leeg</option>'; // nosemgrep: php.lang.security.injection.echoed-request.echoed-request
 		echo '</select>';
 	}
 
@@ -264,6 +266,7 @@ class Mediamora_Alt_Teksten {
 		if ( $query->get( 'post_type' ) !== 'attachment' ) {
 			return;
 		}
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Filter in de mediabibliotheek; alleen gelezen om te bepalen wat er getoond wordt, er wordt niets opgeslagen.
 		$keuze = isset( $_GET['mm_alt'] ) ? sanitize_key( wp_unslash( $_GET['mm_alt'] ) ) : '';
 		if ( $keuze === 'auto' ) {
 			$query->set( 'meta_query', array( array( 'key' => self::BRON, 'compare' => 'EXISTS' ) ) );

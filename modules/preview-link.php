@@ -53,6 +53,7 @@ function mm_preview_current_url() {
 	if ( ! $host ) {
 		return mm_preview_url();
 	}
+	// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- De hele URL gaat hieronder door esc_url_raw().
 	$current = ( is_ssl() ? 'https://' : 'http://' ) . $host . $port . wp_unslash( $_SERVER['REQUEST_URI'] );
 	$current = remove_query_arg( MM_PREVIEW_PARAM, $current );
 	return esc_url_raw( add_query_arg( MM_PREVIEW_PARAM, mm_preview_key(), $current ) );
@@ -62,7 +63,8 @@ function mm_preview_has_cookie() {
 	if ( empty( $_COOKIE[ MM_PREVIEW_COOKIE ] ) || ! mm_preview_key() ) {
 		return false;
 	}
-	return hash_equals( mm_preview_cookie_value(), (string) $_COOKIE[ MM_PREVIEW_COOKIE ] );
+	// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Alleen vergeleken met hash_equals(), nergens opgeslagen of getoond.
+	return hash_equals( mm_preview_cookie_value(), (string) wp_unslash( $_COOKIE[ MM_PREVIEW_COOKIE ] ) );
 }
 
 /**
@@ -70,9 +72,11 @@ function mm_preview_has_cookie() {
  */
 add_action( 'init', 'mm_preview_maybe_set_cookie', 1 );
 function mm_preview_maybe_set_cookie() {
+	// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- De geheime previewsleutel is hier zelf de controle; een nonce kan niet in een gedeelde link.
 	if ( is_admin() || empty( $_GET[ MM_PREVIEW_PARAM ] ) ) {
 		return;
 	}
+	// phpcs:ignore WordPress.Security.NonceVerification.Recommended, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- De geheime previewsleutel is hier zelf de controle; alleen vergeleken met hash_equals().
 	$given = (string) wp_unslash( $_GET[ MM_PREVIEW_PARAM ] );
 	if ( ! mm_preview_key() || ! hash_equals( mm_preview_key(), $given ) ) {
 		return;

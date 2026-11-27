@@ -318,6 +318,7 @@ function mm_tijdelijk_velden( $user ) {
 }
 
 function mm_tijdelijk_gepost( $veld ) {
+	// phpcs:ignore WordPress.Security.NonceVerification.Missing -- De aanroepers controleren de nonce met mm_tijdelijk_formulier_geldig(); bij het opnieuw tonen na een fout gaat de waarde door esc_attr().
 	return isset( $_POST[ $veld ] ) ? sanitize_text_field( wp_unslash( $_POST[ $veld ] ) ) : '';
 }
 
@@ -474,6 +475,7 @@ function mm_tijdelijk_overzicht() {
 		echo '<tr>';
 		echo '<td><a href="' . esc_url( get_edit_user_link( $user->ID ) ) . '">' . esc_html( $user->display_name ) . '</a> <span style="color:#646970;">' . esc_html( $user->user_login ) . '</span></td>';
 		echo '<td>' . esc_html( implode( ', ', $namen ) ) . '</td>';
+		// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- $verloopt is hierboven ge-escaped, met alleen vaste HTML erachter.
 		echo '<td>' . $verloopt . '</td>';
 		echo '<td>' . ( $erfgenaam ? esc_html( $erfgenaam->display_name ) : '<span style="color:#b32d2e;">Geen geldige erfgenaam: wordt niet verwijderd</span>' ) . '</td>';
 		echo '</tr>';

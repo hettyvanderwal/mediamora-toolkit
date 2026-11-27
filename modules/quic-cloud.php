@@ -144,7 +144,9 @@ function mm_quic_allowlist_melding() {
 		return;
 	}
 
+	// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Alleen gelezen om te bepalen wat er getoond wordt, er wordt niets opgeslagen.
 	if ( isset( $_GET['mm_quic_ccss'] ) ) {
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Alleen gelezen om te bepalen wat er getoond wordt, er wordt niets opgeslagen.
 		if ( 'ok' === $_GET['mm_quic_ccss'] ) {
 			echo '<div class="notice notice-success is-dismissible"><p><strong>Mediamora Toolkit:</strong> <code>' . esc_html( MM_QUIC_DEVICE_MODE ) . '</code> staat nu in de CCSS-allowlist van LiteSpeed. Bestaande kritieke CSS wordt pas bijgewerkt als LiteSpeed hem opnieuw laat maken.</p></div>';
 		} else {

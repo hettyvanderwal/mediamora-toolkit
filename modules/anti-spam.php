@@ -406,6 +406,7 @@ function mediamora_antispam_sanitize_and_save_settings( $post, &$errors = array(
 	if ( ! $clean['debug'] ) {
 		$debug_file = mediamora_antispam_debug_file();
 		if ( file_exists( $debug_file ) ) {
+			// phpcs:ignore WordPress.WP.AlternativeFunctions.unlink_unlink -- Eigen bestand in de eigen logmap; direct, zodat het ook werkt als WP_Filesystem om FTP-gegevens zou vragen.
 			@unlink( $debug_file );
 		}
 	}
@@ -568,7 +569,7 @@ function mediamora_antispam_render_settings_page() {
 				<tr>
 					<th scope="row"><label for="exempt_fields">Velden per formulier</label></th>
 					<td>
-						<textarea id="exempt_fields" name="exempt_fields" rows="5" class="large-text code" placeholder="94c5fa7: field_c5fc26d, field_946b13c"><?php echo esc_textarea( mediamora_antispam_format_exempt_fields( $s['exempt_fields'] ) ); ?></textarea>
+						<textarea id="exempt_fields" name="exempt_fields" rows="5" class="large-text code" placeholder="94c5fa7: field_c5fc26d, field_946b13c"><?php echo esc_textarea( mediamora_antispam_format_exempt_fields( $s['exempt_fields'] ) ); // nosemgrep: php.lang.security.injection.echoed-request.echoed-request -- Gaat door esc_textarea(). ?></textarea>
 						<p class="description">Per regel één formulier: <code>formulier-ID: veld-ID, veld-ID</code>. Met <code>formulier-ID: *</code> vallen alle velden van dat formulier erbuiten. Lege regels en spaties tellen niet.</p>
 						<p class="description"><strong>Formulier-ID:</strong> het element-ID van de formulierwidget. Dat staat in de broncode van de pagina als <code>&lt;input type="hidden" name="form_id" value="..."&gt;</code> in het formulier, en als <code>data-id</code> op de widget. Niet het veld "Formulier-ID" onder Extra opties in Elementor. Staat hetzelfde formulier op meer pagina's, kijk dan per pagina, want een gekopieerd formulier kan een ander ID hebben.</p>
 						<p class="description"><strong>Veld-ID:</strong> in Elementor bij het veld onder Geavanceerd &gt; ID, bijvoorbeeld <code>field_c5fc26d</code>. In de broncode is het het deel tussen de haken in <code>name="form_fields[...]"</code>.</p>
@@ -884,7 +885,7 @@ function mediamora_antispam_is_classic_form_request() {
 		return false;
 	}
 
-	$action = isset( $_REQUEST['action'] ) && is_string( $_REQUEST['action'] ) ? $_REQUEST['action'] : ''; // phpcs:ignore WordPress.Security.NonceVerification
+	$action = isset( $_REQUEST['action'] ) && is_string( $_REQUEST['action'] ) ? $_REQUEST['action'] : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended, WordPress.Security.ValidatedSanitizedInput.MissingUnslash, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Alleen vergeleken met een vaste actienaam.
 
 	return 'elementor_pro_forms_send_form' === $action;
 }
@@ -900,11 +901,11 @@ function mediamora_antispam_is_classic_form_request() {
  */
 function mediamora_antispam_referrer_missing() {
 
-	if ( ! isset( $_POST['referrer'] ) || ! is_string( $_POST['referrer'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification
+	if ( ! isset( $_POST['referrer'] ) || ! is_string( $_POST['referrer'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Missing -- Elementor Pro controleert de inzending zelf; hier alleen gekeken of het veld er is.
 		return true;
 	}
 
-	return '' === trim( wp_unslash( $_POST['referrer'] ) ); // phpcs:ignore WordPress.Security.NonceVerification
+	return '' === trim( wp_unslash( $_POST['referrer'] ) ); // phpcs:ignore WordPress.Security.NonceVerification.Missing, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Alleen gekeken of het veld leeg is, de waarde wordt niet gebruikt.
 }
 
 /**
@@ -919,7 +920,7 @@ function mediamora_antispam_referrer_missing() {
 function mediamora_antispam_referrer_log_value( $record, $form_id ) {
 
 	$naam  = trim( (string) $record->get_form_settings( 'form_name' ) );
-	$titel = isset( $_POST['referer_title'] ) && is_string( $_POST['referer_title'] ) ? trim( wp_unslash( $_POST['referer_title'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification
+	$titel = isset( $_POST['referer_title'] ) && is_string( $_POST['referer_title'] ) ? trim( wp_unslash( $_POST['referer_title'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Missing, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Alleen voor de platte-tekstlog; mediamora_antispam_log() haalt regeleinden weg en kort in.
 
 	return sprintf(
 		'formulier: %s (%s), referer_title: %s',
@@ -1637,6 +1638,7 @@ function mediamora_antispam_debug_log( $field_id, $field_type, $value, $is_link,
 		$score_text
 	);
 
+	// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents -- Eigen logbestand in uploads: direct schrijven met LOCK_EX, WP_Filesystem kent geen append en kan om FTP-gegevens vragen.
 	file_put_contents( $debug_file, $line . "\n", FILE_APPEND | LOCK_EX );
 }
 
@@ -1702,6 +1704,7 @@ function mediamora_antispam_prune_file( $bestand, $grens ) {
 		return;
 	}
 
+	// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents -- Eigen logbestand in uploads: direct schrijven met LOCK_EX, WP_Filesystem kent geen append en kan om FTP-gegevens vragen.
 	file_put_contents(
 		$bestand,
 		implode( "\n", $blijft ) . ( empty( $blijft ) ? '' : "\n" ),
@@ -1734,6 +1737,7 @@ function mediamora_antispam_log( $reason, $field_id, $field_type, $value ) {
 		$snippet
 	);
 
+	// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents -- Eigen logbestand in uploads: direct schrijven met LOCK_EX, WP_Filesystem kent geen append en kan om FTP-gegevens vragen.
 	file_put_contents( mediamora_antispam_log_file(), $line . "\n", FILE_APPEND | LOCK_EX );
 
 	$s = mediamora_antispam_settings();
@@ -1767,6 +1771,7 @@ function mediamora_antispam_nearmiss_log( $field_id, $field_type, $value, $reaso
 		$snippet
 	);
 
+	// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents -- Eigen logbestand in uploads: direct schrijven met LOCK_EX, WP_Filesystem kent geen append en kan om FTP-gegevens vragen.
 	file_put_contents( mediamora_antispam_nearmiss_file(), $line . "\n", FILE_APPEND | LOCK_EX );
 
 	$s = mediamora_antispam_settings();
@@ -1880,11 +1885,13 @@ function mediamora_antispam_write_log_dir_guards( $dir ) {
 		. "</IfModule>\n";
 
 	$htaccess = $dir . '/.htaccess';
+	// phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- Eigen bestand in de eigen logmap; direct, zodat het ook werkt als WP_Filesystem om FTP-gegevens zou vragen.
 	$huidig   = file_exists( $htaccess ) ? file_get_contents( $htaccess ) : false;
 
 	// Ook herschrijven als er al een ander .htaccess ligt. Sites die op een oudere
 	// versie zijn begonnen hebben de kale, foutgevoelige variant staan, en die wordt
 	// zonder deze vergelijking nooit vervangen.
+	// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents -- Eigen bestand in de eigen logmap; direct, zodat het ook werkt als WP_Filesystem om FTP-gegevens zou vragen.
 	if ( $regels !== $huidig && false === file_put_contents( $htaccess, $regels, LOCK_EX ) ) {
 		return false;
 	}
@@ -1894,6 +1901,7 @@ function mediamora_antispam_write_log_dir_guards( $dir ) {
 	// Beschermt niet tegen het rechtstreeks opvragen van log.txt zelf.
 	$index = $dir . '/index.php';
 	if ( ! file_exists( $index ) ) {
+		// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents -- Eigen bestand in de eigen logmap; direct, zodat het ook werkt als WP_Filesystem om FTP-gegevens zou vragen.
 		file_put_contents( $index, "<?php\n// Silence is golden.\n", LOCK_EX );
 	}
 
@@ -1961,14 +1969,18 @@ function mediamora_antispam_maybe_migrate_log_dir() {
 		// volgorde klopt dan niet meer, maar elke regel draagt zijn eigen
 		// tijdstempel en daar wordt op gefilterd, niet op de volgorde.
 		if ( file_exists( $naar ) ) {
+			// phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- Eigen bestand in de eigen logmap; direct, zodat het ook werkt als WP_Filesystem om FTP-gegevens zou vragen.
 			$inhoud = file_get_contents( $van );
 			if ( false !== $inhoud && '' !== $inhoud ) {
+				// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents -- Eigen bestand in de eigen logmap; direct, zodat het ook werkt als WP_Filesystem om FTP-gegevens zou vragen.
 				file_put_contents( $naar, $inhoud, FILE_APPEND | LOCK_EX );
 			}
+			// phpcs:ignore WordPress.WP.AlternativeFunctions.unlink_unlink -- Eigen bestand in de eigen logmap; direct, zodat het ook werkt als WP_Filesystem om FTP-gegevens zou vragen.
 			@unlink( $van );
 			continue;
 		}
 
+		// phpcs:ignore WordPress.WP.AlternativeFunctions.rename_rename -- Eigen bestand in de eigen logmap; direct, zodat het ook werkt als WP_Filesystem om FTP-gegevens zou vragen.
 		if ( @rename( $van, $naar ) ) {
 			continue;
 		}
@@ -1976,6 +1988,7 @@ function mediamora_antispam_maybe_migrate_log_dir() {
 		// Rename kan stuklopen op open_basedir of een ander filesysteem.
 		// Dan kopieren, en het origineel pas weghalen als dat gelukt is.
 		if ( @copy( $van, $naar ) ) {
+			// phpcs:ignore WordPress.WP.AlternativeFunctions.unlink_unlink -- Eigen bestand in de eigen logmap; direct, zodat het ook werkt als WP_Filesystem om FTP-gegevens zou vragen.
 			@unlink( $van );
 		}
 	}
@@ -2007,10 +2020,12 @@ function mediamora_antispam_remove_legacy_log_dir( $oud ) {
 
 	foreach ( array( '.htaccess', 'index.php' ) as $bestand ) {
 		if ( file_exists( $oud . '/' . $bestand ) ) {
+			// phpcs:ignore WordPress.WP.AlternativeFunctions.unlink_unlink -- Eigen bestand in de eigen logmap; direct, zodat het ook werkt als WP_Filesystem om FTP-gegevens zou vragen.
 			@unlink( $oud . '/' . $bestand );
 		}
 	}
 
+	// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_rmdir -- Eigen bestand in de eigen logmap; direct, zodat het ook werkt als WP_Filesystem om FTP-gegevens zou vragen.
 	@rmdir( $oud );
 }
 
@@ -2158,6 +2173,7 @@ function mediamora_antispam_maybe_send_report() {
 
 	// Logbestand opschonen op bewaartermijn (geen persoonsgegevens onbeperkt bewaren).
 	// Gebeurt altijd, onafhankelijk van of de mail hieronder verstuurd wordt.
+	// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents -- Eigen logbestand in uploads: direct schrijven met LOCK_EX, WP_Filesystem kent geen append en kan om FTP-gegevens vragen.
 	file_put_contents(
 		$log_file,
 		implode( "\n", $kept_for_retention ) . ( empty( $kept_for_retention ) ? '' : "\n" ),
@@ -2251,6 +2267,7 @@ function mediamora_antispam_maybe_send_nearmiss_alert() {
 		}
 	}
 
+	// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents -- Eigen logbestand in uploads: direct schrijven met LOCK_EX, WP_Filesystem kent geen append en kan om FTP-gegevens vragen.
 	file_put_contents(
 		$nearmiss_file,
 		implode( "\n", $kept ) . ( empty( $kept ) ? '' : "\n" ),

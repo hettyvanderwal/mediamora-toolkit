@@ -216,7 +216,7 @@ function mm_instagram_ophalen_uitvoeren( $instellingen ) {
 		return new WP_Error( 'mm_instagram_map', 'Kon de map ' . MM_INSTAGRAM_MAP . ' in uploads niet aanmaken.' );
 	}
 	if ( ! file_exists( $map['pad'] . '/index.php' ) ) {
-		@file_put_contents( $map['pad'] . '/index.php', "<?php\n// Stilte.\n" ); // phpcs:ignore
+		@file_put_contents( $map['pad'] . '/index.php', "<?php\n// Stilte.\n" ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged, WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents -- Eigen bestand in de eigen map in uploads; direct en stil, een mislukte poging wordt hieronder afgehandeld.
 	}
 
 	require_once ABSPATH . 'wp-admin/includes/file.php';
@@ -264,7 +264,7 @@ function mm_instagram_ophalen_uitvoeren( $instellingen ) {
 		if ( isset( $nu[ $bestand ] ) ) {
 			unset( $status['oud'][ $bestand ] );
 		} elseif ( $weg_na < time() ) {
-			@unlink( $map['pad'] . '/' . basename( $bestand ) ); // phpcs:ignore
+			@unlink( $map['pad'] . '/' . basename( $bestand ) ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged, WordPress.WP.AlternativeFunctions.unlink_unlink -- Eigen bestand in de eigen map in uploads; direct en stil, een mislukte poging wordt hieronder afgehandeld.
 			unset( $status['oud'][ $bestand ] );
 		}
 	}
@@ -408,26 +408,26 @@ function mm_instagram_foto_downloaden( $bron, $pad, $naam ) {
 		return null;
 	}
 
-	$info  = @getimagesize( $tijdelijk ); // phpcs:ignore
+	$info  = @getimagesize( $tijdelijk ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged -- Gedownloade tijdelijke afbeelding: een onleesbaar bestand geeft false en wordt hieronder weggegooid.
 	$types = array(
 		IMAGETYPE_JPEG => 'jpg',
 		IMAGETYPE_PNG  => 'png',
 		IMAGETYPE_WEBP => 'webp',
 	);
 	if ( ! $info || ! isset( $types[ $info[2] ] ) ) {
-		@unlink( $tijdelijk ); // phpcs:ignore
+		@unlink( $tijdelijk ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged, WordPress.WP.AlternativeFunctions.unlink_unlink -- Eigen bestand in de eigen map in uploads; direct en stil, een mislukte poging wordt hieronder afgehandeld.
 		return null;
 	}
 
 	$bestand = $naam . '.' . $types[ $info[2] ];
-	if ( ! @rename( $tijdelijk, $pad . '/' . $bestand ) ) { // phpcs:ignore
-		if ( ! @copy( $tijdelijk, $pad . '/' . $bestand ) ) { // phpcs:ignore
-			@unlink( $tijdelijk ); // phpcs:ignore
+	if ( ! @rename( $tijdelijk, $pad . '/' . $bestand ) ) { // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged, WordPress.WP.AlternativeFunctions.rename_rename -- Eigen bestand in de eigen map in uploads; direct en stil, een mislukte poging wordt hieronder afgehandeld.
+		if ( ! @copy( $tijdelijk, $pad . '/' . $bestand ) ) { // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged -- Eigen bestand in de eigen map in uploads; direct en stil, een mislukte poging wordt hieronder afgehandeld.
+			@unlink( $tijdelijk ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged, WordPress.WP.AlternativeFunctions.unlink_unlink -- Eigen bestand in de eigen map in uploads; direct en stil, een mislukte poging wordt hieronder afgehandeld.
 			return null;
 		}
-		@unlink( $tijdelijk ); // phpcs:ignore
+		@unlink( $tijdelijk ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged, WordPress.WP.AlternativeFunctions.unlink_unlink -- Eigen bestand in de eigen map in uploads; direct en stil, een mislukte poging wordt hieronder afgehandeld.
 	}
-	@chmod( $pad . '/' . $bestand, 0644 ); // phpcs:ignore
+	@chmod( $pad . '/' . $bestand, 0644 ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged, WordPress.WP.AlternativeFunctions.file_system_operations_chmod -- Eigen bestand in de eigen map in uploads; direct en stil, een mislukte poging wordt hieronder afgehandeld.
 
 	return array(
 		'bestand' => $bestand,
@@ -718,7 +718,9 @@ function mm_instagram_scherm() {
 
 	echo '<div class="wrap"><h1>Instagram-feed</h1>';
 
+	// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Alleen gelezen om te bepalen wat er getoond wordt, er wordt niets opgeslagen.
 	if ( ! empty( $_GET['mm_ig'] ) ) {
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Alleen gelezen om te bepalen wat er getoond wordt, er wordt niets opgeslagen.
 		$melding = sanitize_text_field( wp_unslash( $_GET['mm_ig'] ) );
 		$fout    = 0 === strpos( $melding, 'fout:' );
 		$tekst   = preg_replace( '/^(ok|fout):/', '', $melding );

@@ -73,6 +73,7 @@ function mm_email_afschermen_nodig() {
 		return false;
 	}
 
+	// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Alleen gelezen om te bepalen wat er getoond wordt, er wordt niets opgeslagen.
 	if ( isset( $_GET['elementor-preview'] ) ) {
 		return false;
 	}

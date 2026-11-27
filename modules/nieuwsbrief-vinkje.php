@@ -303,6 +303,7 @@ function mm_nieuwsbrief_submit_actions( $acties, $record ) {
 		$veld_id = mm_nieuwsbrief_veld_id( $instellingen, $actie );
 
 		if ( 'overslaan' === $beslissing && defined( 'WP_DEBUG' ) && WP_DEBUG && defined( 'WP_DEBUG_LOG' ) && WP_DEBUG_LOG ) {
+			// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- Bewust, alleen met WP_DEBUG en WP_DEBUG_LOG aan.
 			error_log(
 				sprintf(
 					'Mediamora Toolkit, nieuwsbrief alleen bij vinkje: %s overgeslagen voor formulier "%s" (post %d), veld "%s" is niet aangevinkt.',
@@ -435,6 +436,7 @@ function mm_nieuwsbrief_meldingen() {
 
 	echo '<div class="notice notice-warning"><p><strong>Mediamora Toolkit:</strong> de nieuwsbriefkoppeling draait bij elke inzending, ook zonder vinkje, want het veld-ID klopt niet.</p><ul style="list-style:disc;padding-left:20px;">';
 	foreach ( $regels as $regel ) {
+		// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- $regel is hierboven opgebouwd uit ge-escapete delen.
 		echo '<li>' . $regel . '</li>';
 	}
 	echo '</ul><p>Pas het veld-ID aan of maak het leeg. De melding verdwijnt na de volgende inzending van dat formulier. <a href="' . esc_url( $wegklikken ) . '">Melding wegklikken</a></p></div>';

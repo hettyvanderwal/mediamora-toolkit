@@ -448,6 +448,7 @@ function mm_einddatum_wpvivid_kopieen( $wissen ) {
 
 	$tabel = $wpdb->base_prefix . 'wpvivid_options';
 	if ( $tabel === $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $wpdb->esc_like( $tabel ) ) ) ) {
+		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Tabelnaam is base_prefix plus vaste tekst en bestaat volgens de SHOW TABLES hierboven.
 		$rijen = $wpdb->get_results( "SELECT option_name, option_value FROM `{$tabel}`", ARRAY_A );
 		foreach ( (array) $rijen as $rij ) {
 			$aantal = 0;
@@ -549,6 +550,7 @@ function mm_einddatum_wpvivid_opruimen() {
 
 	$tabel = $wpdb->base_prefix . 'wpvivid_options';
 	if ( $tabel === $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $wpdb->esc_like( $tabel ) ) ) ) {
+		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Tabelnaam is base_prefix plus vaste tekst en bestaat volgens de SHOW TABLES hierboven.
 		$wpdb->query( "DROP TABLE IF EXISTS `{$tabel}`" );
 	}
 
@@ -1385,7 +1387,9 @@ function mm_einddatum_formulier() {
 		return;
 	}
 
+	// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Alleen gelezen om te bepalen wat er getoond wordt, er wordt niets opgeslagen.
 	$melding  = isset( $_GET['mm_einddatum'] ) ? sanitize_key( wp_unslash( $_GET['mm_einddatum'] ) ) : '';
+	// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Het voorstel wordt hieronder nog met mm_einddatum_geldig() gecontroleerd; alleen gelezen om te bepalen wat er getoond wordt, er wordt niets opgeslagen.
 	$voorstel = isset( $_GET['mm_einddatum_voorstel'] ) ? sanitize_text_field( wp_unslash( $_GET['mm_einddatum_voorstel'] ) ) : '';
 	$datum    = mm_einddatum_datum();
 	$waarde   = ( 'bevestigen' === $melding && mm_einddatum_geldig( $voorstel ) ) ? $voorstel : $datum;

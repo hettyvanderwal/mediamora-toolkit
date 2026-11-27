@@ -182,6 +182,7 @@ function mm_meta_opruimen_draai( $nieuw ) {
 		foreach ( mm_meta_opruimen_tabellen() as $naam => $t ) {
 			$stand['tabellen'][ $naam ] = array(
 				'cursor' => 0,
+				// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Tabel- en kolomnamen komen uit $wpdb en vaste tekst, de id's zijn als int uit de database gekomen.
 				'tot'    => (int) $wpdb->get_var( "SELECT MAX(meta_id) FROM {$t['meta']}" ),
 				'regels' => 0,
 				'bytes'  => 0,
@@ -211,7 +212,7 @@ function mm_meta_opruimen_draai( $nieuw ) {
 
 			$tot = min( $tabel['cursor'] + MM_META_OPRUIMEN_VENSTER, $tabel['tot'] );
 
-			// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- tabel- en kolomnamen komen uit $wpdb.
+			// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Tabel- en kolomnamen komen uit $wpdb en vaste tekst, de id's zijn als int uit de database gekomen.
 			$rijen = $wpdb->get_results(
 				$wpdb->prepare(
 					"SELECT m.meta_id, LENGTH(m.meta_key) + IFNULL(LENGTH(m.meta_value), 0) AS bytes
@@ -225,6 +226,7 @@ function mm_meta_opruimen_draai( $nieuw ) {
 					MM_META_OPRUIMEN_BATCH
 				)
 			);
+			// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 
 			if ( $wpdb->last_error ) {
 				$stand['fout'] = $wpdb->last_error;
@@ -243,12 +245,13 @@ function mm_meta_opruimen_draai( $nieuw ) {
 			// De id's zijn net als int uit de database gekomen. De koppeling
 			// staat nog eens in de WHERE, zodat alleen weggaat wat op dit moment
 			// nog steeds nergens bij hoort.
-			// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared -- Tabel- en kolomnamen komen uit $wpdb en vaste tekst, de id's zijn als int uit de database gekomen.
 			$weg = $wpdb->query(
 				"DELETE m FROM {$t['meta']} m
 				LEFT JOIN {$t['ouder']} o ON o.{$t['sleutel']} = m.{$t['kolom']}
 				WHERE m.meta_id IN (" . implode( ',', $ids ) . ") AND o.{$t['sleutel']} IS NULL"
 			);
+			// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared
 
 			if ( false === $weg ) {
 				$stand['fout'] = $wpdb->last_error ? $wpdb->last_error : 'DELETE mislukt';
@@ -356,6 +359,7 @@ function mm_meta_opruimen_tel() {
 	);
 
 	foreach ( mm_meta_opruimen_tabellen() as $naam => $t ) {
+		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Tabel- en kolomnamen komen uit $wpdb en vaste tekst, de id's zijn als int uit de database gekomen.
 		$tot    = (int) $wpdb->get_var( "SELECT MAX(meta_id) FROM {$t['meta']}" );
 		$cursor = 0;
 		$regels = 0;
@@ -367,7 +371,7 @@ function mm_meta_opruimen_tel() {
 				break;
 			}
 			$tot_venster = min( $cursor + MM_META_OPRUIMEN_VENSTER, $tot );
-			// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Tabel- en kolomnamen komen uit $wpdb en vaste tekst, de id's zijn als int uit de database gekomen.
 			$rij = $wpdb->get_row(
 				$wpdb->prepare(
 					"SELECT COUNT(*) AS regels, IFNULL(SUM(LENGTH(m.meta_key) + IFNULL(LENGTH(m.meta_value), 0)), 0) AS bytes
@@ -378,6 +382,7 @@ function mm_meta_opruimen_tel() {
 					$tot_venster
 				)
 			);
+			// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 			if ( ! $rij ) {
 				$telling['compleet'] = false;
 				break;
@@ -469,6 +474,7 @@ function mm_meta_opruimen_overzicht() {
 
 	echo '<h2 id="mm-meta-opruimen" style="margin-top:32px;">Verweesde meta</h2>';
 
+	// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Alleen gelezen om te bepalen wat er getoond wordt, er wordt niets opgeslagen.
 	if ( ! empty( $_GET['mm_meta_geteld'] ) ) {
 		echo '<div class="notice notice-success inline"><p>Geteld. Er is niets verwijderd.</p></div>';
 	}

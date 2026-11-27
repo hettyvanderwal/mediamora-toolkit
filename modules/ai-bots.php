@@ -112,6 +112,7 @@ function mm_aibots_log() {
         return;
     }
 
+    // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.MissingUnslash, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Alleen doorzocht op bekende botnamen, nergens opgeslagen of getoond.
     $ua = isset($_SERVER['HTTP_USER_AGENT']) ? (string) $_SERVER['HTTP_USER_AGENT'] : '';
     if ($ua === '') {
         return;
@@ -128,6 +129,7 @@ function mm_aibots_log() {
         return;
     }
 
+    // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.MissingUnslash, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Mm_aibots_pad() doet wp_unslash, haalt stuurtekens weg en houdt alleen het pad over; bij weergave esc_html.
     $pad = mm_aibots_pad(isset($_SERVER['REQUEST_URI']) ? $_SERVER['REQUEST_URI'] : '/');
 
     if (mm_aibots_is_bestand($pad)) {
@@ -224,6 +226,7 @@ function mm_aibots_stuur_oude_url_door() {
         return;
     }
 
+    // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Alleen gelezen om te bepalen wat er getoond wordt, er wordt niets opgeslagen.
     if (!isset($_GET['page']) || $_GET['page'] !== 'mm-aibots') {
         return;
     }
@@ -232,7 +235,9 @@ function mm_aibots_stuur_oude_url_door() {
 
     // De gekozen maand meenemen, anders komt een bladwijzer naar een
     // specifieke maand alsnog op de huidige maand uit.
+    // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Alleen gelezen om te bepalen wat er getoond wordt, er wordt niets opgeslagen.
     if (isset($_GET['maand'])) {
+        // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Alleen gelezen om te bepalen wat er getoond wordt, er wordt niets opgeslagen.
         $doel = add_query_arg('maand', sanitize_text_field(wp_unslash($_GET['maand'])), $doel);
     }
 
@@ -290,6 +295,7 @@ function mm_aibots_pagina() {
         return;
     }
 
+    // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- De maand wordt getoetst aan de gelogde maanden; alleen gelezen om te bepalen wat er getoond wordt, er wordt niets opgeslagen.
     $huidig = isset($_GET['maand']) ? sanitize_text_field(wp_unslash($_GET['maand'])) : $maanden[0];
     if (!in_array($huidig, $maanden, true)) {
         $huidig = $maanden[0];
@@ -365,6 +371,7 @@ function mm_aibots_cache_formulier() {
     $litespeed = mm_toolkit_litespeed_server() === true;
     $aan = (bool) get_option(MM_TOOLKIT_AIBOTS_CACHE_OPTIE, false);
 
+    // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Alleen gelezen om te bepalen wat er getoond wordt, er wordt niets opgeslagen.
     if (!empty($_GET['cache-opgeslagen'])) {
         echo '<div class="notice notice-success is-dismissible"><p>Opgeslagen.</p></div>';
     }
@@ -625,11 +632,13 @@ add_action('wp_ajax_nopriv_mm_aibezoek', 'mm_aibots_bezoek_ontvang');
 add_action('wp_ajax_mm_aibezoek', 'mm_aibots_bezoek_ontvang');
 
 function mm_aibots_bezoek_ontvang() {
+    // phpcs:disable WordPress.Security.NonceVerification.Missing, WordPress.Security.ValidatedSanitizedInput.MissingUnslash, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Openbaar baken vanaf gecachete pagina's, dus geen nonce mogelijk. mm_aibots_bezoek_verwerk() schoont de velden zelf op; user-agent en Origin worden alleen vergeleken.
     mm_aibots_bezoek_verwerk(
         $_POST,
         isset($_SERVER['HTTP_USER_AGENT']) ? (string) $_SERVER['HTTP_USER_AGENT'] : '',
         isset($_SERVER['HTTP_ORIGIN']) ? (string) $_SERVER['HTTP_ORIGIN'] : ''
     );
+    // phpcs:enable WordPress.Security.NonceVerification.Missing, WordPress.Security.ValidatedSanitizedInput.MissingUnslash, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
 
     // Het script kijkt niet naar het antwoord.
     status_header(204);

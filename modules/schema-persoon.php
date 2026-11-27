@@ -606,6 +606,7 @@ function mm_schema_persoon_opslaan() {
 		return (string) esc_url_raw( trim( (string) $waarde ), array( 'http', 'https' ) );
 	};
 
+	// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Nonce gecontroleerd met check_admin_referer() hierboven; elk veld wordt hieronder per soort opgeschoond.
 	$invoer = isset( $_POST['mm_personen'] ) && is_array( $_POST['mm_personen'] ) ? wp_unslash( $_POST['mm_personen'] ) : array();
 
 	$personen = array();
@@ -711,6 +712,7 @@ function mm_schema_persoon_status_regel() {
 add_action( 'admin_enqueue_scripts', 'mm_schema_persoon_media' );
 
 function mm_schema_persoon_media( $hook ) {
+	// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Bepaalt alleen of de mediabibliotheek geladen wordt.
 	if ( 'settings_page_' . MM_TOOLKIT_SLUG === $hook && isset( $_GET['tab'] ) && 'vindbaarheid' === $_GET['tab'] ) {
 		wp_enqueue_media();
 	}
@@ -810,6 +812,7 @@ function mm_schema_persoon_formulier() {
 
 	echo '<h2 id="mm-schema-persoon" style="margin-top:32px;">Persoon in schema</h2>';
 
+	// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Alleen gelezen om te bepalen wat er getoond wordt, er wordt niets opgeslagen.
 	if ( ! empty( $_GET['mm_persoon'] ) ) {
 		echo '<div class="notice notice-success inline"><p>Gegevens opgeslagen. Leeg de cache om ze op de site te zien.</p></div>';
 	}

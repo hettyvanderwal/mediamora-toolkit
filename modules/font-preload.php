@@ -62,6 +62,7 @@ function mm_font_preload_nodig() {
 		return false;
 	}
 
+	// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Alleen gelezen om te bepalen wat er getoond wordt, er wordt niets opgeslagen.
 	if ( isset( $_GET['elementor-preview'] ) ) {
 		return false;
 	}
@@ -333,6 +334,7 @@ function mm_font_preload_bestanden() {
 
 	$urls = array();
 	foreach ( mm_font_preload_kandidaten( $kit_id, $uploads ) as $typografie ) {
+		// phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- Lokaal CSS-bestand van Elementor in uploads, geen URL.
 		$url = mm_font_preload_zoek_url( (string) file_get_contents( $typografie['css'] ), $typografie['gewicht'], $typografie['stijl'] );
 		if ( '' !== $url && ! in_array( $url, $urls, true ) ) {
 			$urls[] = $url;

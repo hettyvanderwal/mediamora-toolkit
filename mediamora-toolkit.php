@@ -551,7 +551,7 @@ function mm_toolkit_opslaan() {
 	$opslaan    = array();
 	$opgeslagen = get_option( MM_TOOLKIT_OPTIE, array() );
 	$opgeslagen = is_array( $opgeslagen ) ? $opgeslagen : array();
-	$gekozen    = isset( $_POST['mm_module'] ) ? (array) wp_unslash( $_POST['mm_module'] ) : array();
+	$gekozen    = isset( $_POST['mm_module'] ) ? array_map( 'sanitize_key', (array) wp_unslash( $_POST['mm_module'] ) ) : array();
 
 	foreach ( mm_toolkit_modules() as $sleutel => $module ) {
 		// Een vastgezette module heeft een grijze schakelaar, en die stuurt
@@ -649,6 +649,7 @@ function mm_toolkit_scherm() {
 	// Het actieve tabblad staat in de URL. Onbekend, of een tabblad dat deze
 	// gebruiker niet mag zien: het eerste tabblad, zonder melding.
 	$tabbladen = mm_toolkit_zichtbare_tabbladen();
+	// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Het tabblad wordt getoetst aan de zichtbare tabbladen; alleen gelezen om te bepalen wat er getoond wordt, er wordt niets opgeslagen.
 	$tab       = isset( $_GET['tab'] ) ? sanitize_key( wp_unslash( $_GET['tab'] ) ) : '';
 	if ( ! array_key_exists( $tab, $tabbladen ) ) {
 		$tab = (string) key( $tabbladen );
@@ -656,6 +657,7 @@ function mm_toolkit_scherm() {
 
 	echo '<div class="wrap"><h1>Mediamora Toolkit <span style="font-size:13px;font-weight:400;color:#646970;">versie ' . esc_html( mm_toolkit_huidige_versie() ) . '</span></h1>';
 
+	// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Alleen gelezen om te bepalen wat er getoond wordt, er wordt niets opgeslagen.
 	if ( ! empty( $_GET['opgeslagen'] ) ) {
 		echo '<div class="notice notice-success is-dismissible"><p>Opgeslagen.</p></div>';
 	}
@@ -757,7 +759,9 @@ function mm_toolkit_scherm() {
 		echo '<tr>';
 		echo '<td><input type="checkbox" name="mm_module[' . esc_attr( $sleutel ) . ']" value="1"' . checked( $s['gewild'], true, false ) . disabled( $s['vast'] || ! $s['vereist'], true, false ) . '></td>';
 		$label = $module['onderhoud'] ? ' <span style="font-size:11px;padding:1px 6px;border-radius:3px;background:#f0f0f1;color:#50575e;">Onderhoud</span>' : '';
+		// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- $label is vaste HTML, $link en $instelling zijn hierboven al ge-escaped.
 		echo '<td><strong>' . esc_html( $module['naam'] ) . '</strong>' . $label . $link . '<br><span style="color:#646970;">' . esc_html( $module['uitleg'] ) . '</span>' . $instelling . '</td>';
+		// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- $tekst is hierboven opgebouwd uit ge-escapete delen en status_regel-functies die zelf escapen.
 		echo '<td>' . $tekst . '</td>';
 		echo '</tr>';
 	}
@@ -899,6 +903,7 @@ function mm_toolkit_preview_cache_herstel() {
 	}
 	// Op het instellingenscherm altijd opnieuw proberen, zodat een opgeloste
 	// schrijfrechtenkwestie meteen zichtbaar wordt.
+	// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Alleen gelezen om te bepalen wat er getoond wordt, er wordt niets opgeslagen.
 	$scherm = isset( $_GET['page'] ) && MM_TOOLKIT_SLUG === $_GET['page'];
 	if ( ! $scherm && get_transient( 'mm_toolkit_preview_htaccess_fout' ) ) {
 		return;
@@ -952,6 +957,7 @@ function mm_toolkit_aibots_cache_herstel() {
 	if ( wp_doing_ajax() || null === mm_toolkit_litespeed_server() ) {
 		return;
 	}
+	// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Alleen gelezen om te bepalen wat er getoond wordt, er wordt niets opgeslagen.
 	$scherm = isset( $_GET['page'] ) && in_array( $_GET['page'], array( MM_TOOLKIT_SLUG, 'mm-aibots' ), true );
 	if ( ! $scherm && get_transient( 'mm_toolkit_aibots_htaccess_fout' ) ) {
 		return;

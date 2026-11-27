@@ -24,6 +24,7 @@ const MM_TOOLKIT_AIBOTS_MARKER  = 'Mediamora AI-bots';
  * via WP-CLI of cron zonder webserver.
  */
 function mm_toolkit_litespeed_server() {
+	// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.MissingUnslash, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Alleen doorzocht op LiteSpeed, nergens opgeslagen of getoond.
 	$software = isset( $_SERVER['SERVER_SOFTWARE'] ) ? (string) $_SERVER['SERVER_SOFTWARE'] : '';
 	if ( '' === $software ) {
 		return null;
@@ -162,6 +163,7 @@ function mm_toolkit_htaccess_blok_bijwerken( $marker, $blok, $gewenst, $fout ) {
 		return ! $gewenst;
 	}
 
+	// phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- .htaccess direct lezen en schrijven met LOCK_EX en controle achteraf, net als insert_with_markers() van WordPress zelf.
 	$oud = file_get_contents( $pad );
 	if ( false === $oud ) {
 		return mm_toolkit_htaccess_fout( $gewenst, $fout );
@@ -192,15 +194,18 @@ function mm_toolkit_htaccess_blok_bijwerken( $marker, $blok, $gewenst, $fout ) {
 
 	// Zonder precies één WordPress-blok is het bestand niet wat we verwachten.
 	// Dan liever niets doen dan gokken waar het blok moet.
+	// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_is_writable -- .htaccess direct lezen en schrijven met LOCK_EX en controle achteraf, net als insert_with_markers() van WordPress zelf.
 	if ( 1 !== mm_toolkit_htaccess_tel( $oud, '# BEGIN WordPress' ) || ! is_writable( $pad ) ) {
 		return mm_toolkit_htaccess_fout( $gewenst, $fout );
 	}
 
+	// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents -- .htaccess direct lezen en schrijven met LOCK_EX en controle achteraf, net als insert_with_markers() van WordPress zelf.
 	if ( false === file_put_contents( $pad, $nieuw, LOCK_EX ) ) {
 		return mm_toolkit_htaccess_fout( $gewenst, $fout );
 	}
 
 	clearstatcache( true, $pad );
+	// phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- .htaccess direct lezen en schrijven met LOCK_EX en controle achteraf, net als insert_with_markers() van WordPress zelf.
 	$terug  = file_get_contents( $pad );
 	$aantal = $gewenst ? 1 : 0;
 	$goed   = false !== $terug
@@ -210,6 +215,7 @@ function mm_toolkit_htaccess_blok_bijwerken( $marker, $blok, $gewenst, $fout ) {
 		&& ( ! $gewenst || strpos( $terug, $begin ) < strpos( $terug, '# BEGIN WordPress' ) );
 
 	if ( ! $goed ) {
+		// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents -- .htaccess direct lezen en schrijven met LOCK_EX en controle achteraf, net als insert_with_markers() van WordPress zelf.
 		file_put_contents( $pad, $oud, LOCK_EX );
 		return mm_toolkit_htaccess_fout( $gewenst, $fout );
 	}

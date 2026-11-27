@@ -166,6 +166,7 @@ function mm_elementor_versie_start( $kop ) {
 // $_SERVER is door WordPress geslasht, maar de waarde bevat alleen cijfers,
 // hex, dubbele punten en komma's; de rest valt weg in kop_lezen.
 if ( ! empty( $_SERVER['HTTP_X_MM_VINGERAFDRUK'] ) ) {
+	// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.MissingUnslash, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Mm_elementor_versie_kop_lezen() houdt alleen id:md5-paren over.
 	mm_elementor_versie_start( (string) $_SERVER['HTTP_X_MM_VINGERAFDRUK'] );
 }
 
@@ -269,10 +270,12 @@ function mm_elementor_versie_doorschuiven( $post_id ) {
  * @param int $post_id
  */
 function mm_elementor_versie_editor_save( $post_id ) {
+	// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Elementor controleert de nonce van elementor_ajax zelf voordat er opgeslagen wordt; hier alleen vergeleken.
 	if ( ! wp_doing_ajax() || ! isset( $_REQUEST['action'] ) || 'elementor_ajax' !== $_REQUEST['action'] ) {
 		return false;
 	}
 
+	// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Elementor controleert de nonce van elementor_ajax zelf voordat er opgeslagen wordt; hier alleen vergeleken.
 	if ( ! isset( $_REQUEST['editor_post_id'] ) || absint( $_REQUEST['editor_post_id'] ) !== $post_id ) {
 		return false;
 	}
@@ -346,6 +349,7 @@ function mm_elementor_versie_controleren( $document, $data ) {
 		header( 'X-MM-Vingerafdruk-Geweigerd: ' . $post_id . ':' . $geladen . ':' . $database . ':' . $soort );
 	}
 
+	// phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- Vaste tekst; Elementor toont de melding zelf in de editor.
 	throw new \Exception( mm_elementor_versie_tekst(), 409 );
 }
 
