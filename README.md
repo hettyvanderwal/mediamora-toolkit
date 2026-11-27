@@ -406,17 +406,116 @@ De anti-spam draait eerder, op `elementor_pro/forms/validation`, en ziet de veld
 
 Testgevallen in `tests/nieuwsbrief-vinkje.php`.
 
+## Formuliermonitor: hersteld
+
+De monitor hangt aan `wp_mail_failed` en meldt een fout met de kale `mail()` van PHP, niet met `wp_mail()`, maximaal `MM_MONITOR_MAX_PER_DAG` keer per site per dag (standaard 1). Sinds 1.33.0 houdt hij ook bij of het weer werkt.
+
+- **Openstaande storing.** Bij de eerste fout opent `mm_monitor_verwerk_fout()` een storing in de optie `mm_monitor_storing` (geen autoload): `sinds` (Unix-tijd), `fouten` (aantal tot nu toe) en `gemeld` (of er voor deze storing een melding is verstuurd). Volgende fouten tellen bij dezelfde storing, ook over de dagen heen. De dagteller `mm_monitor_teller` is alleen voor de dagcap en werkt zoals altijd.
+- **Hersteld.** Op `wp_mail_succeeded` (WordPress 5.9 en hoger) wordt een openstaande storing gesloten. Is daarvoor een melding verstuurd, dan volgt één melding "hersteld" met site, tijdstip van herstel, sinds wanneer, de duur en het aantal fouten. Is er niets gemeld, bijvoorbeeld door de dagcap of omdat `mail()` op de hosting niet werkte, dan gaat de storing stil dicht. De herstelmelding gaat via dezelfde `mail()`-route en telt niet mee voor de dagcap. Gaat het daarna dezelfde dag weer mis, dan geldt de dagcap zoals altijd: na één storingsmelding die dag komt er geen nieuwe, en dan ook geen herstelmelding.
+- De storing gaat eerst dicht en pas daarna gaat de herstelmelding de deur uit, alleen als `delete_option()` de storing echt weghaalde. Twee verzoeken die tegelijk een mail versturen geven zo geen twee herstelmeldingen. Mislukt de herstelmelding zelf, dan wordt hij niet opnieuw geprobeerd.
+- Mislukt één mail en lukt de volgende meteen, bijvoorbeeld omdat een bezoeker een niet-bestaand adres invulde voor de bevestiging, dan komen er een storing- en een herstelmelding vlak na elkaar. Dat zegt dan dat de mail van de site zelf het gewoon doet.
+- Een plugin die `wp_mail()` helemaal vervangt en `wp_mail_failed` of `wp_mail_succeeded` niet afvuurt, ontloopt de monitor, net als voorheen.
+- **Laatste geslaagde mail.** Het tijdstip staat in `mm_monitor_laatst_gelukt` (Unix-tijd, geen autoload). Omdat `wp_mail_succeeded` bij elke mail afvuurt, gaat het hooguit één keer per uur naar de database (`MM_MONITOR_GELUKT_INTERVAL`). Zonder openstaande storing kost een geslaagde mail dus hooguit het lezen van twee opties en eens per uur één keer schrijven. De waarde loopt daardoor maximaal een uur achter.
+
+Onderwerpen en koppen:
+
+| Melding | Onderwerp | `X-Mediamora-Status` |
+| --- | --- | --- |
+| Storing | `[Formuliermonitor] <domein>` | `storing` |
+| Hersteld | `[Formuliermonitor] <domein>: hersteld` | `hersteld` |
+| Testknop | `[Formuliermonitor] <domein>` | `test` |
+
+`X-Mediamora-Monitor: 1` staat op alle drie; filter daarop in de mailbox, en op `X-Mediamora-Status` om de soorten uit elkaar te halen. De storingsmelding en de testknop zijn verder gelijk gebleven.
+
+**Testen op een echte site.** Zorg dat de Formuliermonitor laadt (Onderhoudsklant aan, Formuliermonitor aan) en dat er vandaag nog geen storingsmelding is verstuurd. Laat `wp_mail()` mislukken en lukken, bijvoorbeeld met WP-CLI:
+
+```
+wp eval 'add_action( "phpmailer_init", function ( $m ) { $m->Mailer = "smtp"; $m->Host = "127.0.0.1"; $m->Port = 1; $m->SMTPAutoTLS = false; }, PHP_INT_MAX ); wp_mail( "hetty@mediamora.nl", "Monitortest", "Moet mislukken" );'
+wp option get mm_monitor_storing --format=json
+wp eval 'wp_mail( "hetty@mediamora.nl", "Monitortest", "Moet lukken" );'
+wp option get mm_monitor_storing
+```
+
+De eerste regel geeft de storingsmelding en een storing met `gemeld` op `true`. Na de tweede `wp_mail()` is de optie weg en komt de melding "hersteld" binnen. Om de stille sluiting te zien: dezelfde dag nog een keer laten mislukken (geen melding, `gemeld` `false`) en laten lukken (geen herstelmelding). Met een SMTP-plugin zoals FluentSMTP of WP Mail SMTP kan het mislukken ook door het wachtwoord daar tijdelijk fout te zetten. Ruim daarna `mm_monitor_teller` op als je dezelfde dag nog een echte melding wilt kunnen krijgen.
+
+Testgevallen in `tests/formuliermonitor-hersteld.php`.
+
+## Status voor MainWP
+
+Is MainWP Child actief, dan geeft de toolkit bij de sync van het MainWP-dashboard zijn status mee, onder de sleutel `mediamora_toolkit`. De code staat in `includes/mainwp.php` en niet in de module, zodat het dashboard ook ziet dat een site geen onderhoudsklant is of dat de Formuliermonitor uit staat.
+
+Nagekeken in de broncode van MainWP Child 6.4.2 en MainWP Dashboard 6.4.2:
+
+- **Dashboard**, `class/class-mainwp-sync.php`: bij elke sync gaat de lijst `othersData` mee, gevuld met het filter `mainwp_sync_others_data` (`$othersData`, `$website`) en als JSON verstuurd.
+- **Site**, `class/class-mainwp-child-stats.php`, `stats_others_data()`: MainWP Child decodeert `othersData` en geeft die door aan het filter `mainwp_site_sync_others_data` (`$information`, `$othersData`). Wat daar aan `$information` wordt toegevoegd, gaat in het antwoord terug. Het filter draait alleen als het dashboard `othersData` meestuurt en de sync-instelling `othersData` niet uit staat (`syncdata`, optie `mainwp_child_settings_sync_data`). De oude naam `mainwp-site-sync-others-data` is verouderd.
+- **Dashboard**, weer `class-mainwp-sync.php`: het antwoord komt binnen bij de actie `mainwp_site_synced` (`$website`, `$information`), alleen na een geslaagde sync. Daarvoor zijn er ook `mainwp_before_save_sync_result` (filter) en `mainwp_site_sync` (actie, ook bij een mislukte sync).
+
+Het filter op de site draait bij elke sync, ook als niemand erom vraagt. De extensies van MainWP zelf (Pagespeed, Client Reports en andere) voegen hun gegevens toch alleen toe als het dashboard er met een eigen sleutel in `othersData` om vraagt. De toolkit doet dat ook: **de dashboardplugin moet in `mainwp_sync_others_data` de sleutel `mediamora_toolkit` met een ware waarde zetten**, anders gaat er niets mee. Bijvoorbeeld:
+
+```php
+add_filter( 'mainwp_sync_others_data', function ( $data, $website ) {
+	$data['mediamora_toolkit'] = 1;
+	return $data;
+}, 10, 2 );
+
+add_action( 'mainwp_site_synced', function ( $website, $information ) {
+	if ( isset( $information['mediamora_toolkit'] ) && is_array( $information['mediamora_toolkit'] ) ) {
+		// Opslaan bij $website->id.
+	}
+}, 10, 2 );
+```
+
+De structuur, schema 1:
+
+```
+mediamora_toolkit => array(
+	'schema'           => 1,                 // int, omhoog als de structuur verandert
+	'toolkit_versie'   => '1.33.0',          // string, de Version uit de pluginkop
+	'onderhoudsklant'  => true,              // bool
+	'formuliermonitor' => array(
+		'aan'                    => true,    // bool: de module laadt
+		'storing'                => null,    // of array( 'sinds' => ISO 8601, 'fouten' => int, 'gemeld' => bool )
+		'laatste_fout'           => '2026-11-27T14:05:00+01:00',  // ISO 8601 of null
+		'laatste_geslaagde_mail' => '2026-11-27T15:00:12+01:00',  // ISO 8601 of null, loopt hooguit een uur achter
+		'log'                    => array(   // de laatste 5 regels uit mm_monitor_log, nieuwste eerst
+			array(
+				'tijd'      => '2026-11-27T14:05:00+01:00',  // ISO 8601 of null
+				'code'      => 'wp_mail_failed',
+				'melding'   => 'SMTP Error: The following recipients failed: ***@voorbeeld.nl',
+				'ontvanger' => '@voorbeeld.nl',              // alleen domeinen, of leeg
+			),
+		),
+	),
+	'anti_spam'        => null,              // komt later
+	'testinzending'    => null,              // komt later
+)
+```
+
+- Alle tijden zijn ISO 8601 met de tijdzone van de site (`DATE_ATOM`).
+- Staat de Formuliermonitor niet aan (uit, Onderhoudsklant uit of de losse plugin nog op de site), dan is `aan` `false`, zijn `storing`, `laatste_fout` en `laatste_geslaagde_mail` `null` en is `log` leeg.
+- Geen persoonsgegevens, geen onderwerpen, geen volledige adressen en geen instellingen. De logregels gaan nog een keer door `mm_monitor_maskeer_adressen()`, want regels van voor 1.16.0 kunnen nog adressen bevatten, en alleen `tijd`, `code`, `melding` en `ontvanger` gaan mee.
+- Nieuwe sleutels mogen erbij komen zonder dat `schema` omhoog gaat, en `anti_spam` en `testinzending` krijgen later een array in plaats van `null`. `schema` gaat pas omhoog als bestaande sleutels anders worden of verdwijnen.
+
 ## Deactiveren en verwijderen
 
 Deactiveren haalt alleen de cron-events (ook die van Verweesde meta opruimen, de Instagram-feed, Tijdelijke accounts, Afsluiten op einddatum en de dagelijkse opschoning van de anti-spamlogs) en de blokken van de toolkit uit `.htaccess` weg, en leegt de element cache van Elementor en de LiteSpeed-cache als Afbeeldingstitels verbergen aan stond, en de LiteSpeed-cache als E-mailadressen afschermen aan stond. Instellingen en logs blijven staan.
 
 Een module uitvinken ruimt alleen op wat zonder de module blijft doorlopen: de cron-events, bij Preview-link de sleutel `mm_preview_key` (alle links vervallen) en bij Afbeeldingstitels verbergen en E-mailadressen afschermen de caches. Gedeelde gegevens blijven staan zolang de losse versie van die module nog op de site staat, actief of niet.
 
-Verwijderen via Plugins ruimt alles op: de opties en transients van de toolkit en de modules (ook `mm_toolkit_onderhoudsklant`), de cron-events, de alt-tekstkenmerken (`_mm_alt_*`, de alt-teksten zelf blijven staan), de productmeta van Herroepingsrecht (`_mm_withdrawal_type` en het oude vinkje `_mm_withdrawal_waiver_applies`; de teksten `_mm_withdrawal_waiver` en `_mm_service_consent` op bestellingen blijven altijd staan, dat is het bewijs van de instemming), de opties van Verweesde meta opruimen, de opties en de fotomap `uploads/mediamora-instagram` van de Instagram-feed, de mailinstelling van Tijdelijke accounts, de stand van Afbeeldingstitels verbergen en van E-mailadressen afschermen, de gegevens van Persoon in schema (`mm_schema_persoon`, `mm_schema_persoon_bezet`), de einddatum en voortgang van Afsluiten op einddatum (`mm_einddatum`, `mm_einddatum_stand`), de meldingen van Formulieren: nieuwsbrief alleen bij vinkje (`mm_nieuwsbrief_vinkje_meldingen`; de veld-ID's staan in de formulieren zelf en blijven daar staan), de `.htaccess`-blokken en de logmap van de anti-spam met de inzendingen erin. Kan de logmap niet worden weggehaald, dan blijft de optie `mediamora_antispam_log_dir` staan, zodat te vinden is waar hij staat. Staat de losse versie van een module nog op de site, als plugin of mu-plugin en actief of niet, dan blijft alles van die module staan, want de losse versie gebruikt dezelfde gegevens. Dat werkt ook met `wp plugin uninstall --deactivate`, waarbij de toolkit in hetzelfde verzoek nog geladen is.
+Verwijderen via Plugins ruimt alles op: de opties en transients van de toolkit en de modules (ook `mm_toolkit_onderhoudsklant`), de cron-events, de alt-tekstkenmerken (`_mm_alt_*`, de alt-teksten zelf blijven staan), de productmeta van Herroepingsrecht (`_mm_withdrawal_type` en het oude vinkje `_mm_withdrawal_waiver_applies`; de teksten `_mm_withdrawal_waiver` en `_mm_service_consent` op bestellingen blijven altijd staan, dat is het bewijs van de instemming), de opties van Verweesde meta opruimen, de opties en de fotomap `uploads/mediamora-instagram` van de Instagram-feed, de mailinstelling van Tijdelijke accounts, de stand van Afbeeldingstitels verbergen en van E-mailadressen afschermen, de gegevens van Persoon in schema (`mm_schema_persoon`, `mm_schema_persoon_bezet`), de einddatum en voortgang van Afsluiten op einddatum (`mm_einddatum`, `mm_einddatum_stand`), de teller, het log, de openstaande storing en de laatste geslaagde mail van de Formuliermonitor (`mm_monitor_teller`, `mm_monitor_log`, `mm_monitor_storing`, `mm_monitor_laatst_gelukt`), de meldingen van Formulieren: nieuwsbrief alleen bij vinkje (`mm_nieuwsbrief_vinkje_meldingen`; de veld-ID's staan in de formulieren zelf en blijven daar staan), de `.htaccess`-blokken en de logmap van de anti-spam met de inzendingen erin. Kan de logmap niet worden weggehaald, dan blijft de optie `mediamora_antispam_log_dir` staan, zodat te vinden is waar hij staat. Staat de losse versie van een module nog op de site, als plugin of mu-plugin en actief of niet, dan blijft alles van die module staan, want de losse versie gebruikt dezelfde gegevens. Dat werkt ook met `wp plugin uninstall --deactivate`, waarbij de toolkit in hetzelfde verzoek nog geladen is.
 
 De user meta `mm_verloopt_op` en `mm_overdragen_aan` blijven altijd staan. Worden ze weggehaald en wordt de toolkit daarna opnieuw geïnstalleerd, bijvoorbeeld om een zip te vervangen, dan worden tijdelijke accounts stil vaste accounts.
 
 ## Wijzigingen
+
+### 1.33.0
+
+- Formuliermonitor: melding "hersteld". Een fout opent een storing (`mm_monitor_storing`, geen autoload). Lukt daarna een mail via `wp_mail()` (`wp_mail_succeeded`), dan gaat de storing dicht en komt er één melding `[Formuliermonitor] <domein>: hersteld` met sinds wanneer, de duur en het aantal fouten, alleen als er voor die storing een melding was verstuurd. Telt niet mee voor de dagcap. Zie "Formuliermonitor: hersteld".
+- Formuliermonitor: nieuwe kop `X-Mediamora-Status` met `storing`, `hersteld` of `test`. `X-Mediamora-Monitor: 1` blijft op alle meldingen staan.
+- Formuliermonitor: het tijdstip van de laatste geslaagde mail staat in `mm_monitor_laatst_gelukt`, hooguit één keer per uur weggeschreven.
+- Status voor MainWP: met MainWP Child actief geeft de toolkit de sleutel `mediamora_toolkit` mee met de sync, als het dashboard daar in `othersData` om vraagt (filter `mainwp_site_sync_others_data`). Schema 1 met de versie, Onderhoudsklant en de Formuliermonitor; ruimte voor anti-spam en de testinzending. Zie "Status voor MainWP".
+- `mm_monitor_opruimen()` en `uninstall.php` ruimen de twee nieuwe opties ook op.
+- Testgevallen in `tests/formuliermonitor-hersteld.php`.
 
 ### 1.32.0
 
@@ -674,7 +773,7 @@ Fixes uit de tweede codereview.
 
 ## Release maken
 
-Eerst de testgevallen draaien (`php tests/anti-spam-links.php`, `php tests/anti-spam-rapport.php`, `php tests/anti-spam-uitzonderingen.php`, `php tests/anti-spam-naamvelden.php`, `php tests/anti-spam-postcode.php`, `php tests/anti-spam-referrer.php`, `php tests/tijdelijke-accounts.php`, `php tests/tijdelijke-accounts-toolkit.php`, `php tests/afbeeldingstitels.php`, `php tests/afbeeldingstitels-toolkit.php`, `php tests/schema-persoon.php`, `php tests/ai-bots-bezoek.php`, `php tests/font-preload.php`, `php tests/font-preload-toolkit.php` `php tests/einddatum.php`, `php tests/email-afschermen.php` en `php tests/nieuwsbrief-vinkje.php`) en `php -l` op alle bestanden.
+Eerst de testgevallen draaien (`php tests/anti-spam-links.php`, `php tests/anti-spam-rapport.php`, `php tests/anti-spam-uitzonderingen.php`, `php tests/anti-spam-naamvelden.php`, `php tests/anti-spam-postcode.php`, `php tests/anti-spam-referrer.php`, `php tests/tijdelijke-accounts.php`, `php tests/tijdelijke-accounts-toolkit.php`, `php tests/afbeeldingstitels.php`, `php tests/afbeeldingstitels-toolkit.php`, `php tests/schema-persoon.php`, `php tests/ai-bots-bezoek.php`, `php tests/font-preload.php`, `php tests/font-preload-toolkit.php` `php tests/einddatum.php`, `php tests/email-afschermen.php`, `php tests/nieuwsbrief-vinkje.php` en `php tests/formuliermonitor-hersteld.php`) en `php -l` op alle bestanden.
 
 1. Versie ophogen op twee plekken in `mediamora-toolkit.php`: `Version:` in de kop en `MM_TOOLKIT_VERSIE`. Of een update wordt aangeboden hangt alleen af van `Version:` in de kop; de constante wordt gelijk gehouden voor de rest, zoals de mailheader van de Formuliermonitor.
 2. Bestanden uploaden naar de repo.
