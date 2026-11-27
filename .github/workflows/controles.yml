@@ -143,3 +143,35 @@ jobs:
             echo '::error::De releasezip bevat ontwikkelbestanden (zie hierboven).'
             exit 1
           fi
+
+  tests:
+    name: Tests PHP ${{ matrix.php }}
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        # De laagste versie uit "Requires PHP" en een actuele.
+        php: ['7.4', '8.3']
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+        with:
+          php-version: ${{ matrix.php }}
+          coverage: none
+
+      # Elk testbestand draait los en geeft exitcode 1 als er een geval misgaat.
+      - name: Testgevallen in tests/
+        run: |
+          fout=0
+          for bestand in tests/*.php; do
+            echo "::group::$bestand"
+            if ! php "$bestand"; then
+              echo "::error file=$bestand::Testgeval mislukt"
+              fout=1
+            fi
+            echo "::endgroup::"
+          done
+          exit "$fout"

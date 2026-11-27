@@ -13,9 +13,45 @@ parameters:
 			path: mediamora-toolkit.php
 
 		-
+			message: '#^Call to function is_array\(\) with non\-empty\-array\<ElementorPro\\Modules\\ThemeBuilder\\Documents\\Theme_Document\> will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: modules/afbeelding-ruimte.php
+
+		-
+			message: '#^Call to function is_object\(\) with ElementorPro\\Modules\\ThemeBuilder\\Documents\\Theme_Document will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: modules/afbeelding-ruimte.php
+
+		-
 			message: '#^Call to function is_string\(\) with string will always evaluate to true\.$#'
 			identifier: function.alreadyNarrowedType
 			count: 1
+			path: modules/afbeelding-ruimte.php
+
+		-
+			message: '#^Call to function method_exists\(\) with ElementorPro\\Modules\\ThemeBuilder\\Classes\\Conditions_Manager and ''get_documents_for…'' will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: modules/afbeelding-ruimte.php
+
+		-
+			message: '#^Call to function method_exists\(\) with ElementorPro\\Modules\\ThemeBuilder\\Documents\\Theme_Document and ''get_main_id'' will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: modules/afbeelding-ruimte.php
+
+		-
+			message: '#^Call to function method_exists\(\) with ElementorPro\\Modules\\ThemeBuilder\\Module and ''get_conditions…'' will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: modules/afbeelding-ruimte.php
+
+		-
+			message: '#^Negated boolean expression is always false\.$#'
+			identifier: booleanNot.alwaysFalse
+			count: 2
 			path: modules/afbeelding-ruimte.php
 
 		-
@@ -31,45 +67,9 @@ parameters:
 			path: modules/anti-spam.php
 
 		-
-			message: '#^Call to method add_error\(\) on an unknown class ElementorPro\\Modules\\Forms\\Classes\\Ajax_Handler\.$#'
-			identifier: class.notFound
-			count: 11
-			path: modules/anti-spam.php
-
-		-
-			message: '#^Call to method get\(\) on an unknown class ElementorPro\\Modules\\Forms\\Classes\\Form_Record\.$#'
-			identifier: class.notFound
-			count: 1
-			path: modules/anti-spam.php
-
-		-
-			message: '#^Call to method get_form_settings\(\) on an unknown class ElementorPro\\Modules\\Forms\\Classes\\Form_Record\.$#'
-			identifier: class.notFound
-			count: 3
-			path: modules/anti-spam.php
-
-		-
 			message: '#^Parameter \#1 \$text of function esc_attr expects string, float given\.$#'
 			identifier: argument.type
 			count: 3
-			path: modules/anti-spam.php
-
-		-
-			message: '#^Parameter \$ajax_handler of function mediamora_antispam_validate_form\(\) has invalid type ElementorPro\\Modules\\Forms\\Classes\\Ajax_Handler\.$#'
-			identifier: class.notFound
-			count: 1
-			path: modules/anti-spam.php
-
-		-
-			message: '#^Parameter \$record of function mediamora_antispam_referrer_log_value\(\) has invalid type ElementorPro\\Modules\\Forms\\Classes\\Form_Record\.$#'
-			identifier: class.notFound
-			count: 1
-			path: modules/anti-spam.php
-
-		-
-			message: '#^Parameter \$record of function mediamora_antispam_validate_form\(\) has invalid type ElementorPro\\Modules\\Forms\\Classes\\Form_Record\.$#'
-			identifier: class.notFound
-			count: 1
 			path: modules/anti-spam.php
 
 		-
@@ -85,12 +85,6 @@ parameters:
 			path: modules/einddatum.php
 
 		-
-			message: '#^Access to static property \$instance on an unknown class Elementor\\Plugin\.$#'
-			identifier: class.notFound
-			count: 1
-			path: modules/elementor-versie.php
-
-		-
 			message: '#^Call to function is_array\(\) with array will always evaluate to true\.$#'
 			identifier: function.alreadyNarrowedType
 			count: 2
@@ -103,26 +97,14 @@ parameters:
 			path: modules/elementor-versie.php
 
 		-
-			message: '#^Call to method get_main_id\(\) on an unknown class Elementor\\Core\\Base\\Document\.$#'
-			identifier: class.notFound
+			message: '#^Call to function method_exists\(\) with Elementor\\Core\\Base\\Document and ''get_main_id'' will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
 			count: 2
 			path: modules/elementor-versie.php
 
 		-
-			message: '#^Call to method get_post\(\) on an unknown class Elementor\\Core\\Base\\Document\.$#'
-			identifier: class.notFound
-			count: 1
-			path: modules/elementor-versie.php
-
-		-
-			message: '#^Parameter \$document of function mm_elementor_versie_controleren\(\) has invalid type Elementor\\Core\\Base\\Document\.$#'
-			identifier: class.notFound
-			count: 1
-			path: modules/elementor-versie.php
-
-		-
-			message: '#^Parameter \$document of function mm_elementor_versie_terug\(\) has invalid type Elementor\\Core\\Base\\Document\.$#'
-			identifier: class.notFound
+			message: '#^Property Elementor\\Plugin\:\:\$common \(Elementor\\Core\\Common\\App\) in isset\(\) is not nullable\.$#'
+			identifier: isset.property
 			count: 1
 			path: modules/elementor-versie.php
 
@@ -133,14 +115,80 @@ parameters:
 			path: modules/elementor-versie.php
 
 		-
+			message: '#^Right side of && is always true\.$#'
+			identifier: booleanAnd.rightAlwaysTrue
+			count: 1
+			path: modules/elementor-versie.php
+
+		-
 			message: '#^Call to function is_string\(\) with string will always evaluate to true\.$#'
 			identifier: function.alreadyNarrowedType
 			count: 1
 			path: modules/email-afschermen.php
 
 		-
-			message: '#^Call to function method_exists\(\) with ''\\\\Elementor\\\\Fonts'' and ''get_font_type'' will always evaluate to false\.$#'
-			identifier: function.impossibleType
+			message: '#^Call to function method_exists\(\) with Elementor\\Core\\Editor\\Editor and ''is_edit_mode'' will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: modules/email-afschermen.php
+
+		-
+			message: '#^Call to function method_exists\(\) with Elementor\\Preview and ''is_preview_mode'' will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: modules/email-afschermen.php
+
+		-
+			message: '#^Property Elementor\\Plugin\:\:\$editor \(Elementor\\Core\\Editor\\Editor\) in isset\(\) is not nullable\.$#'
+			identifier: isset.property
+			count: 1
+			path: modules/email-afschermen.php
+
+		-
+			message: '#^Property Elementor\\Plugin\:\:\$preview \(Elementor\\Preview\) in isset\(\) is not nullable\.$#'
+			identifier: isset.property
+			count: 1
+			path: modules/email-afschermen.php
+
+		-
+			message: '#^Static property Elementor\\Plugin\:\:\$instance \(Elementor\\Plugin\) in isset\(\) is not nullable\.$#'
+			identifier: isset.property
+			count: 1
+			path: modules/email-afschermen.php
+
+		-
+			message: '#^Call to function method_exists\(\) with ''\\\\Elementor\\\\Fonts'' and ''get_font_type'' will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: modules/font-preload.php
+
+		-
+			message: '#^Call to function method_exists\(\) with Elementor\\Core\\Editor\\Editor and ''is_edit_mode'' will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: modules/font-preload.php
+
+		-
+			message: '#^Call to function method_exists\(\) with Elementor\\Preview and ''is_preview_mode'' will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: modules/font-preload.php
+
+		-
+			message: '#^Property Elementor\\Plugin\:\:\$editor \(Elementor\\Core\\Editor\\Editor\) in isset\(\) is not nullable\.$#'
+			identifier: isset.property
+			count: 1
+			path: modules/font-preload.php
+
+		-
+			message: '#^Property Elementor\\Plugin\:\:\$preview \(Elementor\\Preview\) in isset\(\) is not nullable\.$#'
+			identifier: isset.property
+			count: 1
+			path: modules/font-preload.php
+
+		-
+			message: '#^Static property Elementor\\Plugin\:\:\$instance \(Elementor\\Plugin\) in isset\(\) is not nullable\.$#'
+			identifier: isset.property
 			count: 1
 			path: modules/font-preload.php
 
@@ -157,14 +205,80 @@ parameters:
 			path: modules/formuliermonitor.php
 
 		-
+			message: '#^Call to function is_array\(\) with non\-empty\-array\<ElementorPro\\Modules\\ThemeBuilder\\Documents\\Theme_Document\> will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: modules/hero-preload.php
+
+		-
+			message: '#^Call to function is_object\(\) with ElementorPro\\Modules\\ThemeBuilder\\Documents\\Theme_Document will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: modules/hero-preload.php
+
+		-
 			message: '#^Call to function is_string\(\) with string will always evaluate to true\.$#'
 			identifier: function.alreadyNarrowedType
 			count: 1
 			path: modules/hero-preload.php
 
 		-
+			message: '#^Call to function method_exists\(\) with ElementorPro\\Modules\\ThemeBuilder\\Classes\\Conditions_Manager and ''get_documents_for…'' will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: modules/hero-preload.php
+
+		-
+			message: '#^Call to function method_exists\(\) with ElementorPro\\Modules\\ThemeBuilder\\Documents\\Theme_Document and ''get_main_id'' will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: modules/hero-preload.php
+
+		-
+			message: '#^Call to function method_exists\(\) with ElementorPro\\Modules\\ThemeBuilder\\Module and ''get_conditions…'' will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: modules/hero-preload.php
+
+		-
+			message: '#^Call to function method_exists\(\) with Elementor\\Core\\DynamicTags\\Manager and ''get_tag_data_content'' will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: modules/hero-preload.php
+
+		-
+			message: '#^Call to function method_exists\(\) with Elementor\\Core\\DynamicTags\\Manager and ''parse_tags_text'' will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: modules/hero-preload.php
+
+		-
+			message: '#^Negated boolean expression is always false\.$#'
+			identifier: booleanNot.alwaysFalse
+			count: 3
+			path: modules/hero-preload.php
+
+		-
+			message: '#^Property Elementor\\Plugin\:\:\$dynamic_tags \(Elementor\\Core\\DynamicTags\\Manager\) in empty\(\) is not falsy\.$#'
+			identifier: empty.property
+			count: 1
+			path: modules/hero-preload.php
+
+		-
+			message: '#^Result of \|\| is always false\.$#'
+			identifier: booleanOr.alwaysFalse
+			count: 1
+			path: modules/hero-preload.php
+
+		-
 			message: '#^Action callback returns WP_Error\|true but should not return anything\.$#'
 			identifier: return.void
+			count: 1
+			path: modules/instagram.php
+
+		-
+			message: '#^Property Elementor\\Plugin\:\:\$breakpoints \(Elementor\\Core\\Breakpoints\\Manager\) in isset\(\) is not nullable\.$#'
+			identifier: isset.property
 			count: 1
 			path: modules/instagram.php
 
@@ -199,44 +313,20 @@ parameters:
 			path: modules/nieuwsbrief-vinkje.php
 
 		-
-			message: '#^Call to method add_control\(\) on an unknown class Elementor\\Controls_Stack\.$#'
-			identifier: class.notFound
+			message: '#^Call to function method_exists\(\) with ElementorPro\\Modules\\Forms\\Classes\\Form_Record and ''get'' will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 2
+			path: modules/nieuwsbrief-vinkje.php
+
+		-
+			message: '#^Call to function method_exists\(\) with ElementorPro\\Modules\\Forms\\Classes\\Form_Record and ''update_field'' will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
 			count: 1
 			path: modules/nieuwsbrief-vinkje.php
 
 		-
-			message: '#^Call to method get\(\) on an unknown class ElementorPro\\Modules\\Forms\\Classes\\Form_Record\.$#'
-			identifier: class.notFound
-			count: 4
-			path: modules/nieuwsbrief-vinkje.php
-
-		-
-			message: '#^Call to method update_field\(\) on an unknown class ElementorPro\\Modules\\Forms\\Classes\\Form_Record\.$#'
-			identifier: class.notFound
-			count: 1
-			path: modules/nieuwsbrief-vinkje.php
-
-		-
-			message: '#^Function mm_nieuwsbrief_record\(\) has invalid return type ElementorPro\\Modules\\Forms\\Classes\\Form_Record\.$#'
-			identifier: class.notFound
-			count: 1
-			path: modules/nieuwsbrief-vinkje.php
-
-		-
-			message: '#^Parameter \$record of function mm_nieuwsbrief_record\(\) has invalid type ElementorPro\\Modules\\Forms\\Classes\\Form_Record\.$#'
-			identifier: class.notFound
-			count: 1
-			path: modules/nieuwsbrief-vinkje.php
-
-		-
-			message: '#^Parameter \$record of function mm_nieuwsbrief_submit_actions\(\) has invalid type ElementorPro\\Modules\\Forms\\Classes\\Form_Record\.$#'
-			identifier: class.notFound
-			count: 1
-			path: modules/nieuwsbrief-vinkje.php
-
-		-
-			message: '#^Parameter \$widget of function mm_nieuwsbrief_instelling\(\) has invalid type Elementor\\Controls_Stack\.$#'
-			identifier: class.notFound
+			message: '#^Call to function method_exists\(\) with Elementor\\Controls_Stack and ''add_control'' will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
 			count: 1
 			path: modules/nieuwsbrief-vinkje.php
 
@@ -245,6 +335,42 @@ parameters:
 			identifier: booleanOr.alwaysFalse
 			count: 1
 			path: modules/nieuwsbrief-vinkje.php
+
+		-
+			message: '#^Right side of && is always true\.$#'
+			identifier: booleanAnd.rightAlwaysTrue
+			count: 1
+			path: modules/nieuwsbrief-vinkje.php
+
+		-
+			message: '#^Call to function method_exists\(\) with Elementor\\Core\\Editor\\Editor and ''is_edit_mode'' will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: modules/popup-tik.php
+
+		-
+			message: '#^Call to function method_exists\(\) with Elementor\\Preview and ''is_preview_mode'' will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: modules/popup-tik.php
+
+		-
+			message: '#^Property Elementor\\Plugin\:\:\$editor \(Elementor\\Core\\Editor\\Editor\) in isset\(\) is not nullable\.$#'
+			identifier: isset.property
+			count: 1
+			path: modules/popup-tik.php
+
+		-
+			message: '#^Property Elementor\\Plugin\:\:\$preview \(Elementor\\Preview\) in isset\(\) is not nullable\.$#'
+			identifier: isset.property
+			count: 1
+			path: modules/popup-tik.php
+
+		-
+			message: '#^Static property Elementor\\Plugin\:\:\$instance \(Elementor\\Plugin\) in isset\(\) is not nullable\.$#'
+			identifier: isset.property
+			count: 1
+			path: modules/popup-tik.php
 
 		-
 			message: '#^Constant COOKIEPATH not found\.$#'
@@ -307,90 +433,6 @@ parameters:
 			path: modules/tijdelijke-accounts.php
 
 		-
-			message: '#^Access to property \$id on an unknown class WC_Email\.$#'
-			identifier: class.notFound
-			count: 1
-			path: modules/withdrawal-waiver.php
-
-		-
-			message: '#^Access to property \$object on an unknown class WC_Email\.$#'
-			identifier: class.notFound
-			count: 1
-			path: modules/withdrawal-waiver.php
-
-		-
-			message: '#^Call to method delete_meta_data\(\) on an unknown class WC_Product\.$#'
-			identifier: class.notFound
-			count: 1
-			path: modules/withdrawal-waiver.php
-
-		-
-			message: '#^Call to method get_email_type\(\) on an unknown class WC_Email\.$#'
-			identifier: class.notFound
-			count: 1
-			path: modules/withdrawal-waiver.php
-
-		-
-			message: '#^Call to method get_meta\(\) on an unknown class WC_Order\.$#'
-			identifier: class.notFound
-			count: 1
-			path: modules/withdrawal-waiver.php
-
-		-
-			message: '#^Call to method needs_shipping\(\) on an unknown class WC_Product\.$#'
-			identifier: class.notFound
-			count: 1
-			path: modules/withdrawal-waiver.php
-
-		-
-			message: '#^Call to method update_meta_data\(\) on an unknown class WC_Order\.$#'
-			identifier: class.notFound
-			count: 1
-			path: modules/withdrawal-waiver.php
-
-		-
-			message: '#^Call to method update_meta_data\(\) on an unknown class WC_Product\.$#'
-			identifier: class.notFound
-			count: 1
-			path: modules/withdrawal-waiver.php
-
-		-
-			message: '#^Class WC_Email not found\.$#'
-			identifier: class.notFound
-			count: 2
-			path: modules/withdrawal-waiver.php
-
-		-
-			message: '#^Class WC_Order not found\.$#'
-			identifier: class.notFound
-			count: 1
-			path: modules/withdrawal-waiver.php
-
-		-
-			message: '#^Class WC_Product not found\.$#'
-			identifier: class.notFound
-			count: 1
-			path: modules/withdrawal-waiver.php
-
-		-
-			message: '#^Function is_wc_endpoint_url not found\.$#'
-			identifier: function.notFound
-			count: 1
-			path: modules/withdrawal-waiver.php
-
-		-
-			message: '#^Function wc_get_product not found\.$#'
-			identifier: function.notFound
-			count: 2
-			path: modules/withdrawal-waiver.php
-
-		-
-			message: '#^Function woocommerce_wp_select not found\.$#'
-			identifier: function.notFound
-			count: 1
-			path: modules/withdrawal-waiver.php
-
-		-
 			message: '#^Instanceof between WC_Email and WC_Email will always evaluate to true\.$#'
 			identifier: instanceof.alwaysTrue
 			count: 1
@@ -403,56 +445,8 @@ parameters:
 			path: modules/withdrawal-waiver.php
 
 		-
-			message: '#^Parameter \$email of function mm_herroeping_herinnering\(\) has invalid type WC_Email\.$#'
-			identifier: class.notFound
-			count: 1
-			path: modules/withdrawal-waiver.php
-
-		-
-			message: '#^Parameter \$email of function mm_herroeping_herinnering_tekst\(\) has invalid type WC_Email\.$#'
-			identifier: class.notFound
-			count: 1
-			path: modules/withdrawal-waiver.php
-
-		-
-			message: '#^Parameter \$email of function mm_herroeping_herinneringen\(\) has invalid type WC_Email\.$#'
-			identifier: class.notFound
-			count: 1
-			path: modules/withdrawal-waiver.php
-
-		-
-			message: '#^Parameter \$order of function mm_herroeping_beheer\(\) has invalid type WC_Order\.$#'
-			identifier: class.notFound
-			count: 1
-			path: modules/withdrawal-waiver.php
-
-		-
-			message: '#^Parameter \$order of function mm_herroeping_herinnering_tekst\(\) has invalid type WC_Order\.$#'
-			identifier: class.notFound
-			count: 1
-			path: modules/withdrawal-waiver.php
-
-		-
-			message: '#^Parameter \$order of function mm_herroeping_mail\(\) has invalid type WC_Order\.$#'
-			identifier: class.notFound
-			count: 1
-			path: modules/withdrawal-waiver.php
-
-		-
-			message: '#^Parameter \$order of function mm_herroeping_op_bestelling\(\) has invalid type WC_Order\.$#'
-			identifier: class.notFound
-			count: 1
-			path: modules/withdrawal-waiver.php
-
-		-
-			message: '#^Parameter \$order of function mm_herroeping_opslaan\(\) has invalid type WC_Order\.$#'
-			identifier: class.notFound
-			count: 1
-			path: modules/withdrawal-waiver.php
-
-		-
-			message: '#^Parameter \$product of function mm_herroeping_productveld_opslaan\(\) has invalid type WC_Product\.$#'
-			identifier: class.notFound
+			message: '#^Negated boolean expression is always false\.$#'
+			identifier: booleanNot.alwaysFalse
 			count: 1
 			path: modules/withdrawal-waiver.php
 

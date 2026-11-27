@@ -4,7 +4,9 @@
     "type": "wordpress-plugin",
     "license": "GPL-2.0-or-later",
     "require-dev": {
+        "arts/elementor-stubs": "^4.4",
         "dealerdirect/phpcodesniffer-composer-installer": "^1.0",
+        "php-stubs/woocommerce-stubs": "^11.3",
         "phpcompatibility/phpcompatibility-wp": "^2.1",
         "phpstan/extension-installer": "^1.4",
         "phpstan/phpstan": "^2.1",
