@@ -4,9 +4,76 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "e98c88ee0470f7f12736fadabb5778da",
+    "content-hash": "cfc9934d37b7243c27fe26969a709de2",
     "packages": [],
     "packages-dev": [
+        {
+            "name": "arts/elementor-stubs",
+            "version": "v4.4.2.1",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/artkrsk/elementor-stubs.git",
+                "reference": "a4cdc243e4af17e6b729008876ae0a2fd5ed86d5"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/artkrsk/elementor-stubs/zipball/a4cdc243e4af17e6b729008876ae0a2fd5ed86d5",
+                "reference": "a4cdc243e4af17e6b729008876ae0a2fd5ed86d5",
+                "shasum": ""
+            },
+            "require": {
+                "php": ">=8.0",
+                "php-stubs/woocommerce-stubs": "^10.5 || ^11.0",
+                "php-stubs/wordpress-stubs": "^6.9 || ^7.0",
+                "php-stubs/wp-cli-stubs": "^2.12.0.1"
+            },
+            "require-dev": {
+                "captainhook/captainhook": "^5.29.3",
+                "php-stubs/generator": "^0.8 || ^0.9",
+                "phpstan/phpstan": "^2.0",
+                "phpunit/phpunit": "^9.5",
+                "squizlabs/php_codesniffer": "^3.0",
+                "vlucas/phpdotenv": "^5.6",
+                "wp-coding-standards/wpcs": "^3.0"
+            },
+            "type": "library",
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "GPL-3.0-or-later"
+            ],
+            "authors": [
+                {
+                    "name": "Artem Semkin",
+                    "email": "me@artemsemkin.com"
+                }
+            ],
+            "description": "Comprehensive PHPStan stubs for Elementor and Elementor Pro WordPress page builder - auto-generated, self-contained, plug & play",
+            "keywords": [
+                "PHPStan",
+                "elementor",
+                "elementor-pro",
+                "ide-autocomplete",
+                "intellisense",
+                "page-builder",
+                "static-analysis",
+                "stubs",
+                "type-definitions",
+                "type-safety",
+                "wordpress"
+            ],
+            "support": {
+                "issues": "https://github.com/artkrsk/elementor-stubs/issues",
+                "source": "https://github.com/artkrsk/elementor-stubs/tree/v4.4.2.1"
+            },
+            "funding": [
+                {
+                    "url": "https://www.buymeacoffee.com/artemsemkin",
+                    "type": "buy_me_a_coffee"
+                }
+            ],
+            "time": "2026-11-26T22:15:44+00:00",
+            "published-time": "2026-11-26T22:15:53+00:00"
+        },
         {
             "name": "dealerdirect/phpcodesniffer-composer-installer",
             "version": "v1.2.1",
@@ -105,6 +172,51 @@
             "published-time": "2026-05-06T12:56:03+00:00"
         },
         {
+            "name": "php-stubs/woocommerce-stubs",
+            "version": "v11.3.1",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/php-stubs/woocommerce-stubs.git",
+                "reference": "80c661dc71012c7d82ebcb8098a11ef4b0f01bf3"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/php-stubs/woocommerce-stubs/zipball/80c661dc71012c7d82ebcb8098a11ef4b0f01bf3",
+                "reference": "80c661dc71012c7d82ebcb8098a11ef4b0f01bf3",
+                "shasum": ""
+            },
+            "require": {
+                "php-stubs/wordpress-stubs": "^5.3 || ^6.0 || ^7.0"
+            },
+            "require-dev": {
+                "php": "~7.1 || ~8.0",
+                "php-stubs/generator": "^0.9.0"
+            },
+            "suggest": {
+                "symfony/polyfill-php73": "Symfony polyfill backporting some PHP 7.3+ features to lower PHP versions",
+                "szepeviktor/phpstan-wordpress": "WordPress extensions for PHPStan"
+            },
+            "type": "library",
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "description": "WooCommerce function and class declaration stubs for static analysis.",
+            "homepage": "https://github.com/php-stubs/woocommerce-stubs",
+            "keywords": [
+                "PHPStan",
+                "static analysis",
+                "woocommerce",
+                "wordpress"
+            ],
+            "support": {
+                "issues": "https://github.com/php-stubs/woocommerce-stubs/issues",
+                "source": "https://github.com/php-stubs/woocommerce-stubs/tree/v11.3.1"
+            },
+            "time": "2026-11-19T22:34:55+00:00",
+            "published-time": "2026-11-19T22:54:59+00:00"
+        },
+        {
             "name": "php-stubs/wordpress-stubs",
             "version": "v7.1.2",
             "source": {
@@ -156,6 +268,51 @@
             },
             "time": "2026-10-06T06:59:21+00:00",
             "published-time": "2026-10-06T07:32:21+00:00"
+        },
+        {
+            "name": "php-stubs/wp-cli-stubs",
+            "version": "v2.12.0.1",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/php-stubs/wp-cli-stubs.git",
+                "reference": "335d4890308f9fbb3427c56412d30f157d21f697"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/php-stubs/wp-cli-stubs/zipball/335d4890308f9fbb3427c56412d30f157d21f697",
+                "reference": "335d4890308f9fbb3427c56412d30f157d21f697",
+                "shasum": ""
+            },
+            "require": {
+                "php-stubs/wordpress-stubs": ">=4.7"
+            },
+            "require-dev": {
+                "php": "~7.3 || ~8.0",
+                "php-stubs/generator": "^0.8.0"
+            },
+            "suggest": {
+                "symfony/polyfill-php73": "Symfony polyfill backporting some PHP 7.3+ features to lower PHP versions",
+                "szepeviktor/phpstan-wordpress": "WordPress extensions for PHPStan"
+            },
+            "type": "library",
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "description": "WP-CLI function and class declaration stubs for static analysis.",
+            "homepage": "https://github.com/php-stubs/wp-cli-stubs",
+            "keywords": [
+                "PHPStan",
+                "static analysis",
+                "wordpress",
+                "wp-cli"
+            ],
+            "support": {
+                "issues": "https://github.com/php-stubs/wp-cli-stubs/issues",
+                "source": "https://github.com/php-stubs/wp-cli-stubs/tree/v2.12.0.1"
+            },
+            "time": "2026-05-26T12:27:53+00:00",
+            "published-time": "2026-11-25T06:52:50+00:00"
         },
         {
             "name": "phpcompatibility/php-compatibility",

@@ -13,3 +13,9 @@ parameters:
 		- uninstall.php
 		- includes
 		- modules
+	# Alleen declaraties, zodat PHPStan de klassen en functies van WooCommerce
+	# en Elementor (ook Pro) kent. Ze worden niet uitgevoerd.
+	scanFiles:
+		- vendor/php-stubs/woocommerce-stubs/woocommerce-stubs.php
+		- vendor/php-stubs/woocommerce-stubs/woocommerce-packages-stubs.php
+		- vendor/arts/elementor-stubs/elementor-stubs.php
