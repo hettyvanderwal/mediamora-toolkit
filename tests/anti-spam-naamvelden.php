@@ -248,7 +248,8 @@ $test( 'reden alleen een link in de log', false !== strpos( laatste_regel( $log 
 $lang = 'Begin ' . str_repeat( 'a', 300 ) . ' https://een.ru https://twee.ru https://drie.ru';
 geweigerd( $lang, 'Bericht', 'textarea' );
 $regel = laatste_regel( $log );
-$test( 'logregel heeft 200 tekens van de waarde', 200 === mb_strlen( explode( '| waarde: ', $regel, 2 )[1] ) );
+// Sinds 1.34.0 staan formulier en kenmerken achter de waarde.
+$test( 'logregel heeft 200 tekens van de waarde', 200 === mb_strlen( mediamora_antispam_lees_regel( $regel )['waarde'] ) );
 
 @unlink( $nearmiss );
 geweigerd( 'Mijn site is jansen.nl', 'Plaats' );

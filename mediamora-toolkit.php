@@ -3,7 +3,7 @@
  * Plugin Name:       Mediamora Toolkit
  * Plugin URI:        https://github.com/hettyvanderwal/mediamora-toolkit
  * Description:       De vaste Mediamora-onderdelen in één plugin, per onderdeel aan en uit te zetten onder Instellingen > Mediamora Toolkit.
- * Version:           1.33.0
+ * Version:           1.34.0
  * Requires at least: 6.0
  * Requires PHP:      7.4
  * Update URI:        https://github.com/hettyvanderwal/mediamora-toolkit
@@ -22,7 +22,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  * updates telt alleen de kop, zie mm_toolkit_huidige_versie(); deze
  * constante is er voor de rest, zoals de mailheader van de Formuliermonitor.
  */
-const MM_TOOLKIT_VERSIE = '1.33.0';
+const MM_TOOLKIT_VERSIE = '1.34.0';
 const MM_TOOLKIT_REPO   = 'hettyvanderwal/mediamora-toolkit';
 const MM_TOOLKIT_SLUG   = 'mediamora-toolkit';
 const MM_TOOLKIT_OPTIE  = 'mm_toolkit_modules';
@@ -458,6 +458,9 @@ function mm_toolkit_deactiveren() {
 	// blijft staan; na opnieuw activeren plant de module hem weer in.
 	wp_unschedule_hook( 'mm_einddatum_controle' );
 	wp_unschedule_hook( 'mm_einddatum_vervolg' );
+	// Formuliertest: na opnieuw activeren plant de Formuliermonitor hem weer
+	// in, op het vaste moment van de site.
+	wp_unschedule_hook( 'mm_formuliertest_maandelijks' );
 }
 
 /**
@@ -509,6 +512,11 @@ function mm_toolkit_meta_opruimen_herstel() {
 	if ( ! $status['einddatum']['laden'] && ( wp_next_scheduled( 'mm_einddatum_controle' ) || wp_next_scheduled( 'mm_einddatum_vervolg' ) ) ) {
 		wp_unschedule_hook( 'mm_einddatum_controle' );
 		wp_unschedule_hook( 'mm_einddatum_vervolg' );
+	}
+	// Formuliermonitor uit (of Onderhoudsklant uit): geen formuliertest meer.
+	// De laatste uitkomst blijft staan.
+	if ( ! $status['formuliermonitor']['laden'] && wp_next_scheduled( 'mm_formuliertest_maandelijks' ) ) {
+		wp_unschedule_hook( 'mm_formuliertest_maandelijks' );
 	}
 }
 
@@ -738,6 +746,9 @@ function mm_toolkit_scherm() {
 		if ( 'email_afschermen' === $sleutel && $s['laden'] && function_exists( 'mm_email_afschermen_ase_aan' ) && mm_email_afschermen_ase_aan() ) {
 			$tekst .= '<br><span style="color:#b32d2e;">Email Address Obfuscator staat in ASE nog aan. Die kan uit: deze module neemt het over, ook de shortcode [obfuscate].</span>';
 		}
+		if ( 'formuliermonitor' === $sleutel && $s['laden'] && function_exists( 'mm_formuliertest_status_regel' ) ) {
+			$tekst .= '<br><span style="color:#646970;">' . mm_formuliertest_status_regel() . '</span> <a href="#mm-formuliertest">Formuliertest</a>';
+		}
 		if ( 'withdrawal_waiver' === $sleutel && $s['laden'] && function_exists( 'mm_herroeping_meldingen' ) ) {
 			foreach ( mm_herroeping_meldingen() as $melding ) {
 				$tekst .= '<br><span style="color:#b32d2e;">' . esc_html( $melding ) . '</span>';
@@ -786,6 +797,10 @@ function mm_toolkit_scherm() {
 
 	if ( $tab === $modules['einddatum']['tabblad'] && $status['einddatum']['laden'] && function_exists( 'mm_einddatum_formulier' ) ) {
 		mm_einddatum_formulier();
+	}
+
+	if ( $tab === $modules['formuliermonitor']['tabblad'] && $status['formuliermonitor']['laden'] && function_exists( 'mm_formuliertest_overzicht' ) ) {
+		mm_formuliertest_overzicht();
 	}
 
 	echo '</div>';

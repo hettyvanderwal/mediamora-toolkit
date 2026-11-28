@@ -440,6 +440,55 @@ De eerste regel geeft de storingsmelding en een storing met `gemeld` op `true`. 
 
 Testgevallen in `tests/formuliermonitor-hersteld.php`.
 
+## Formuliermonitor: maandelijkse formuliertest
+
+Sinds 1.34.0 test de Formuliermonitor één keer per maand de Elementor Pro-formulieren en de mailroute. Alleen met Onderhoudsklant en de Formuliermonitor aan; de code staat in `modules/formuliertest.php` en laadt met de module mee. Uitgangspunt: alleen een melding als er iets mis is, nooit bij een geslaagde test.
+
+**Moment.** Elke site heeft een vast moment in de eerste 72 uur van de maand, afgeleid van het domein (`crc32` van het domein zonder www, modulo 259200 seconden, vanaf middernacht in de tijdzone van de site). Een eenmalig cron-event `mm_formuliertest_maandelijks` staat op dat moment; na de ronde komt het volgende erin. Vangnet: is het moment van deze maand voorbij en de ronde van deze maand niet gedaan (`mm_formuliertest_maand`, autoload), dan gaat de ronde bij het eerstvolgende verzoek alsnog, ook na de eerste drie dagen. Bij de eerste keer (na de update of het aanzetten) telt de ronde van de lopende maand als gedaan, zodat niet alle sites tegelijk beginnen zodra ze 1.34.0 krijgen. Handmatig draaien verschuift het moment niet.
+
+**Welke formulieren.** Formulieren met de actie `email` of `email2` (zonder opgeslagen `submit_actions` geldt de standaard van Elementor Pro, `email`) op gepubliceerde pagina's en berichten, en in Theme Builder-templates en popups die in gebruik zijn: met weergavevoorwaarden (`_elementor_conditions`), of een popup die via de dynamische tag Popup vanuit een gepubliceerde pagina, bericht of template wordt geopend. Templates eerst, dan pagina's, dan berichten. Hetzelfde formulier via een globale widget of via de widget Template op meer pagina's telt één keer. Hooguit 10 per site.
+
+**Hoe.** Zoals `Ajax_Handler::ajax_send_form()` in Elementor Pro (nagekeken in 4.3.3): het formulier opzoeken met `Module::find_element_recursive()` in het document van `post_id`, een globale widget vervangen door zijn template, het widget maken met `elements_manager->create_element_instance()` en `get_settings_for_display()` als instellingen, `switch_to_post()` naar de pagina, dan `new Form_Record()`, `validate()` en `process_fields()`. `$_POST` krijgt tijdens de test `post_id`, `form_id`, `queried_id`, `referrer` (het adres van de pagina) en `referer_title`, zoals het JavaScript van Elementor Pro ze meestuurt; de referrercheck van de anti-spam doet dus mee en weigert niet onterecht. Daarna draait alleen `run()` van de acties `email` en `email2`. Wat in `ajax_send_form()` na `process_fields()` komt, slaat de test over: de filters `elementor_pro/forms/record/actions_before` en `elementor_pro/forms/submit_actions` (daar haakt Formulieren: nieuwsbrief alleen bij vinkje in), de andere acties (Inzendingen opslaan, webhook, redirect, MailerLite, ActiveCampaign, Mailchimp, popup en de rest), `elementor_pro/forms/actions/after_run`, de componenten activity_log en cf7db en `elementor_pro/forms/new_record`. De `Ajax_Handler` wordt gemaakt zonder constructor (`ReflectionClass::newInstanceWithoutConstructor()`), want die hangt zich aan de ajax-acties.
+
+**De mail onderscheppen.** Alleen tijdens de test van één formulier, in drie lagen: het filter `wp_mail` (als laatste) legt de opgebouwde mail vast en haalt daarna alle ontvangers eruit, ook `Cc` en `Bcc` in de koppen; `pre_wp_mail` (als eerste) laat `wp_mail()` meteen `true` geven, zodat `wp_mail_succeeded` en `wp_mail_failed` niet afvuren; `phpmailer_init` haalt de ontvangers uit PHPMailer voor een plugin die `pre_wp_mail` overslaat. Een formulier is geslaagd als elke mail van de mailactie een geldig ontvangstadres, een onderwerp en inhoud heeft. Een plugin die `wp_mail()` helemaal vervangt en geen van deze haken gebruikt, ontloopt het onderscheppen; dat geldt ook voor de Formuliermonitor zelf. Een maillog-plugin die op `wp_mail` haakt, ziet de testmails wel.
+
+**Testgegevens.** Naam Hetty, e-mail `hetty@mediamora.nl`, telefoon 0612345678, postcode 9700 AA, plaats Groningen (een veld met postcode en plaats: allebei), tekstvakken "Automatische maandelijkse test van Mediamora, niet beantwoorden.", overige tekst- en wachtwoordvelden "test", een url-veld `https://mediamora.nl`, keuzevelden de eerste optie met een waarde (een eerste optie zonder waarde, zoals "Kies een onderwerp|", is een placeholder), acceptatie aan, datum vandaag, tijd 12:00, getal het minimum (anders 1), verborgen velden hun standaardwaarde, de honeypot leeg. Het label bepaalt welk tekstveld wat krijgt (e-mail, postcode, plaats, telefoon, naam). Een captcha als veld (reCAPTCHA, reCAPTCHA v3, hCaptcha, Turnstile: elk veldtype met captcha of turnstile in de naam), een verplichte upload of een verplicht veld van een onbekend type: dan wordt het formulier niet getest en staat de reden erbij. Controleert een plugin een captcha zelf in de validatie, zonder veld in het formulier, dan geeft dat een fout bij een sleutel die geen veld is; met captcha, Turnstile, robot of human in de melding telt het formulier ook als niet te testen.
+
+**Niet meetellen.** Zolang de test loopt (`mm_formuliertest_bezig()`) schrijft de anti-spam niets in `log.txt`, `near-miss.txt` of `debug.txt` en plant hij geen rapportmail; de reden van een weigering gaat naar de test. Er draait geen actie die iets opslaat, dus niets in Inzendingen. De Formuliermonitor ziet een mislukte mail niet als storing en een geslaagde niet als herstel.
+
+**Uitkomst per formulier:** `geslaagd`, `geweigerd` (door de anti-spam, met de reden en het veld), `validatiefout` (welk veld en de melding), `mail_niet_op_te_bouwen` (de reden, adressen gemaskeerd) of `niet_te_testen` (de reden). Daarnaast de mailroute en het totaal: `mislukt` zodra iets anders dan geslaagd of niet te testen voorkomt of de mailroute mislukt, `niet_getest` als geen formulier geslaagd is en de mailroute niet getest, anders `in_orde`. Alleen de laatste ronde staat in `mm_formuliertest_laatste` (geen autoload), zonder ingevulde waarden.
+
+**Mailroute.** Per ronde precies één echte mail via `wp_mail()` naar de constante `MM_FORMULIERTEST_ONTVANGER` in `wp-config.php`, met onderwerp `[Formuliertest <domein>] mailroute` en de koppen `X-Mediamora-Monitor: 1` en `X-Mediamora-Status: formuliertest`. Zonder de constante, met een ongeldig adres of met hetzelfde adres als `MM_MONITOR_ONTVANGER` wordt de mail overgeslagen en staat de mailroute op `niet_getest` met de reden. Hij gaat nooit naar `MM_MONITOR_ONTVANGER`.
+
+```php
+define( 'MM_FORMULIERTEST_ONTVANGER', 'formuliertest@mediamora.nl' );
+```
+
+**Melding.** Alleen als de ronde mislukt: één melding per site per ronde naar `MM_MONITOR_ONTVANGER`, via `mail()` van de Formuliermonitor, onderwerp `[Formuliermonitor] <domein>: formuliertest mislukt`, `X-Mediamora-Status: formuliertest-mislukt`, met per formulier de uitkomst en de mailroute. Telt niet mee voor de dagcap van de storingsmeldingen.
+
+**Handmatig.** Op het tabblad Mediamora staat onder de tabel het overzicht van de laatste ronde met de knop Nu testen (alleen voor `@mediamora.nl`, met nonce), en in de statuskolom van de Formuliermonitor een korte regel. Met WP-CLI:
+
+```
+wp mediamora formuliertest
+wp mediamora formuliertest --status
+```
+
+Het eerste draait een ronde en toont de uitkomst, het tweede alleen de laatste ronde. Het commando bestaat alleen als de Formuliermonitor laadt. Een ronde die al loopt (slot `mm_formuliertest_slot`, vervalt na tien minuten) geeft een foutmelding.
+
+**Testen op mediamora.nl.** Zet `MM_FORMULIERTEST_ONTVANGER` in `wp-config.php` (een tijdelijk eigen adres om de mailroute te zien aankomen), zorg dat Onderhoudsklant en de Formuliermonitor aan staan, en draai `wp mediamora formuliertest` of de knop Nu testen. Verwacht: per formulier `geslaagd`, één mail `[Formuliertest mediamora.nl] mailroute` en geen mail van de formulieren zelf, niets nieuws in Elementor > Inzendingen of in `log.txt` van de anti-spam, en geen melding. Om de melding te zien: zet in één formulier tijdelijk een ongeldig ontvangstadres bij de actie E-mail (bijvoorbeeld `geen-adres`) en draai opnieuw; dan komt er één melding met `mail niet op te bouwen`.
+
+Testgevallen in `tests/formuliertest.php`, met een nagebootste Elementor Pro in `tests/hulp/elementor-pro-nep.php`.
+
+## Anti-spam: samenvatting voor het dashboard
+
+Sinds 1.34.0 staan achter de waarde in elke regel van `log.txt` het formulier en kenmerken van de hele inzending, zonder waarden: `| formulier: Contact (abc1234) | kenmerken: mail=geldig links=0 latijn=ja`. `mail` is `geldig`, `ongeldig` of `geen` (de velden van het type e-mail), `links` het aantal links in de andere velden (zoals `mediamora_antispam_count_links()` ze telt, ook een kaal domein) en `latijn` of er geen enkele niet-Latijnse letter in staat. Uitgezonderde velden, wachtwoorden en verborgen velden tellen niet mee. De regel begint zoals voorheen, dus de rapportmail en de opschoning werken gewoon. Omdat de waarde vrije tekst is, leest `mediamora_antispam_lees_regel()` formulier en kenmerken van achteren.
+
+`mediamora_antispam_samenvatting()` telt over de afgelopen 30 dagen de weigeringen. Regels met hetzelfde tijdstip en formulier zijn één inzending (bijvoorbeeld dubbele inhoud in twee velden). Een weigering lijkt op een mens als alle redenen in `MEDIAMORA_ANTISPAM_MENSELIJKE_REDENEN` staan (underscore, cijferreeks of domeinnaam in een naamveld, onleesbare tekst, herhaalde trefwoorden), er een geldig ogend e-mailadres is, er geen links in staan en alles Latijns schrift is. Nooit menselijk (`MEDIAMORA_ANTISPAM_NOOIT_MENSELIJK`): geen referrer, niet-Latijns schrift, een verkorte URL en een boekingslink; alle andere redenen ook niet. Een ongeldige postcode (`MEDIAMORA_ANTISPAM_POSTCODE_REDEN`) telt apart, want die kon de bezoeker zelf verbeteren. Regels van voor 1.34.0 hebben geen kenmerken; daar telt alleen of de geweigerde waarde geen link en Latijns schrift heeft.
+
+Naar het dashboard gaan alleen tijdstip, formulier en reden. De ingevulde waarden blijven in het log op de site.
+
+Testgevallen in `tests/anti-spam-samenvatting.php`.
+
 ## Status voor MainWP
 
 Is MainWP Child actief, dan geeft de toolkit bij de sync van het MainWP-dashboard zijn status mee, onder de sleutel `mediamora_toolkit`. De code staat in `includes/mainwp.php` en niet in de module, zodat het dashboard ook ziet dat een site geen onderhoudsklant is of dat de Formuliermonitor uit staat.
@@ -465,12 +514,12 @@ add_action( 'mainwp_site_synced', function ( $website, $information ) {
 }, 10, 2 );
 ```
 
-De structuur, schema 1:
+De structuur, schema 2:
 
 ```
 mediamora_toolkit => array(
-	'schema'           => 1,                 // int, omhoog als de structuur verandert
-	'toolkit_versie'   => '1.33.0',          // string, de Version uit de pluginkop
+	'schema'           => 2,                 // int, omhoog als de structuur verandert
+	'toolkit_versie'   => '1.34.0',          // string, de Version uit de pluginkop
 	'onderhoudsklant'  => true,              // bool
 	'formuliermonitor' => array(
 		'aan'                    => true,    // bool: de module laadt
@@ -486,27 +535,71 @@ mediamora_toolkit => array(
 			),
 		),
 	),
-	'anti_spam'        => null,              // komt later
-	'testinzending'    => null,              // komt later
+	'anti_spam'        => array(             // of null, zie hieronder
+		'periode'    => array(
+			'van'   => '2026-10-29T12:00:00+01:00',  // ISO 8601
+			'tot'   => '2026-11-28T12:00:00+01:00',  // ISO 8601, het moment van de sync
+			'dagen' => 30,
+		),
+		'totaal'     => 14,                  // int, geweigerde inzendingen
+		'menselijk'  => 2,                   // int, waarvan die op een mens lijken
+		'postcode'   => 1,                   // int, met een ongeldige postcode (apart, kan ook menselijk zijn)
+		'menselijke' => array(               // hooguit 10, nieuwste eerst
+			array(
+				'tijd'      => '2026-11-27T09:14:02+01:00',  // ISO 8601
+				'formulier' => 'Contact (abc1234)',          // naam en ID, of null voor regels van voor 1.34.0
+				'reden'     => 'onleesbare tekst',           // redenen met komma's
+			),
+		),
+	),
+	'testinzending'    => array(             // of null, zie hieronder
+		'laatste_ronde'  => '2026-11-02T14:23:51+01:00',  // ISO 8601, of null als er nog geen ronde was
+		'handmatig'      => false,           // bool: met de knop of WP-CLI gestart
+		'volgende_ronde' => '2026-12-02T15:10:07+01:00',  // ISO 8601, of null
+		'totaal'         => 'in_orde',       // in_orde, mislukt of niet_getest
+		'mailroute'      => array(           // of null als er nog geen ronde was
+			'uitkomst' => 'geslaagd',        // geslaagd, mislukt of niet_getest
+			'melding'  => null,              // string bij mislukt of niet_getest, adressen gemaskeerd
+		),
+		'formulieren'    => array(           // hooguit 10
+			array(
+				'pagina'    => 'Contact',        // titel van de pagina, of "Titel (soort)" bij een template of popup
+				'formulier' => 'Contactformulier',  // form_name, of het element-ID
+				'uitkomst'  => 'geslaagd',       // geslaagd, geweigerd, validatiefout, mail_niet_op_te_bouwen of niet_te_testen
+				'reden'     => null,             // string, of null bij geslaagd
+			),
+		),
+	),
 )
 ```
 
 - Alle tijden zijn ISO 8601 met de tijdzone van de site (`DATE_ATOM`).
 - Staat de Formuliermonitor niet aan (uit, Onderhoudsklant uit of de losse plugin nog op de site), dan is `aan` `false`, zijn `storing`, `laatste_fout` en `laatste_geslaagde_mail` `null` en is `log` leeg.
 - Geen persoonsgegevens, geen onderwerpen, geen volledige adressen en geen instellingen. De logregels gaan nog een keer door `mm_monitor_maskeer_adressen()`, want regels van voor 1.16.0 kunnen nog adressen bevatten, en alleen `tijd`, `code`, `melding` en `ontvanger` gaan mee.
-- Nieuwe sleutels mogen erbij komen zonder dat `schema` omhoog gaat, en `anti_spam` en `testinzending` krijgen later een array in plaats van `null`. `schema` gaat pas omhoog als bestaande sleutels anders worden of verdwijnen.
+- `testinzending` en `anti_spam` horen bij het onderhoudspakket: `null` als de Formuliermonitor niet laadt. `anti_spam` is ook `null` als de module Anti-spam niet laadt. Zie "Formuliermonitor: maandelijkse formuliertest" en "Anti-spam: samenvatting voor het dashboard".
+- Geen ingevulde waarden: de formuliertest bewaart ze nergens, en uit het anti-spamlog gaan alleen tijdstip, formulier en reden mee.
+- Schema 2 (1.34.0) vult `anti_spam` en `testinzending`. De sleutels van schema 1 zijn gelijk gebleven, zodat een dashboard dat alleen schema 1 kent (mediamora-mainwp 0.1.1) blijft werken. Nieuwe sleutels mogen erbij komen zonder dat `schema` omhoog gaat; `schema` gaat omhoog als bestaande sleutels anders worden of verdwijnen, of als een sleutel een andere vorm krijgt.
 
 ## Deactiveren en verwijderen
 
-Deactiveren haalt alleen de cron-events (ook die van Verweesde meta opruimen, de Instagram-feed, Tijdelijke accounts, Afsluiten op einddatum en de dagelijkse opschoning van de anti-spamlogs) en de blokken van de toolkit uit `.htaccess` weg, en leegt de element cache van Elementor en de LiteSpeed-cache als Afbeeldingstitels verbergen aan stond, en de LiteSpeed-cache als E-mailadressen afschermen aan stond. Instellingen en logs blijven staan.
+Deactiveren haalt alleen de cron-events (ook die van Verweesde meta opruimen, de Instagram-feed, Tijdelijke accounts, Afsluiten op einddatum, de formuliertest en de dagelijkse opschoning van de anti-spamlogs) en de blokken van de toolkit uit `.htaccess` weg, en leegt de element cache van Elementor en de LiteSpeed-cache als Afbeeldingstitels verbergen aan stond, en de LiteSpeed-cache als E-mailadressen afschermen aan stond. Instellingen en logs blijven staan.
 
 Een module uitvinken ruimt alleen op wat zonder de module blijft doorlopen: de cron-events, bij Preview-link de sleutel `mm_preview_key` (alle links vervallen) en bij Afbeeldingstitels verbergen en E-mailadressen afschermen de caches. Gedeelde gegevens blijven staan zolang de losse versie van die module nog op de site staat, actief of niet.
 
-Verwijderen via Plugins ruimt alles op: de opties en transients van de toolkit en de modules (ook `mm_toolkit_onderhoudsklant`), de cron-events, de alt-tekstkenmerken (`_mm_alt_*`, de alt-teksten zelf blijven staan), de productmeta van Herroepingsrecht (`_mm_withdrawal_type` en het oude vinkje `_mm_withdrawal_waiver_applies`; de teksten `_mm_withdrawal_waiver` en `_mm_service_consent` op bestellingen blijven altijd staan, dat is het bewijs van de instemming), de opties van Verweesde meta opruimen, de opties en de fotomap `uploads/mediamora-instagram` van de Instagram-feed, de mailinstelling van Tijdelijke accounts, de stand van Afbeeldingstitels verbergen en van E-mailadressen afschermen, de gegevens van Persoon in schema (`mm_schema_persoon`, `mm_schema_persoon_bezet`), de einddatum en voortgang van Afsluiten op einddatum (`mm_einddatum`, `mm_einddatum_stand`), de teller, het log, de openstaande storing en de laatste geslaagde mail van de Formuliermonitor (`mm_monitor_teller`, `mm_monitor_log`, `mm_monitor_storing`, `mm_monitor_laatst_gelukt`), de meldingen van Formulieren: nieuwsbrief alleen bij vinkje (`mm_nieuwsbrief_vinkje_meldingen`; de veld-ID's staan in de formulieren zelf en blijven daar staan), de `.htaccess`-blokken en de logmap van de anti-spam met de inzendingen erin. Kan de logmap niet worden weggehaald, dan blijft de optie `mediamora_antispam_log_dir` staan, zodat te vinden is waar hij staat. Staat de losse versie van een module nog op de site, als plugin of mu-plugin en actief of niet, dan blijft alles van die module staan, want de losse versie gebruikt dezelfde gegevens. Dat werkt ook met `wp plugin uninstall --deactivate`, waarbij de toolkit in hetzelfde verzoek nog geladen is.
+Verwijderen via Plugins ruimt alles op: de opties en transients van de toolkit en de modules (ook `mm_toolkit_onderhoudsklant`), de cron-events, de alt-tekstkenmerken (`_mm_alt_*`, de alt-teksten zelf blijven staan), de productmeta van Herroepingsrecht (`_mm_withdrawal_type` en het oude vinkje `_mm_withdrawal_waiver_applies`; de teksten `_mm_withdrawal_waiver` en `_mm_service_consent` op bestellingen blijven altijd staan, dat is het bewijs van de instemming), de opties van Verweesde meta opruimen, de opties en de fotomap `uploads/mediamora-instagram` van de Instagram-feed, de mailinstelling van Tijdelijke accounts, de stand van Afbeeldingstitels verbergen en van E-mailadressen afschermen, de gegevens van Persoon in schema (`mm_schema_persoon`, `mm_schema_persoon_bezet`), de einddatum en voortgang van Afsluiten op einddatum (`mm_einddatum`, `mm_einddatum_stand`), de teller, het log, de openstaande storing en de laatste geslaagde mail van de Formuliermonitor (`mm_monitor_teller`, `mm_monitor_log`, `mm_monitor_storing`, `mm_monitor_laatst_gelukt`), de laatste ronde en de maand van de formuliertest (`mm_formuliertest_laatste`, `mm_formuliertest_maand`, `mm_formuliertest_slot`; altijd, want de losse Formuliermonitor kent die niet), de meldingen van Formulieren: nieuwsbrief alleen bij vinkje (`mm_nieuwsbrief_vinkje_meldingen`; de veld-ID's staan in de formulieren zelf en blijven daar staan), de `.htaccess`-blokken en de logmap van de anti-spam met de inzendingen erin. Kan de logmap niet worden weggehaald, dan blijft de optie `mediamora_antispam_log_dir` staan, zodat te vinden is waar hij staat. Staat de losse versie van een module nog op de site, als plugin of mu-plugin en actief of niet, dan blijft alles van die module staan, want de losse versie gebruikt dezelfde gegevens. Dat werkt ook met `wp plugin uninstall --deactivate`, waarbij de toolkit in hetzelfde verzoek nog geladen is.
 
 De user meta `mm_verloopt_op` en `mm_overdragen_aan` blijven altijd staan. Worden ze weggehaald en wordt de toolkit daarna opnieuw geïnstalleerd, bijvoorbeeld om een zip te vervangen, dan worden tijdelijke accounts stil vaste accounts.
 
 ## Wijzigingen
+
+### 1.34.0
+
+- Formuliermonitor: maandelijkse formuliertest. Op een vast moment per site in de eerste 72 uur van de maand gaan de Elementor Pro-formulieren met een mailactie (hooguit 10) door de normale verwerking van Elementor Pro, met de anti-spam; daarna draaien alleen `email` en `email2`, en hun mail wordt opgebouwd en onderschept. Eén echte mail via `wp_mail()` naar `MM_FORMULIERTEST_ONTVANGER` voor de mailroute. Alleen bij een fout één melding naar `MM_MONITOR_ONTVANGER` met `X-Mediamora-Status: formuliertest-mislukt`. Knop Nu testen op het tabblad Mediamora en `wp mediamora formuliertest`. Zie "Formuliermonitor: maandelijkse formuliertest".
+- Anti-spam: formulier en kenmerken (zonder waarden) achter elke regel in `log.txt`, en een samenvatting van de weigeringen van de afgelopen 30 dagen met de weigeringen die op een mens lijken en de postcodeweigeringen apart. Tijdens de formuliertest logt de anti-spam niets. Zie "Anti-spam: samenvatting voor het dashboard".
+- Status voor MainWP: schema 2, met `testinzending` en `anti_spam` gevuld. De velden van schema 1 zijn gelijk gebleven.
+- Deactiveren, de Formuliermonitor uitzetten en `uninstall.php` halen het event `mm_formuliertest_maandelijks` weg; `uninstall.php` ruimt ook de opties van de formuliertest op.
+- PHPStan kent WP-CLI via `php-stubs/wp-cli-stubs` (komt mee met `arts/elementor-stubs`).
+- Testgevallen in `tests/formuliertest.php` en `tests/anti-spam-samenvatting.php`. `tests/anti-spam-naamvelden.php` en `tests/formuliermonitor-hersteld.php` zijn bijgewerkt voor de nieuwe logregel en schema 2.
 
 ### 1.33.0
 

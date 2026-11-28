@@ -19,3 +19,6 @@ parameters:
 		- vendor/php-stubs/woocommerce-stubs/woocommerce-stubs.php
 		- vendor/php-stubs/woocommerce-stubs/woocommerce-packages-stubs.php
 		- vendor/arts/elementor-stubs/elementor-stubs.php
+		# WP-CLI, voor het commando wp mediamora formuliertest. Komt mee met
+		# arts/elementor-stubs.
+		- vendor/php-stubs/wp-cli-stubs/wp-cli-stubs.php

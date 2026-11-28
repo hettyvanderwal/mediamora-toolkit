@@ -127,7 +127,7 @@ function mm_toolkit_modules() {
 		),
 		'formuliermonitor'  => array(
 			'naam'            => 'Formuliermonitor',
-			'uitleg'          => 'Stuurt Mediamora een melding zodra de site een e-mail niet kan versturen, en nog een als er daarna weer een mail lukt. Geeft de status mee met de sync van MainWP. Hoort bij het onderhoudspakket.',
+			'uitleg'          => 'Stuurt Mediamora een melding zodra de site een e-mail niet kan versturen, en nog een als er daarna weer een mail lukt. Test elke maand de Elementor-formulieren met een mailactie en de mailroute, en meldt alleen als daar iets misgaat. Geeft de status mee met de sync van MainWP. Hoort bij het onderhoudspakket.',
 			'bestand'         => 'formuliermonitor.php',
 			'standaard'       => false,
 			'losse_mu'        => '',
