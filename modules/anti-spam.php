@@ -641,6 +641,16 @@ function mediamora_antispam_validate_form( $record, $ajax_handler ) {
 	// Uitgezonderde velden gelden alleen voor het formulier waar ze bij staan.
 	$form_id = (string) $record->get_form_settings( 'id' );
 
+	// Voor elke logregel van deze inzending: welk formulier, en kenmerken
+	// van de hele inzending zonder waarden. Daarmee telt de samenvatting voor
+	// het dashboard welke weigeringen op een mens lijken.
+	mediamora_antispam_inzending(
+		array(
+			'formulier' => mediamora_antispam_formulier_label( $record, $form_id ),
+			'kenmerken' => mediamora_antispam_kenmerken( $record->get( 'fields' ), $s['exempt_fields'], $form_id ),
+		)
+	);
+
 	// Referrer: vóór alle inhoudelijke checks. Een inzending die niet via het
 	// JavaScript van Elementor Pro is verstuurd, ligt er meteen uit; de velden
 	// worden dan niet meer bekeken en er komt één regel in het log.
@@ -882,6 +892,12 @@ function mediamora_antispam_validate_form( $record, $ajax_handler ) {
  */
 function mediamora_antispam_is_classic_form_request() {
 
+	// De maandelijkse formuliertest stuurt het formulier in zoals het
+	// JavaScript van Elementor Pro, met de referrer, maar buiten admin-ajax.
+	if ( mediamora_antispam_formuliertest() ) {
+		return true;
+	}
+
 	if ( ! function_exists( 'wp_doing_ajax' ) || ! wp_doing_ajax() ) {
 		return false;
 	}
@@ -929,6 +945,121 @@ function mediamora_antispam_referrer_log_value( $record, $form_id ) {
 		'' !== $form_id ? $form_id : '-',
 		'' !== $titel ? $titel : '(leeg)'
 	);
+}
+
+/**
+ * Loopt de maandelijkse formuliertest van de Formuliermonitor? Die module
+ * kan uit staan; dan bestaat de functie niet.
+ *
+ * @return bool
+ */
+function mediamora_antispam_formuliertest() {
+	return function_exists( 'mm_formuliertest_bezig' ) && mm_formuliertest_bezig();
+}
+
+/**
+ * Formulier en kenmerken van de inzending die nu gecontroleerd wordt, voor
+ * de logregels. Zonder argument: lezen.
+ *
+ * @param array|null $zet Met formulier en kenmerken.
+ * @return array{formulier: string, kenmerken: array|null}
+ */
+function mediamora_antispam_inzending( $zet = null ) {
+	static $inzending = array(
+		'formulier' => '-',
+		'kenmerken' => null,
+	);
+	if ( null !== $zet ) {
+		$inzending = $zet;
+	}
+	return $inzending;
+}
+
+/**
+ * De naam van het formulier met het ID, zoals bij de referrercheck.
+ *
+ * @param \ElementorPro\Modules\Forms\Classes\Form_Record $record
+ * @param string $form_id
+ * @return string Bijvoorbeeld "Contact (abc1234)".
+ */
+function mediamora_antispam_formulier_label( $record, $form_id ) {
+	$naam = trim( (string) $record->get_form_settings( 'form_name' ) );
+	return sprintf( '%s (%s)', '' !== $naam ? $naam : '-', '' !== $form_id ? $form_id : '-' );
+}
+
+/**
+ * Kenmerken van de hele inzending, zonder waarden: is er een geldig ogend
+ * e-mailadres, hoeveel links staan erin en is alles Latijns schrift. De
+ * samenvatting voor het dashboard gebruikt ze om weigeringen te vinden die
+ * op een mens lijken; het geweigerde veld alleen zegt daar te weinig over.
+ * Uitgezonderde velden en wachtwoorden tellen niet mee.
+ *
+ * @param array  $fields  De velden van het record.
+ * @param array  $exempt  De uitgezonderde velden.
+ * @param string $form_id
+ * @return array{mail: string, links: int, latijn: bool}
+ */
+function mediamora_antispam_kenmerken( $fields, $exempt, $form_id ) {
+
+	$mail   = 'geen';
+	$links  = 0;
+	$latijn = true;
+
+	foreach ( (array) $fields as $id => $field ) {
+
+		if ( ! is_array( $field ) || mediamora_antispam_is_exempt_field( $exempt, $form_id, $id ) ) {
+			continue;
+		}
+
+		$type  = isset( $field['type'] ) ? (string) $field['type'] : 'text';
+		$value = isset( $field['value'] ) ? $field['value'] : '';
+		$value = trim( is_array( $value ) ? implode( ' ', array_map( 'strval', $value ) ) : (string) $value );
+
+		if ( '' === $value || in_array( $type, array( 'password', 'hidden', 'honeypot', 'recaptcha', 'recaptcha_v3' ), true ) ) {
+			continue;
+		}
+
+		if ( 'email' === $type ) {
+			$mail = ( 'ongeldig' !== $mail && is_email( $value ) ) ? 'geldig' : 'ongeldig';
+			continue;
+		}
+
+		if ( 'url' !== $type ) {
+			$links += mediamora_antispam_count_links( $value )['total'];
+		}
+		$latijn = $latijn && ! mediamora_antispam_niet_latijns( $value );
+	}
+
+	return array(
+		'mail'   => $mail,
+		'links'  => $links,
+		'latijn' => $latijn,
+	);
+}
+
+/**
+ * Of een tekst niet-Latijnse letters bevat, los van de schakelaar en de
+ * drempels voor de weigering. Eén niet-Latijnse letter is genoeg om niet
+ * meer als mens mee te tellen.
+ *
+ * @param string $value
+ * @return bool
+ */
+function mediamora_antispam_niet_latijns( $value ) {
+	$letters = @preg_match_all( '/\p{L}/u', (string) $value );
+	$latijn  = @preg_match_all( '/\p{Latin}/u', (string) $value );
+	return false !== $letters && false !== $latijn && $letters > $latijn;
+}
+
+/**
+ * @param array|null $kenmerken Zie mediamora_antispam_kenmerken().
+ * @return string Bijvoorbeeld "mail=geldig links=0 latijn=ja", of "-".
+ */
+function mediamora_antispam_kenmerken_tekst( $kenmerken ) {
+	if ( ! is_array( $kenmerken ) ) {
+		return '-';
+	}
+	return sprintf( 'mail=%s links=%d latijn=%s', $kenmerken['mail'], $kenmerken['links'], $kenmerken['latijn'] ? 'ja' : 'nee' );
 }
 
 /**
@@ -1607,6 +1738,10 @@ function mediamora_antispam_find_near_misses( $value, $type, $gibberish_score, $
  */
 function mediamora_antispam_debug_log( $field_id, $field_type, $value, $is_link, $gibberish_score, $status ) {
 
+	if ( mediamora_antispam_formuliertest() ) {
+		return;
+	}
+
 	mediamora_antispam_ensure_log_dir();
 
 	$debug_file = mediamora_antispam_debug_file();
@@ -1724,18 +1859,31 @@ function mediamora_antispam_prune_file( $bestand, $grens ) {
  */
 function mediamora_antispam_log( $reason, $field_id, $field_type, $value ) {
 
+	// De formuliertest krijgt de reden, het log en de rapportmail niets.
+	if ( mediamora_antispam_formuliertest() ) {
+		mm_formuliertest_weigering( $reason, $field_id );
+		return;
+	}
+
 	mediamora_antispam_ensure_log_dir();
 
 	$snippet = str_replace( array( "\r", "\n" ), ' ', $value );
 	$snippet = mb_substr( $snippet, 0, 200 );
 
+	// Formulier en kenmerken achter de waarde, zodat de regel nog begint
+	// zoals voor 1.34.0. De waarde is vrije tekst; de samenvatting leest
+	// daarom van achteren, zie mediamora_antispam_lees_regel().
+	$inzending = mediamora_antispam_inzending();
+
 	$line = sprintf(
-		'%s | veld: %s (%s) | reden: %s | waarde: %s',
+		'%s | veld: %s (%s) | reden: %s | waarde: %s | formulier: %s | kenmerken: %s',
 		mediamora_antispam_log_time(),
 		$field_id,
 		$field_type,
 		$reason,
-		$snippet
+		$snippet,
+		str_replace( array( "\r", "\n", '|' ), array( ' ', ' ', '/' ), $inzending['formulier'] ),
+		mediamora_antispam_kenmerken_tekst( $inzending['kenmerken'] )
 	);
 
 	// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents -- Eigen logbestand in uploads: direct schrijven met LOCK_EX, WP_Filesystem kent geen append en kan om FTP-gegevens vragen.
@@ -1756,6 +1904,10 @@ function mediamora_antispam_log( $reason, $field_id, $field_type, $value ) {
  * @param string   $submission_status Wat er uiteindelijk met de hele inzending is gebeurd (niet alleen dit veld).
  */
 function mediamora_antispam_nearmiss_log( $field_id, $field_type, $value, $reasons, $submission_status ) {
+
+	if ( mediamora_antispam_formuliertest() ) {
+		return;
+	}
 
 	mediamora_antispam_ensure_log_dir();
 
@@ -2308,4 +2460,202 @@ function mediamora_antispam_maybe_send_nearmiss_alert() {
 	} else {
 		mediamora_antispam_plan_retry( 'mediamora_antispam_nearmiss_alert', $nu, $s['nearmiss_email_interval'] );
 	}
+}
+
+// =====================================================================
+// SAMENVATTING - voor het MainWP-dashboard, via de sync van de toolkit
+// (includes/mainwp.php). Alleen tijdstip, formulier en reden; de
+// ingevulde waarden blijven in het log op de site.
+// =====================================================================
+
+/**
+ * Redenen die bij echte invoer kunnen voorkomen: een naam met een
+ * underscore, cijfers of een domein, tekst die er onleesbaar uitziet en een
+ * woord dat vaak terugkomt. Alleen met deze redenen kan een weigering op een
+ * mens lijken. Elke andere reden niet, met name deze uit
+ * MEDIAMORA_ANTISPAM_NOOIT_MENSELIJK.
+ */
+const MEDIAMORA_ANTISPAM_MENSELIJKE_REDENEN = array(
+	'underscore in naamveld',
+	'cijferreeks in naamveld',
+	'domeinnaam in naamveld',
+	'onleesbare tekst',
+	'herhaalde trefwoorden',
+);
+
+/**
+ * Nooit menselijk, wat de rest van de inzending ook is: geen referrer (dus
+ * niet via het formulier op de pagina), niet-Latijns schrift, een verkorte
+ * URL en een boekingslink. Vastgelegd voor de leesbaarheid en de tests; ze
+ * staan niet in de lijst hierboven, en daar gaat het om.
+ */
+const MEDIAMORA_ANTISPAM_NOOIT_MENSELIJK = array(
+	'verstuurd zonder JavaScript (geen referrer)',
+	'niet-Latijns schrift',
+	'verkorte URL',
+	'boekingslink',
+);
+
+/**
+ * Een ongeldige postcode kon de bezoeker zelf verbeteren; die telt apart.
+ */
+const MEDIAMORA_ANTISPAM_POSTCODE_REDEN = 'ongeldige postcode';
+
+const MEDIAMORA_ANTISPAM_SAMENVATTING_DAGEN = 30;
+const MEDIAMORA_ANTISPAM_SAMENVATTING_MAX   = 10;
+
+/**
+ * Leest een regel uit log.txt. Sinds 1.34.0 staan formulier en kenmerken
+ * achter de waarde. De waarde is vrije tekst van de bezoeker, dus die
+ * stukken worden van achteren gelezen: wat de toolkit zelf aan het eind
+ * zet, gaat altijd voor.
+ *
+ * @param string $line
+ * @return array|null Met tijd, stempel, reden, waarde, formulier (of null)
+ *                    en kenmerken (of null), of null als de regel niet te
+ *                    lezen is.
+ */
+function mediamora_antispam_lees_regel( $line ) {
+
+	$tijd = mediamora_antispam_parse_line_timestamp( $line );
+
+	if ( false === $tijd || ! preg_match( '/^(.+?) \| veld: .*? \| reden: (.*?) \| waarde: (.*)$/s', $line, $m ) ) {
+		return null;
+	}
+
+	$regel = array(
+		'tijd'      => $tijd,
+		'stempel'   => $m[1],
+		'reden'     => $m[2],
+		'waarde'    => $m[3],
+		'formulier' => null,
+		'kenmerken' => null,
+	);
+
+	if ( preg_match( '/^(.*) \| formulier: (.*) \| kenmerken: (?:-|mail=(geldig|ongeldig|geen) links=(\d+) latijn=(ja|nee))$/s', $m[3], $n ) ) {
+		$regel['waarde']    = $n[1];
+		$regel['formulier'] = $n[2];
+		if ( isset( $n[3] ) && '' !== $n[3] ) {
+			$regel['kenmerken'] = array(
+				'mail'   => $n[3],
+				'links'  => (int) $n[4],
+				'latijn' => 'ja' === $n[5],
+			);
+		}
+	}
+
+	return $regel;
+}
+
+/**
+ * Lijkt een geweigerde inzending op een mens? Alle redenen (behalve de
+ * postcode) staan in MEDIAMORA_ANTISPAM_MENSELIJKE_REDENEN, er is een geldig
+ * ogend e-mailadres, er staan geen links in en alles is Latijns schrift.
+ *
+ * Regels van voor 1.34.0 hebben geen kenmerken. Daar telt alleen de waarde
+ * van de geweigerde velden: geen links en Latijns schrift. Of er een geldig
+ * e-mailadres was, is dan niet meer te zien.
+ *
+ * @param string[]   $redenen
+ * @param array|null $kenmerken Zie mediamora_antispam_kenmerken().
+ * @param string[]   $waarden   De waarden van de geweigerde velden.
+ * @return bool
+ */
+function mediamora_antispam_lijkt_menselijk( $redenen, $kenmerken, $waarden = array() ) {
+
+	$redenen = array_diff( array_unique( $redenen ), array( MEDIAMORA_ANTISPAM_POSTCODE_REDEN ) );
+
+	if ( ! $redenen || array_diff( $redenen, MEDIAMORA_ANTISPAM_MENSELIJKE_REDENEN ) ) {
+		return false;
+	}
+
+	if ( is_array( $kenmerken ) ) {
+		return 'geldig' === $kenmerken['mail'] && 0 === $kenmerken['links'] && $kenmerken['latijn'];
+	}
+
+	foreach ( $waarden as $waarde ) {
+		if ( mediamora_antispam_count_links( $waarde )['total'] > 0 || mediamora_antispam_niet_latijns( $waarde ) ) {
+			return false;
+		}
+	}
+
+	return true;
+}
+
+/**
+ * De weigeringen van de afgelopen dertig dagen uit log.txt. Eén inzending
+ * kan meer regels hebben (een regel per geweigerd veld); regels met
+ * hetzelfde tijdstip en formulier tellen als één weigering.
+ *
+ * @param int|null $nu
+ * @return array{periode: array, totaal: int, menselijk: int, postcode: int, menselijke: array}
+ */
+function mediamora_antispam_samenvatting( $nu = null ) {
+
+	$nu    = null === $nu ? time() : (int) $nu;
+	$grens = $nu - MEDIAMORA_ANTISPAM_SAMENVATTING_DAGEN * DAY_IN_SECONDS;
+
+	$bestand = mediamora_antispam_log_file();
+	$regels  = file_exists( $bestand ) ? file( $bestand, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES ) : array();
+
+	$inzendingen = array();
+
+	foreach ( (array) $regels as $line ) {
+		$regel = mediamora_antispam_lees_regel( $line );
+		if ( null === $regel || $regel['tijd'] < $grens || $regel['tijd'] > $nu ) {
+			continue;
+		}
+		$sleutel = $regel['stempel'] . '|' . (string) $regel['formulier'];
+		if ( ! isset( $inzendingen[ $sleutel ] ) ) {
+			$inzendingen[ $sleutel ] = array(
+				'tijd'      => $regel['tijd'],
+				'formulier' => $regel['formulier'],
+				'kenmerken' => $regel['kenmerken'],
+				'redenen'   => array(),
+				'waarden'   => array(),
+			);
+		}
+		$inzendingen[ $sleutel ]['redenen'][] = $regel['reden'];
+		$inzendingen[ $sleutel ]['waarden'][] = $regel['waarde'];
+	}
+
+	$postcode   = 0;
+	$menselijke = array();
+
+	foreach ( $inzendingen as $inzending ) {
+		if ( in_array( MEDIAMORA_ANTISPAM_POSTCODE_REDEN, $inzending['redenen'], true ) ) {
+			$postcode++;
+		}
+		if ( mediamora_antispam_lijkt_menselijk( $inzending['redenen'], $inzending['kenmerken'], $inzending['waarden'] ) ) {
+			$menselijke[] = $inzending;
+		}
+	}
+
+	usort(
+		$menselijke,
+		function ( $a, $b ) {
+			return $b['tijd'] - $a['tijd'];
+		}
+	);
+
+	$lijst = array();
+	foreach ( array_slice( $menselijke, 0, MEDIAMORA_ANTISPAM_SAMENVATTING_MAX ) as $inzending ) {
+		$lijst[] = array(
+			'tijd'      => wp_date( DATE_ATOM, $inzending['tijd'] ),
+			'formulier' => $inzending['formulier'],
+			'reden'     => implode( ', ', array_unique( $inzending['redenen'] ) ),
+		);
+	}
+
+	return array(
+		'periode'    => array(
+			'van'   => wp_date( DATE_ATOM, $grens ),
+			'tot'   => wp_date( DATE_ATOM, $nu ),
+			'dagen' => MEDIAMORA_ANTISPAM_SAMENVATTING_DAGEN,
+		),
+		'totaal'     => count( $inzendingen ),
+		'menselijk'  => count( $menselijke ),
+		'postcode'   => $postcode,
+		'menselijke' => $lijst,
+	);
 }

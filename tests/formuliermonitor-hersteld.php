@@ -138,7 +138,17 @@ class WP_Error {
 // Uit mediamora-toolkit.php, voor includes/mainwp.php.
 $GLOBALS['monitor_laden'] = true;
 function mm_toolkit_status() {
-	return array( 'formuliermonitor' => array( 'laden' => $GLOBALS['monitor_laden'] ) );
+	return array(
+		'formuliermonitor' => array( 'laden' => $GLOBALS['monitor_laden'] ),
+		'anti_spam'        => array( 'laden' => false ),
+	);
+}
+// Voor de formuliertest, die met de module meelaadt (zie tests/formuliertest.php).
+function wp_next_scheduled() {
+	return false;
+}
+function wp_unschedule_hook() {
+	return 0;
 }
 function mm_toolkit_huidige_versie() {
 	return '1.33.0';
@@ -303,7 +313,9 @@ $json    = json_encode( $status );
 $monitor = $status['formuliermonitor'] ?? array();
 
 klopt( array_keys( $status ), array( 'schema', 'toolkit_versie', 'onderhoudsklant', 'formuliermonitor', 'anti_spam', 'testinzending' ), '6: sleutels' );
-klopt( array( $status['schema'], $status['toolkit_versie'], $status['onderhoudsklant'] ), array( 1, '1.33.0', true ), '6: schema, versie, onderhoudsklant' );
+klopt( array( $status['schema'], $status['toolkit_versie'], $status['onderhoudsklant'] ), array( 2, '1.33.0', true ), '6: schema, versie, onderhoudsklant' );
+klopt( $status['anti_spam'], null, '6: anti_spam null zonder de module Anti-spam' );
+klopt( array( $status['testinzending']['laatste_ronde'], $status['testinzending']['totaal'] ), array( null, 'niet_getest' ), '6: testinzending zonder ronde' );
 klopt( array_keys( $monitor ), array( 'aan', 'storing', 'laatste_fout', 'laatste_geslaagde_mail', 'log' ), '6: sleutels formuliermonitor' );
 klopt( $monitor['storing'], null, '6: geen storing na herstel' );
 klopt( count( $monitor['log'] ), 2, '6: logregels' );
@@ -329,6 +341,7 @@ klopt(
 	'6: monitor uit'
 );
 klopt( $status['onderhoudsklant'], false, '6: onderhoudsklant uit' );
+klopt( array( $status['anti_spam'], $status['testinzending'] ), array( null, null ), '6: monitor uit, anti_spam en testinzending null' );
 
 // Opruimen ruimt ook de nieuwe opties op.
 $GLOBALS['opties'][ MM_MONITOR_OPTIE_GELUKT ] = time();

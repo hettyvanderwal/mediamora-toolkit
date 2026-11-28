@@ -161,6 +161,12 @@ function mm_toolkit_uninstall_site( $los ) {
 		delete_option( $naam );
 	}
 
+	// Formuliertest: de losse Formuliermonitor kent hem niet, dus altijd opruimen.
+	wp_unschedule_hook( 'mm_formuliertest_maandelijks' );
+	delete_option( 'mm_formuliertest_laatste' );
+	delete_option( 'mm_formuliertest_maand' );
+	delete_option( 'mm_formuliertest_slot' );
+
 	// Verweesde meta: geen losse versie, dus altijd opruimen.
 	wp_unschedule_hook( 'mm_meta_opruimen_wekelijks' );
 	wp_unschedule_hook( 'mm_meta_opruimen_vervolg' );

@@ -32,8 +32,11 @@ const MM_TOOLKIT_MAINWP_SLEUTEL = 'mediamora_toolkit';
 /**
  * Versie van de structuur hieronder. Ophogen als die verandert, zodat het
  * dashboard weet wat het binnenkrijgt.
+ *
+ * 2 (1.34.0): testinzending en anti_spam gevuld. De velden van 1 zijn
+ * gelijk gebleven, zodat een dashboard dat alleen 1 kent blijft werken.
  */
-const MM_TOOLKIT_MAINWP_SCHEMA = 1;
+const MM_TOOLKIT_MAINWP_SCHEMA = 2;
 
 // Pas op plugins_loaded, want MainWP Child kan na de toolkit laden.
 add_action( 'plugins_loaded', 'mm_toolkit_mainwp_haak' );
@@ -63,14 +66,20 @@ function mm_toolkit_mainwp_sync( $information, $gevraagd = array() ) {
 
 /**
  * De status van de toolkit voor het dashboard. Geen persoonsgegevens, geen
- * volledige adressen, geen onderwerpen en geen instellingen.
+ * volledige adressen, geen onderwerpen, geen ingevulde waarden en geen
+ * instellingen.
  *
- * anti_spam en testinzending komen in een latere versie; tot dan null.
+ * testinzending en anti_spam horen bij het onderhoudspakket: null als de
+ * Formuliermonitor niet laadt (en dus ook als de site geen onderhoudsklant
+ * is). anti_spam is ook null als de module Anti-spam niet laadt.
  *
  * @return array
  */
 function mm_toolkit_mainwp_status() {
-	$monitor = mm_toolkit_status()['formuliermonitor']['laden'] && function_exists( 'mm_monitor_sync_status' );
+	$status  = mm_toolkit_status();
+	$monitor = $status['formuliermonitor']['laden'] && function_exists( 'mm_monitor_sync_status' );
+	$test    = $monitor && function_exists( 'mm_formuliertest_sync_status' );
+	$spam    = $monitor && $status['anti_spam']['laden'] && function_exists( 'mediamora_antispam_samenvatting' );
 
 	return array(
 		'schema'           => MM_TOOLKIT_MAINWP_SCHEMA,
@@ -85,7 +94,7 @@ function mm_toolkit_mainwp_status() {
 				'laatste_geslaagde_mail' => null,
 				'log'                    => array(),
 			),
-		'anti_spam'        => null,
-		'testinzending'    => null,
+		'anti_spam'        => $spam ? mediamora_antispam_samenvatting() : null,
+		'testinzending'    => $test ? mm_formuliertest_sync_status() : null,
 	);
 }

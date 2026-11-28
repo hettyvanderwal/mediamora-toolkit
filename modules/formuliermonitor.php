@@ -2,11 +2,14 @@
 /**
  * Mediamora Toolkit, module: Formuliermonitor
  * Overgenomen uit mediamora-formuliermonitor 1.0.1. Wordt alleen geladen als de module aanstaat.
+ * De maandelijkse formuliertest staat in formuliertest.php en laadt mee.
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
+
+require_once __DIR__ . '/formuliertest.php';
 
 const MM_MONITOR_OPTIE_TELLER  = 'mm_monitor_teller';
 const MM_MONITOR_OPTIE_LOG     = 'mm_monitor_log';
@@ -48,7 +51,8 @@ add_action( 'wp_mail_failed', 'mm_monitor_verwerk_fout', 10, 1 );
  */
 function mm_monitor_verwerk_fout( $fout ) {
 
-	if ( ! is_wp_error( $fout ) ) {
+	// De formuliertest meldt zijn eigen uitkomst; geen storing.
+	if ( ! is_wp_error( $fout ) || mm_formuliertest_bezig() ) {
 		return;
 	}
 
@@ -134,6 +138,11 @@ function mm_monitor_storing() {
 add_action( 'wp_mail_succeeded', 'mm_monitor_verwerk_succes', 10, 0 );
 
 function mm_monitor_verwerk_succes() {
+
+	// De mailroute van de formuliertest is geen herstel.
+	if ( mm_formuliertest_bezig() ) {
+		return;
+	}
 
 	$nu = time();
 
@@ -491,4 +500,8 @@ function mm_monitor_opruimen() {
 	delete_option( MM_MONITOR_OPTIE_LOG );
 	delete_option( MM_MONITOR_OPTIE_STORING );
 	delete_option( MM_MONITOR_OPTIE_GELUKT );
+	delete_option( MM_FORMULIERTEST_OPTIE );
+	delete_option( MM_FORMULIERTEST_MAAND );
+	delete_option( MM_FORMULIERTEST_SLOT );
+	wp_unschedule_hook( MM_FORMULIERTEST_HOOK );
 }
